@@ -122,3 +122,38 @@ def test_config_only_passes_model_args_to_model_backends():
     yolo_kwargs = PipelineConfig(detector="yolo").detector_kwargs()
     assert yolo_kwargs["weights"] == "yolov8n.pt"
     assert yolo_kwargs["device"] == "auto"
+
+
+# ---------------------------------------------------------------------------
+# M0.2: CLI helpers
+# ---------------------------------------------------------------------------
+def test_parse_inline_zone():
+    from app.main import parse_inline_zone
+
+    zone = parse_inline_zone("loading_bay=10,20,110,120")
+    assert zone.name == "loading_bay"
+    assert zone.bounds == (10.0, 20.0, 110.0, 120.0)
+
+
+@pytest.mark.parametrize(
+    "spec", ["nocoords", "bay=1,2,3", "bay=1,2,3,4,5", "bay=a,b,c,d"]
+)
+def test_parse_inline_zone_rejects_bad_input(spec):
+    from app.main import parse_inline_zone
+
+    with pytest.raises(ValueError):
+        parse_inline_zone(spec)
+
+
+def test_config_reports_zones_and_pixel_units():
+    from app.spatial import Zone, ZoneSet
+
+    config = PipelineConfig(
+        detector="mock", zones=ZoneSet([Zone.from_rect("bay", (0, 0, 10, 10))])
+    )
+    payload = config.to_dict()
+    assert payload["zones"] == ["bay"]
+    assert payload["coordinate_space"] == "image_pixels"
+    # Thresholds are named in pixels so a consumer cannot mistake them for metres.
+    assert "movement_threshold_px" in payload
+    assert "stationary_threshold_px" in payload

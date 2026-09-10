@@ -16,6 +16,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence
 from .config import PipelineConfig
 from .events.generator import EventGenerator
 from .events.schema import Event
+from .memory.temporal import TemporalEventMemory
 from .perception.detector import Detector, create_detector
 from .perception.tracker import Tracker, create_tracker
 from .perception.types import Frame, Track
@@ -27,12 +28,19 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PipelineResult:
-    """Everything a caller needs after a run."""
+    """Everything a caller needs after a run.
+
+    ``memory`` is the flat, append-only event log (the thing that gets written
+    to disk). ``temporal`` is the queryable index built over the same events —
+    the M0.2 temporal memory. They hold the same events; they differ in what
+    you can ask them.
+    """
 
     memory: EventMemory
     frames_processed: int
     elapsed_seconds: float
     metadata: Dict[str, Any]
+    temporal: Optional[TemporalEventMemory] = None
 
     @property
     def events(self) -> List[Event]:
@@ -95,6 +103,9 @@ class PerceptionPipeline:
             self._events = EventGenerator(
                 sample_interval=self.config.sample_interval,
                 movement_threshold=self.config.movement_threshold,
+                stationary_threshold=self.config.stationary_threshold,
+                stationary_duration=self.config.stationary_duration,
+                zones=self.config.zones,
                 source=self.config.video_path or None,
             )
         return self._events
@@ -113,6 +124,7 @@ class PerceptionPipeline:
         drive the pipeline without a file on disk.
         """
         memory = EventMemory(metadata=dict(metadata or {}))
+        temporal = TemporalEventMemory(metadata=dict(metadata or {}))
         self.tracker.reset()
         self.event_generator.reset()
 
@@ -132,6 +144,7 @@ class PerceptionPipeline:
                 lost_tracks=self.tracker.lost_tracks,
             )
             memory.extend(events)
+            temporal.ingest_many(events)
             frames_processed += 1
             last_timestamp = frame.timestamp
             last_frame_index = frame.index
@@ -139,11 +152,11 @@ class PerceptionPipeline:
 
         # Entities still on screen when the stream ends still deserve a
         # closing event, otherwise their duration is unknowable downstream.
-        memory.extend(
-            self.event_generator.flush(
-                last_timestamp, last_tracks, frame_index=last_frame_index
-            )
+        closing = self.event_generator.flush(
+            last_timestamp, last_tracks, frame_index=last_frame_index
         )
+        memory.extend(closing)
+        temporal.ingest_many(closing)
 
         elapsed = time.perf_counter() - started
         run_metadata = dict(memory.metadata)
@@ -152,6 +165,7 @@ class PerceptionPipeline:
                 "detector": self.detector.info().to_dict(),
                 "tracker": self.tracker.name,
                 "config": self.config.to_dict(),
+                "zones": self.config.zones.to_dict() if self.config.zones else None,
                 "frames_processed": frames_processed,
                 "processing_seconds": round(elapsed, 3),
                 "processing_fps": round(
@@ -160,12 +174,14 @@ class PerceptionPipeline:
             }
         )
         memory.metadata = run_metadata
+        temporal.metadata = run_metadata
 
         return PipelineResult(
             memory=memory,
             frames_processed=frames_processed,
             elapsed_seconds=elapsed,
             metadata=run_metadata,
+            temporal=temporal,
         )
 
     def run(self, video_path: Optional[str] = None) -> PipelineResult:
@@ -205,4 +221,6 @@ def run_pipeline(config: PipelineConfig) -> PipelineResult:
         pipeline.close()
     if config.output_path:
         result.memory.save_json(config.output_path)
+    if config.memory_path and result.temporal is not None:
+        result.temporal.save_json(config.memory_path)
     return result

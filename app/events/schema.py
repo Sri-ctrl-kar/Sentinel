@@ -11,16 +11,35 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-# Event action vocabulary. Deliberately small at M0.1 — richer semantics
-# (interactions, zones, intent) belong to later milestones.
+from ..spatial import IMAGE_PIXELS
+
+# Event action vocabulary. Still deliberately small: these describe *what an
+# entity did*, not what it means. Interpretation (risk, intent, causality) is a
+# later milestone and must not leak into this vocabulary.
 ACTION_APPEARED = "appeared"
 ACTION_DETECTED = "detected"
 ACTION_MOVED = "moved"
+ACTION_STATIONARY = "stationary"
+ACTION_ENTERED_ZONE = "entered_zone"
+ACTION_EXITED_ZONE = "exited_zone"
 ACTION_DISAPPEARED = "disappeared"
 
-ACTIONS = (ACTION_APPEARED, ACTION_DETECTED, ACTION_MOVED, ACTION_DISAPPEARED)
+ACTIONS = (
+    ACTION_APPEARED,
+    ACTION_DETECTED,
+    ACTION_MOVED,
+    ACTION_STATIONARY,
+    ACTION_ENTERED_ZONE,
+    ACTION_EXITED_ZONE,
+    ACTION_DISAPPEARED,
+)
 
-SCHEMA_VERSION = "0.1"
+#: Actions that open and close an entity's presence, used by the temporal
+#: memory to decide whether an entity is currently on screen.
+ACTION_PRESENCE_START = ACTION_APPEARED
+ACTION_PRESENCE_END = ACTION_DISAPPEARED
+
+SCHEMA_VERSION = "0.2"
 
 
 @dataclass
@@ -38,9 +57,15 @@ class Event:
     attributes:
         Free-form payload; always carries ``class_name`` and ``confidence``.
     position:
-        ``[cx, cy]`` centre point of the entity, in pixels.
+        ``[cx, cy]`` centre point of the entity, in **image pixels**.
     bbox:
-        ``[x1, y1, x2, y2]`` bounding box, in pixels.
+        ``[x1, y1, x2, y2]`` bounding box, in **image pixels**.
+    coordinate_space:
+        Which space ``position`` and ``bbox`` live in. Always
+        ``"image_pixels"`` today — see :mod:`app.spatial` for why a pixel
+        distance must never be read as a real-world distance.
+    zones:
+        Names of the zones the entity occupied when the event was emitted.
     """
 
     timestamp: float
@@ -49,6 +74,8 @@ class Event:
     attributes: Dict[str, Any]
     position: Optional[List[float]] = None
     bbox: Optional[List[float]] = None
+    coordinate_space: str = IMAGE_PIXELS
+    zones: List[str] = field(default_factory=list)
     frame_index: Optional[int] = None
     track_id: Optional[int] = None
     source: Optional[str] = None
@@ -67,8 +94,11 @@ class Event:
             if self.position
             else None,
             "bbox": [round(float(v), 2) for v in self.bbox] if self.bbox else None,
+            "coordinate_space": self.coordinate_space,
             "attributes": self.attributes,
         }
+        if self.zones:
+            payload["zones"] = list(self.zones)
         if self.source is not None:
             payload["source"] = self.source
         return {k: v for k, v in payload.items() if v is not None}
@@ -82,6 +112,8 @@ class Event:
             attributes=payload.get("attributes", {}),
             position=payload.get("position"),
             bbox=payload.get("bbox"),
+            coordinate_space=payload.get("coordinate_space", IMAGE_PIXELS),
+            zones=list(payload.get("zones", [])),
             frame_index=payload.get("frame_index"),
             track_id=payload.get("track_id"),
             source=payload.get("source"),
@@ -99,6 +131,7 @@ class EventLog:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "schema_version": SCHEMA_VERSION,
+            "coordinate_space": IMAGE_PIXELS,
             "metadata": self.metadata,
             "event_count": len(self.events),
             "events": [e.to_dict() for e in self.events],

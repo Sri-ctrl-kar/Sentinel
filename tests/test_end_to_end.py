@@ -112,3 +112,97 @@ def test_cli_end_to_end(demo_video, tmp_path, capsys):
 def test_cli_reports_a_missing_video_file(tmp_path, capsys):
     assert main([str(tmp_path / "nope.mp4"), "--detector", "blob"]) == 1
     assert "error" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# M0.2: temporal memory over a real video run
+# ---------------------------------------------------------------------------
+@pytest.fixture
+def zoned_run(demo_video, tmp_path):
+    from app.spatial import Zone, ZoneSet
+
+    config = PipelineConfig(
+        video_path=demo_video,
+        detector="blob",
+        classes=["person", "truck", "car"],
+        confidence=0.0,
+        stationary_duration=1.0,
+        zones=ZoneSet(
+            [
+                Zone.from_rect("loading_bay", (380, 180, 640, 320)),
+                Zone.from_rect("walkway", (0, 240, 380, 384)),
+            ]
+        ),
+        output_path=str(tmp_path / "events.json"),
+        memory_path=str(tmp_path / "memory.json"),
+    )
+    return run_pipeline(config), config
+
+
+def test_pipeline_populates_a_temporal_memory(zoned_run):
+    result, _ = zoned_run
+    assert result.temporal is not None
+    assert len(result.temporal) == len(result.events)
+    assert sorted(result.temporal.entities()) == ["car_3", "person_1", "truck_2"]
+
+
+def test_temporal_memory_and_event_log_agree(zoned_run):
+    result, _ = zoned_run
+    assert [e.event_id for e in result.temporal] == [e.event_id for e in result.events]
+
+
+def test_zone_events_are_produced_on_real_video(zoned_run):
+    result, _ = zoned_run
+    entered = result.temporal.stream(actions=["entered_zone"])
+    exited = result.temporal.stream(actions=["exited_zone"])
+    assert entered and exited
+    # Every entry is eventually closed by an exit.
+    assert len(entered) == len(exited)
+
+
+def test_the_static_car_is_reported_stationary(zoned_run):
+    result, _ = zoned_run
+    stationary = result.temporal.stream(actions=["stationary"])
+    assert {e.entity_id for e in stationary} == {"car_3"}
+
+
+def test_entities_present_changes_over_the_clip(zoned_run):
+    result, _ = zoned_run
+    early = result.temporal.present_entities(at=0.2)
+    middle = result.temporal.present_entities(at=2.0)
+    assert "person_1" in early
+    assert len(middle) >= len(early)
+    assert result.temporal.present_entities() == []
+
+
+def test_temporal_memory_is_written_and_reloadable(zoned_run):
+    from app.memory import TemporalEventMemory
+
+    result, config = zoned_run
+    reloaded = TemporalEventMemory.load_json(config.memory_path)
+    assert len(reloaded) == len(result.temporal)
+    assert reloaded.entities() == result.temporal.entities()
+
+
+def test_cli_prints_a_timeline(demo_video, tmp_path, capsys):
+    output = str(tmp_path / "cli-events.json")
+    exit_code = main(
+        [
+            demo_video, "--detector", "blob",
+            "--classes", "person", "truck", "car",
+            "--confidence", "0.0",
+            "--zone", "loading_bay=380,180,640,320",
+            "--timeline",
+            "-o", output,
+        ]
+    )
+    assert exit_code == 0
+    printed = capsys.readouterr().out
+    assert "Timeline — all entities" in printed
+    assert "entered_zone" in printed
+    assert "Entity states" in printed
+
+
+def test_cli_rejects_a_malformed_zone(demo_video, tmp_path, capsys):
+    assert main([demo_video, "--detector", "blob", "--zone", "bay=1,2,3"]) == 2
+    assert "error" in capsys.readouterr().err

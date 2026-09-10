@@ -52,7 +52,9 @@ Thumbs.db
 *.onnx
 
 # Pipeline output and generated demo media
-data/events.json
 data/*.json
 data/demo/*.mp4
+
+# ...but example configuration is checked in
+!data/zones.example.json
 

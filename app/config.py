@@ -9,6 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from .spatial import IMAGE_PIXELS, ZoneSet
+
 # COCO classes relevant to incident intelligence. Restricting the class set
 # cuts noise sharply: a detected 'potted plant' is never going to matter to a
 # risk assessment, but it will pollute the event log.
@@ -60,11 +62,19 @@ class PipelineConfig:
     track_min_hits: int = 2
 
     # --- events ----------------------------------------------------------
+    # All thresholds below are in IMAGE PIXELS, not real-world units. See
+    # app/spatial.py for why the two must not be conflated.
     sample_interval: float = 1.0
     movement_threshold: float = 40.0
+    stationary_threshold: float = 15.0
+    stationary_duration: float = 2.0
+
+    # --- zones (image-space regions) --------------------------------------
+    zones: Optional[ZoneSet] = None
 
     # --- output ----------------------------------------------------------
     output_path: str = "data/events.json"
+    memory_path: Optional[str] = None
 
     def detector_kwargs(self) -> Dict[str, Any]:
         """Backend constructor arguments, filtered per backend.
@@ -100,6 +110,10 @@ class PipelineConfig:
             "stride": self.stride,
             "confidence": self.confidence,
             "classes": self.classes,
+            "coordinate_space": IMAGE_PIXELS,
             "sample_interval": self.sample_interval,
-            "movement_threshold": self.movement_threshold,
+            "movement_threshold_px": self.movement_threshold,
+            "stationary_threshold_px": self.stationary_threshold,
+            "stationary_duration_seconds": self.stationary_duration,
+            "zones": self.zones.names if self.zones else [],
         }
