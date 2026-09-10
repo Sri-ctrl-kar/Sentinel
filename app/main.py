@@ -10,6 +10,7 @@ from typing import List, Optional
 
 from .config import DEFAULT_CLASSES, PipelineConfig
 from .pipeline import run_pipeline
+from .reasoning import Explainer, RiskConfig, RiskEngine
 from .spatial import Zone, ZoneSet
 
 
@@ -118,6 +119,33 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="NAME=X1,Y1,X2,Y2",
         help="Define a rectangular zone inline, in pixels. Repeatable.",
     )
+    zones.add_argument(
+        "--operating-zone",
+        action="append",
+        default=None,
+        metavar="NAME",
+        help="Mark a zone as a vehicle/machine operating zone. Repeatable.",
+    )
+
+    risk = parser.add_argument_group("risk (M0.3)")
+    risk.add_argument(
+        "--risk",
+        action="store_true",
+        help="Run the predictive risk engine over the temporal memory",
+    )
+    risk.add_argument(
+        "--risk-at",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help="Assess risk at this timestamp (default: the whole clip, worst moment)",
+    )
+    risk.add_argument(
+        "--risk-step",
+        type=float,
+        default=0.5,
+        help="Seconds between risk assessments when scanning a clip (default: 0.5)",
+    )
 
     stream = parser.add_argument_group("stream")
     stream.add_argument(
@@ -165,6 +193,31 @@ def zones_from_args(args: argparse.Namespace) -> Optional[ZoneSet]:
     for spec in args.zone or []:
         collected.append(parse_inline_zone(spec))
     return ZoneSet(collected) if collected else None
+
+
+def analyse_risk(memory, config: PipelineConfig, args: argparse.Namespace) -> str:
+    """Run the risk engine over a completed run and render the worst moment.
+
+    With no ``--risk-at``, scans the whole clip and reports the single highest
+    scoring moment — the question an operator actually asks of a recording is
+    "was there a near miss in this footage", not "what was the risk at 12.4s".
+    """
+    engine = RiskEngine(
+        RiskConfig(
+            operating_zones=list(args.operating_zone or []),
+            zones=config.zones,
+        )
+    )
+
+    if args.risk_at is not None:
+        report = engine.assess(memory, at=args.risk_at)
+    else:
+        reports = engine.assess_timeline(memory, step=args.risk_step)
+        if not reports:
+            return "RISK ANALYSIS\n-------------\nNo events to assess."
+        report = max(reports, key=lambda r: r.max_score)
+
+    return Explainer().explain_report(report, limit=1)
 
 
 def format_timeline(memory, entity_id: Optional[str] = None) -> str:
@@ -287,6 +340,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.timeline and result.temporal is not None:
         print()
         print(format_timeline(result.temporal, args.timeline))
+
+    if args.risk and result.temporal is not None:
+        print()
+        print(analyse_risk(result.temporal, config, args))
     return 0
 
 

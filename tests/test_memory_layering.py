@@ -18,11 +18,17 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODEL_SPECIFIC = ("torch", "ultralytics", "cv2", "numpy", "onnxruntime", "tensorflow")
 
 
-def module_files(package: str):
+def module_files(package: str, recursive: bool = False):
     directory = os.path.join(ROOT, "app", *package.split("."))
-    for entry in sorted(os.listdir(directory)):
-        if entry.endswith(".py"):
-            yield os.path.join(directory, entry)
+    if not recursive:
+        for entry in sorted(os.listdir(directory)):
+            if entry.endswith(".py"):
+                yield os.path.join(directory, entry)
+        return
+    for dirpath, _dirnames, filenames in os.walk(directory):
+        for filename in sorted(filenames):
+            if filename.endswith(".py"):
+                yield os.path.join(dirpath, filename)
 
 
 def imported_names(path: str):
@@ -114,9 +120,49 @@ def test_only_the_yolo_backend_imports_torch():
     assert offenders == ["app/perception/backends/yolo_ultralytics.py"]
 
 
-def test_reasoning_layer_is_untouched_by_m0_2():
-    """M0.2 must not start building the reasoning layer."""
-    for path in module_files("reasoning"):
-        for name in imported_names(path):
-            root = name.lstrip(".").split(".")[0]
-            assert root not in MODEL_SPECIFIC
+# ---------------------------------------------------------------------------
+# The reasoning layer must not know about any model or the perception layer
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("path", list(module_files("reasoning", recursive=True)))
+def test_reasoning_layer_has_no_model_specific_imports(path):
+    for name in imported_names(path):
+        root = name.lstrip(".").split(".")[0]
+        assert root not in MODEL_SPECIFIC, (
+            f"{os.path.relpath(path, ROOT)} imports '{name}'. The risk engine must "
+            f"never know about YOLO, torch, Ultralytics or OpenCV — it reasons "
+            f"about Event objects."
+        )
+
+
+@pytest.mark.parametrize("path", list(module_files("reasoning", recursive=True)))
+def test_reasoning_layer_does_not_import_the_perception_layer(path):
+    for name in imported_names(path):
+        assert "perception" not in name, (
+            f"{os.path.relpath(path, ROOT)} imports '{name}'. The risk engine "
+            f"consumes events and temporal memory, never tracks or detections."
+        )
+
+
+def test_importing_the_risk_engine_does_not_drag_in_a_model_runtime():
+    """A clean interpreter must be able to reason without torch or OpenCV."""
+    code = (
+        "import sys; import app.reasoning; "
+        f"loaded=[m for m in {MODEL_SPECIFIC!r} if m in sys.modules]; "
+        "print(','.join(loaded))"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "", (
+        f"importing app.reasoning pulled in {result.stdout.strip()}"
+    )
+
+
+def test_reasoning_reuses_the_shared_geometry_module():
+    """Geometry lives in app/spatial.py; the engine must not re-implement it."""
+    engine_sources = list(module_files("reasoning", recursive=True))
+    assert any(
+        any("spatial" in name for name in imported_names(path))
+        for path in engine_sources
+    ), "the risk engine should reuse app.spatial rather than duplicating geometry"

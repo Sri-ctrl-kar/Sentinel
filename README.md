@@ -4,22 +4,31 @@
 
 Sentinel is a multimodal predictive incident-intelligence system.
 
-## Current milestone: M0.2 — Temporal Event Memory
+## Current milestone: M0.3 — Predictive Risk Engine
 
 ```
-video → detection → tracking → structured events → temporal memory (queryable)
+video → detection → tracking → events → temporal memory → risk assessment → predicted incident
 ```
 
 **M0.1** delivered perception: video in, detections tracked with persistent IDs,
 a structured event log out.
 
-**M0.2** adds the layer Sentinel will actually reason over. Frame-level tracking
-output is folded into a persistent, chronological memory: every entity has a
-timeline, every timeline is queryable, and state at any past moment can be
-reconstructed. The event vocabulary grows to cover dwelling (`stationary`) and
-image-space regions (`entered_zone` / `exited_zone`).
+**M0.2** added temporal memory: a persistent, chronological, queryable record of
+what every entity has done.
 
-There is still no UI, no LLM reasoning, no risk engine and no audio — those are
+**M0.3** is the first milestone that *reasons*. It reads the temporal memory and
+assesses **developing situations** — a worker and a forklift converging, someone
+standing where a machine works, a separation collapsing, a pattern of repeated
+violations — producing a scored, explained, structured prediction before
+anything has happened.
+
+Try it with no video, no weights and no GPU:
+
+```bash
+python -m app.demo --timeline
+```
+
+There is still no UI, no LLM, no audio and no autonomous agents — those are
 later milestones, and the interfaces here are shaped so they can be added
 without a rewrite.
 
@@ -53,8 +62,20 @@ app/
 │   ├── temporal.py                  TemporalEventMemory, EntityTimeline, EntityState
 │   └── query.py                     EventFilter — composable query criteria
 │
+├── reasoning/                       ── LAYER 4: what it means (M0.3)
+│   ├── risk_engine.py               RiskEngine — orchestration and aggregation
+│   ├── config.py                    RiskConfig — every threshold, documented
+│   ├── kinematics.py                image-space velocity + closest approach
+│   ├── explainer.py                 renders assessments as readable analysis
+│   ├── models/risk.py               RiskAssessment, FactorScore, RiskReport
+│   └── factors/                     one narrow question each, independently testable
+│       ├── proximity.py             ProximityFactor, ClosingSpeedFactor
+│       ├── trajectory.py            TrajectoryFactor (the only predictor)
+│       ├── zone.py                  ZoneFactor — person in a machine's zone
+│       └── persistence.py           PersistenceFactor, EscalationFactor
+│
 ├── storage/memory.py                flat event log + JSON persistence
-└── reasoning/                       ── LAYER 4: what it means (NOT YET BUILT)
+└── demo.py                          synthetic warehouse scenario (no video needed)
 ```
 
 Two rules make the rest of the roadmap possible, and both are enforced by
@@ -64,14 +85,16 @@ Two rules make the rest of the roadmap possible, and both are enforced by
    talks to the `Detector` and `Tracker` interfaces, so moving inference to AMD
    ROCm — or to ONNX Runtime, or to a remote service — is a new file in
    `backends/`, not a refactor.
-2. **`app/memory/` imports only `app.events.schema` and `app.spatial`.** It
-   never imports perception, torch, OpenCV or numpy. A temporal memory that
-   knew what a YOLO tensor looked like could not survive a detector change —
-   and the reasoning layer will sit on top of `memory/`, not on top of
-   `perception/`.
+2. **`app/memory/` and `app/reasoning/` import only `app.events.schema` and
+   `app.spatial`.** Neither imports perception, torch, OpenCV or numpy. A risk
+   engine that knew what a YOLO tensor looked like could not survive a detector
+   change. The layering test spawns a clean interpreter and asserts that
+   `import app.reasoning` does not load a model runtime at all.
 
-Data flows strictly downward. Layer 3 consumes `Event` objects and has no idea
-a camera was involved.
+Data flows strictly downward. Layers 3 and 4 consume `Event` objects and have
+no idea a camera was involved. Geometry is **not** duplicated: the risk engine
+reuses `app/spatial.py` for distance and zone containment, and that reuse is
+itself asserted by a test.
 
 ### Temporal memory (M0.2)
 
@@ -105,6 +128,149 @@ Two design decisions worth knowing:
 - **Insertion preserves chronology.** Events may arrive out of order; the
   stream always reads chronologically, ordered by
   `(timestamp, event_id, arrival)`.
+
+### Risk model (M0.3)
+
+The score is a weighted sum of independently computed factors, times a
+corroboration multiplier. Nothing is learned, nothing is hidden:
+
+```
+base_points  = Σ over {proximity, closing_speed, trajectory, zone}
+                   factor.score × factor.weight        →   0 .. 100
+persistence  = persistence.score × 15                  →   0 ..  15
+subtotal     = base_points + persistence               →   0 .. 115
+multiplier   = escalation multiplier by signal count   →   1.00 .. 1.35
+risk_score   = clamp(0, 100, subtotal × multiplier)
+```
+
+| Factor | Weight | Question it answers | Formula |
+| --- | ---: | --- | --- |
+| `proximity` | 30 | How close are they *now*? | Linear from 0 at `interaction_radius_px` (260) to 1 at `critical_radius_px` (70) |
+| `closing_speed` | 25 | How fast is the gap shrinking? | Linear from 0 at 10px/s to 1 at `closing_speed_reference_px_per_s` (160) |
+| `trajectory` | 25 | Will their paths actually conflict, and how soon? | `spatial × temporal` from the closest-approach solution |
+| `zone` | 20 | Is a person where a machine works? | 0.60 unaccompanied → 1.00 with the vehicle in the same zone |
+| `persistence` | 15 | Is this a repeated pattern? | `violations / 3`, capped at 1 |
+| `escalation` | ×1.00–1.35 | Do independent signals agree? | Lookup by count of factors scoring ≥ 0.20 |
+
+Three deliberate properties:
+
+- **The four base weights sum to exactly 100**, so no single factor can reach
+  `critical` alone. Proximity maxes out at 30 points — the "low" band. Two
+  things being near each other is not an incident, and the arithmetic says so.
+- **`trajectory` multiplies its spatial and temporal terms** rather than
+  averaging them. Both must hold: a conflict 40 seconds out is not urgent, and
+  an imminent closest approach that misses by 300px is not a conflict.
+  Averaging would let either alone carry the factor — exactly the false
+  positive to avoid.
+- **Escalation amplifies, it cannot invent.** `0 × 1.35` is still `0`.
+  Corroboration can promote a borderline situation across a severity band; it
+  can never manufacture risk that no factor observed.
+
+Severity bands: `normal` 0–19, `low` 20–39, `medium` 40–64, `high` 65–89,
+`critical` 90–100. Wide at the bottom, narrow at the top — the difference
+between 5 and 15 is noise, the difference between 85 and 95 is the difference
+between "watch this" and "act now".
+
+### Supported incident types
+
+| Incident type | Detected when |
+| --- | --- |
+| `PERSON_VEHICLE_COLLISION_RISK` | Predicted closest approach falls inside `conflict_radius_px`, or a person is in an operating zone with the vehicle converging |
+| `PERSON_IN_VEHICLE_OPERATING_ZONE` | A person's anchor point is inside a configured operating zone |
+| `CONVERGING_TRAJECTORIES` | Paths converge but miss by more than the conflict radius — a near miss, deliberately *not* called a collision |
+| `RAPID_SEPARATION_DECREASE` | The gap is closing fast with no predicted path conflict |
+| `PERSISTENT_ZONE_VIOLATION` | The same entity repeatedly enters a watched zone |
+| `ESCALATING_SITUATION` | Several independently weak signals corroborate |
+| `CLOSE_PROXIMITY` | Entities are near each other but nothing is developing — informational, never a prediction |
+
+### Example output
+
+`python -m app.demo` — a worker walking into a forklift bay as the forklift
+approaches, with no video file or model weights involved:
+
+```
+SENTINEL INCIDENT ANALYSIS
+==========================
+
+Risk: 93/100
+Severity: CRITICAL
+Incident: PERSON_VEHICLE_COLLISION_RISK
+Confidence: 0.94
+At: t=0.90s
+
+Entities:
+  person_1
+  forklift_2
+
+Evidence:
+  - separation is shrinking at 350px/s in image space (saturates at 160px/s)
+  - image-space trajectories converge to 10px in 0.9s
+  - person_1 is inside operating zone forklift_bay; forklift_2 is in the same zone
+  - person_1 entered forklift_bay once in the last 60s
+  - 4 independent signals agree (closing_speed, trajectory, zone, persistence); escalating by ×1.30
+
+Predicted time-to-risk: 0.9 seconds
+
+Recommended intervention:
+  slow/stop the vehicle and redirect the person out of its path
+
+Scoring breakdown (score x weight = points):
+  proximity        0.00 x  30.0 =   0.00  (confidence 0.00)
+  closing_speed    1.00 x  25.0 =  25.00  (confidence 0.90)
+  trajectory       0.85 x  25.0 =  21.19  (confidence 0.90)
+  zone             1.00 x  20.0 =  20.00  (confidence 1.00)
+  persistence      0.33 x  15.0 =   5.00  (confidence 1.00)
+  subtotal                         71.19
+  escalation      x1.30 (4 corroborating signals)
+  RISK SCORE                       92.55
+
+Coordinate space: image_pixels
+  All distances are IMAGE PIXELS and all speeds are PIXELS PER SECOND.
+  These are not physical distances or speeds; no camera calibration
+  or ground-plane homography is applied. Times are real seconds.
+```
+
+Note what drives the score: proximity contributes **nothing** — the two are
+still ~300px apart. The alert comes from motion and context, 0.9 seconds before
+the predicted conflict. That is the difference between recording an incident and
+predicting one.
+
+`python -m app.demo --timeline` shows the situation building:
+
+```
+RISK DEVELOPMENT OVER TIME
+--------------------------
+    time    risk  severity   incident
+    0.00     0.0  normal     -
+    0.30    48.1  medium     PERSON_VEHICLE_COLLISION_RISK
+    0.60    49.4  medium     PERSON_VEHICLE_COLLISION_RISK
+    0.90    92.5  critical   PERSON_VEHICLE_COLLISION_RISK
+    1.20   100.0  critical   PERSON_VEHICLE_COLLISION_RISK
+    1.50   100.0  critical   PERSON_VEHICLE_COLLISION_RISK
+```
+
+The jump at 0.9s is the worker crossing into the bay: the zone factor engages
+and a fourth signal joins the corroboration count. Before that, the engine had
+already been flagging the collision course at medium risk for half a second.
+
+### Why this is deterministic and explainable
+
+- **No learned model, no randomness, no wall clock.** Every number comes from
+  a documented formula over recorded events. Re-running the engine on the same
+  memory at the same timestamp produces byte-identical JSON — asserted by test,
+  including after re-ingesting the events in reverse order.
+- **Every weight is named and justified** in `app/reasoning/config.py`, next to
+  the reasoning for its default. There are no magic numbers inside factor
+  implementations.
+- **Every factor is individually inspectable.** A `FactorScore` carries its
+  score, weight, contribution, confidence, a plain-English rationale, the raw
+  measurements it used, and the event IDs that evidence it. The printed
+  breakdown lets you re-add the score by hand.
+- **Evidence is checkable.** Cited event IDs are asserted to exist in memory and
+  to predate the assessment — the engine cannot cite the future.
+- **Refusals are explicit.** When the engine cannot predict, it says so in a
+  field (`insufficient_history`, `both_stationary`) rather than returning a
+  confident-looking zero.
 
 ### Model choices
 
@@ -183,9 +349,21 @@ python -m app.main clip.mp4 --zone loading_bay=380,180,640,320 --timeline
 # Also write the temporal memory (events + folded per-entity state)
 python -m app.main clip.mp4 --memory-output data/memory.json
 
+# Assess risk over a clip: report the worst moment in the footage
+python -m app.main clip.mp4 --zone forklift_bay=400,200,800,500 \
+    --operating-zone forklift_bay --risk
+
 # No weights available? Run the whole pipeline on a synthetic clip
 python scripts/generate_demo_video.py -o data/demo/demo.mp4
 python -m app.main data/demo/demo.mp4 --detector blob --classes person truck car
+```
+
+### Risk demo (no video, no weights, no GPU)
+
+```bash
+python -m app.demo              # the moment Sentinel would have raised the alert
+python -m app.demo --timeline   # how the risk score develops across the scene
+python -m app.demo --json       # the structured assessment
 ```
 
 Run `python -m app.main --help` for the full list.
@@ -221,6 +399,25 @@ print(state.class_name, state.duration, state.zones, state.present)
 
 `result.memory` remains the flat event log (what gets written to
 `events.json`); `result.temporal` is the queryable index over the same events.
+
+And to reason over it:
+
+```python
+from app.reasoning import Explainer, RiskConfig, RiskEngine
+
+engine = RiskEngine(RiskConfig(operating_zones=["loading_bay"], zones=zones))
+
+report = engine.assess(memory, at=3.5)
+if report.top:
+    print(report.top.risk_score, report.top.severity, report.top.incident_type)
+    print(Explainer().explain(report.top))
+
+# Or scan a whole clip for its worst moment
+worst = max(engine.assess_timeline(memory, step=0.5), key=lambda r: r.max_score)
+```
+
+The engine takes a `TemporalEventMemory` — nothing else. It never sees a frame,
+a detection or a track.
 
 ---
 
@@ -357,8 +554,23 @@ output) against a synthetic clip whose ground truth is known. Tests needing
 OpenCV skip cleanly if it isn't installed.
 
 `tests/test_memory_layering.py` parses the source tree and fails the build if
-`app/memory/` ever imports a model library or the perception layer. The
-architectural boundary is checked, not just documented.
+`app/memory/` or `app/reasoning/` ever imports a model library or the perception
+layer, and spawns a clean interpreter to prove `import app.reasoning` loads no
+model runtime. The architectural boundary is checked, not just documented.
+
+The M0.3 scenarios (`tests/scenarios.py`) script detections frame by frame
+through the real tracker, event generator, temporal memory and risk engine —
+so the scores they assert are the ones the real stack produces, not fixtures:
+
+| Scenario | Situation | Result |
+| --- | --- | --- |
+| A | Person and vehicle moving apart | 0.0 normal — no assessment reported |
+| B | Converging, but on lines that miss | 50.4 medium `CONVERGING_TRAJECTORIES` |
+| C | Trajectories intersect | 72.4 high `PERSON_VEHICLE_COLLISION_RISK`, 0.37s warning |
+| D | Person in operating zone, vehicle approaching | 100.0 critical, 0.31s warning |
+| E | Five weak signals corroborating | 79.2 high — every factor under 20 points alone |
+| F | Both entities stationary | 19.7 normal `CLOSE_PROXIMITY`, trajectory refused |
+| G | Insufficient history | 19.7 normal, trajectory refused, no prediction |
 
 ---
 
@@ -407,10 +619,38 @@ require a homography or camera calibration, which is **not** in scope.
 - **`present_entities(at=...)` and `state_at()` replay an entity's history**,
   so they are O(events) per call rather than indexed.
 
+### The risk engine (M0.3)
+
+- **Thresholds are pixel values and must be re-tuned per camera.** The defaults
+  assume a roughly 640-960px-wide frame with subjects at mid-depth. A different
+  mounting height, focal length or resolution needs different numbers. There is
+  no auto-calibration.
+- **A single set of radii cannot be right across the whole frame.** Because
+  pixels-per-metre varies with depth, `critical_radius_px = 70` is generous near
+  the camera and far too small at the horizon. This is the single largest source
+  of both false positives and false negatives.
+- **Trajectory prediction assumes constant image velocity.** People change
+  direction; vehicles turn; the camera may pan. The prediction horizon is capped
+  at 6 seconds for this reason, and the engine refuses to predict at all without
+  3 samples spanning 0.2s.
+- **Weights are engineering judgement, not empirical.** They are principled and
+  documented, but they have not been validated against real incident data,
+  because no labelled dataset was in scope for M0.3. Treat the absolute score as
+  a ranking signal, not a calibrated probability.
+- **Only person-vehicle pairs and lone people are assessed.** Vehicle-vehicle
+  conflicts, person-person interactions and static hazards are not modelled.
+- **No occlusion reasoning.** Two entities may be far apart in image space while
+  physically adjacent (one behind a rack), or overlap in the image while metres
+  apart in depth.
+- **Interventions are a static lookup table** keyed by incident type. The engine
+  does not reason about what to do — deliberately, at M0.3.
+- **Assessment is O(people x vehicles) per moment**, and each moment replays
+  entity history. Fine for clips; a busy scene at a fine time step will be slow.
+
 ### Not yet built
 
-Frontend, LLM reasoning, risk scoring, audio, autonomous agents, counterfactual
-simulation. `app/reasoning/` is still the M0 stub.
+Frontend, LLM reasoning, audio, autonomous agents, counterfactual simulation,
+database persistence.
 
 ---
 
@@ -423,5 +663,33 @@ events, JSON output, tests.
 events, the query API, explicit pixel-space coordinates, layering enforced by
 test.
 
-**Not yet:** frontend, LLM reasoning, risk scoring, audio, agents,
-counterfactual simulation.
+**In M0.3:** predictive risk engine, image-space kinematics, five factor types,
+deterministic explainable scoring, structured risk assessments, the synthetic
+warehouse demo.
+
+**Not yet:** frontend, LLM reasoning, audio, agents, counterfactual simulation,
+database.
+
+---
+
+## What remains for M0.4
+
+M0.3 deliberately stops at a deterministic, explainable score. The obvious next
+steps, in rough order of value:
+
+1. **Ground-plane calibration.** A homography per camera would turn every pixel
+   measurement in this repo into a real one, and would fix the depth problem
+   that currently limits every threshold. This is the highest-value change
+   available and it makes the risk model meaningfully more accurate rather than
+   merely more elaborate.
+2. **Validation against labelled footage.** The weights are defensible but
+   unvalidated. Precision/recall against real near-miss data would turn the
+   scoring model from judgement into evidence.
+3. **The LLM reasoning layer**, sitting on top of the risk engine — explaining
+   *why* a situation developed and what to do, with the deterministic score as
+   its grounding. The `Explainer` interface is the seam it plugs into.
+4. **Re-identification**, so an entity that leaves and re-enters keeps its
+   history and its persistence record.
+5. **Broader incident modelling**: vehicle-vehicle conflicts, static hazards,
+   occlusion-aware separation.
+6. **The frontend**, once there is something stable to display.
