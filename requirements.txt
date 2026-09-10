@@ -1,1 +1,10 @@
-# M0 dependencies will be pinned after model selection.
+# Sentinel M0.1 — core runtime.
+#
+# These are enough to run the pipeline with the dependency-free `blob` and
+# `mock` detection backends, and to run the full test suite.
+# The neural detector lives in requirements-yolo.txt so that torch is never
+# forced on a machine that doesn't need it — see the README for the AMD ROCm
+# wheel index.
+
+numpy>=1.24
+opencv-python-headless>=4.8

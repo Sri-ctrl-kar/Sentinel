@@ -46,3 +46,13 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Model weights (downloaded on first run)
+*.pt
+*.onnx
+
+# Pipeline output and generated demo media
+data/events.json
+data/*.json
+data/demo/*.mp4
+

@@ -1,0 +1,12 @@
+# Sentinel M0.1 — YOLOv8 detection backend (optional).
+#
+# Install AFTER picking the right torch build for your hardware:
+#
+#   AMD ROCm 6.2:  pip install torch torchvision --index-url https://download.pytorch.org/whl/rocm6.2
+#   NVIDIA CUDA:   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+#   CPU only:      pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+#
+# torch is deliberately left unpinned here so that the command above wins and
+# pip does not silently replace a ROCm build with the default PyPI (CUDA) one.
+
+ultralytics>=8.2,<9
