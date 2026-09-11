@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 from ...events.schema import ACTION_ENTERED_ZONE
-from ...spatial import pixel_distance
+from ...spatial import euclidean_distance
 from ..models.risk import FactorScore
 from .base import RiskContext, RiskFactor, linear_falloff
 
@@ -96,13 +96,12 @@ class ZoneFactor(RiskFactor):
         vehicle_zones = self._zones_of(context, vehicle_id)
         vehicle_in_zone = any(z in breached for z in vehicle_zones)
 
-        person_motion = context.motion(person_id)
-        vehicle_motion = context.motion(vehicle_id)
+        thresholds = context.thresholds
+        person_position = context.position_of(person_id)
+        vehicle_position = context.position_of(vehicle_id)
         separation: Optional[float] = None
-        if person_motion is not None and vehicle_motion is not None:
-            separation = pixel_distance(
-                person_motion.position_px, vehicle_motion.position_px
-            )
+        if person_position is not None and vehicle_position is not None:
+            separation = euclidean_distance(person_position, vehicle_position)
 
         if vehicle_in_zone:
             score = self.SCORE_VEHICLE_PRESENT
@@ -113,14 +112,19 @@ class ZoneFactor(RiskFactor):
         else:
             nearness = linear_falloff(
                 separation,
-                full_at=config.critical_radius_px,
-                zero_at=config.interaction_radius_px,
+                full_at=thresholds.critical_radius,
+                zero_at=thresholds.interaction_radius,
             )
             score = self.SCORE_VEHICLE_DISTANT + nearness * (
                 self.SCORE_VEHICLE_PRESENT - self.SCORE_VEHICLE_DISTANT
             )
-            detail = f"{vehicle_id} is {separation:.0f}px away"
+            detail = f"{vehicle_id} is {thresholds.format_distance(separation)} away"
 
+        extra = {
+            thresholds.distance_key("vehicle_separation"): (
+                round(separation, 3) if separation is not None else None
+            )
+        }
         return self._score(
             context,
             score,
@@ -130,7 +134,7 @@ class ZoneFactor(RiskFactor):
             breached_zones=breached,
             vehicle_present=True,
             vehicle_in_zone=vehicle_in_zone,
-            vehicle_separation_px=round(separation, 2) if separation is not None else None,
+            **extra,
         )
 
     # ------------------------------------------------------------------

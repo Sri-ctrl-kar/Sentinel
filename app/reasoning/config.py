@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
-from ..spatial import IMAGE_PIXELS, ZoneSet
+from ..spatial import GROUND_PLANE_METERS, IMAGE_PIXELS, ZoneSet
 
 #: COCO-ish class names treated as people.
 DEFAULT_PERSON_CLASSES: Sequence[str] = ("person",)
@@ -31,6 +31,67 @@ DEFAULT_VEHICLE_CLASSES: Sequence[str] = (
     "train",
     "forklift",
 )
+
+
+@dataclass(frozen=True)
+class SpatialThresholds:
+    """Distance and speed thresholds for exactly ONE coordinate space.
+
+    The risk factors are written against this view rather than against named
+    config fields, so the same formula serves both spaces without the values
+    ever being converted between them. Pixels and metres are configured
+    independently and chosen independently; nothing here divides one by the
+    other.
+    """
+
+    coordinate_space: str
+    #: Suffix used when writing measurements into factor details, e.g. "px".
+    distance_unit: str
+    #: Suffix for speeds, e.g. "px_per_s".
+    speed_unit: str
+    #: Human-readable unit for rationales, e.g. "px" or "m".
+    distance_label: str
+    speed_label: str
+
+    interaction_radius: float
+    critical_radius: float
+    closing_speed_reference: float
+    closing_speed_floor: float
+    conflict_radius: float
+    miss_radius: float
+    #: Separation at or below which a pair is considered unsafely close.
+    #: Used by trajectory prediction for threshold-crossing times.
+    unsafe_separation: float
+
+    # ------------------------------------------------------------------
+    def distance_key(self, name: str) -> str:
+        """Detail key for a distance, e.g. ``separation`` -> ``separation_px``."""
+        return f"{name}_{self.distance_unit}"
+
+    def speed_key(self, name: str) -> str:
+        return f"{name}_{self.speed_unit}"
+
+    def format_distance(self, value: float) -> str:
+        if self.distance_unit == "px":
+            return f"{value:.0f}px"
+        return f"{value:.2f} m"
+
+    def format_speed(self, value: float) -> str:
+        if self.speed_unit == "px_per_s":
+            return f"{value:.0f}px/s"
+        return f"{value:.2f} m/s"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "coordinate_space": self.coordinate_space,
+            self.distance_key("interaction_radius"): self.interaction_radius,
+            self.distance_key("critical_radius"): self.critical_radius,
+            self.distance_key("conflict_radius"): self.conflict_radius,
+            self.distance_key("miss_radius"): self.miss_radius,
+            self.distance_key("unsafe_separation"): self.unsafe_separation,
+            self.speed_key("closing_speed_reference"): self.closing_speed_reference,
+            self.speed_key("closing_speed_floor"): self.closing_speed_floor,
+        }
 
 
 @dataclass
@@ -101,6 +162,41 @@ class RiskConfig:
     #: Below this closing speed the gap is treated as effectively steady.
     closing_speed_floor_px_per_s: float = 10.0
 
+    # --- ground plane (M0.5) ---------------------------------------------
+    # Metric thresholds, chosen independently of the pixel ones above. They are
+    # NOT conversions: no pixels-per-metre ratio exists outside a specific
+    # calibration, so deriving one set from the other would be meaningless.
+    #
+    # These are engineering judgement for a warehouse-scale scene and have NOT
+    # been validated against incident data. They are defensible starting points,
+    # not measurements.
+
+    #: Beyond ~6.5m a person and a vehicle are not meaningfully interacting.
+    interaction_radius_m: float = 6.5
+
+    #: Within ~1.5m a person cannot reliably step clear of a moving vehicle.
+    critical_radius_m: float = 1.5
+
+    #: ~4 m/s closing (roughly 14 km/h) saturates the closing-speed factor.
+    closing_speed_reference_m_per_s: float = 4.0
+
+    #: Below 0.25 m/s the gap is effectively steady.
+    closing_speed_floor_m_per_s: float = 0.25
+
+    #: A predicted closest approach within 2m is a genuine trajectory conflict —
+    #: roughly the combined body width of a person and a forklift plus margin.
+    conflict_radius_m: float = 2.0
+
+    #: Predicted closest approach beyond 8m contributes no trajectory risk.
+    trajectory_miss_radius_m: float = 8.0
+
+    #: Separation at or below which the pair is unsafely close. Time-to-risk is
+    #: the predicted moment of crossing this.
+    unsafe_separation_m: float = 2.0
+
+    #: Image-space equivalent of the above, for uncalibrated cameras.
+    unsafe_separation_px: float = 90.0
+
     # --- trajectory -------------------------------------------------------
     #: Closest-approach distance at or below which trajectories are treated as
     #: genuinely intersecting rather than merely converging.
@@ -157,6 +253,10 @@ class RiskConfig:
             raise ValueError("critical_radius_px must be < interaction_radius_px")
         if self.conflict_radius_px >= self.trajectory_miss_radius_px:
             raise ValueError("conflict_radius_px must be < trajectory_miss_radius_px")
+        if self.critical_radius_m >= self.interaction_radius_m:
+            raise ValueError("critical_radius_m must be < interaction_radius_m")
+        if self.conflict_radius_m >= self.trajectory_miss_radius_m:
+            raise ValueError("conflict_radius_m must be < trajectory_miss_radius_m")
 
     def is_person(self, class_name: Optional[str]) -> bool:
         return class_name is not None and class_name.lower() in {
@@ -167,6 +267,125 @@ class RiskConfig:
         return class_name is not None and class_name.lower() in {
             c.lower() for c in self.vehicle_classes
         }
+
+    # ------------------------------------------------------------------
+    def thresholds(self, coordinate_space: str = IMAGE_PIXELS) -> SpatialThresholds:
+        """The threshold set for one coordinate space.
+
+        Raises rather than guessing for an unknown space: a silently wrong unit
+        is the single most dangerous failure this system can have.
+        """
+        if coordinate_space == IMAGE_PIXELS:
+            return SpatialThresholds(
+                coordinate_space=IMAGE_PIXELS,
+                distance_unit="px",
+                speed_unit="px_per_s",
+                distance_label="px",
+                speed_label="px/s",
+                interaction_radius=self.interaction_radius_px,
+                critical_radius=self.critical_radius_px,
+                closing_speed_reference=self.closing_speed_reference_px_per_s,
+                closing_speed_floor=self.closing_speed_floor_px_per_s,
+                conflict_radius=self.conflict_radius_px,
+                miss_radius=self.trajectory_miss_radius_px,
+                unsafe_separation=self.unsafe_separation_px,
+            )
+        if coordinate_space == GROUND_PLANE_METERS:
+            return SpatialThresholds(
+                coordinate_space=GROUND_PLANE_METERS,
+                distance_unit="m",
+                speed_unit="m_per_s",
+                distance_label="m",
+                speed_label="m/s",
+                interaction_radius=self.interaction_radius_m,
+                critical_radius=self.critical_radius_m,
+                closing_speed_reference=self.closing_speed_reference_m_per_s,
+                closing_speed_floor=self.closing_speed_floor_m_per_s,
+                conflict_radius=self.conflict_radius_m,
+                miss_radius=self.trajectory_miss_radius_m,
+                unsafe_separation=self.unsafe_separation_m,
+            )
+        raise ValueError(
+            f"No thresholds defined for coordinate space '{coordinate_space}'."
+        )
+
+    # ------------------------------------------------------------------
+    def threshold_audit(self) -> List[Dict[str, Any]]:
+        """Every threshold, with its units, purpose and provenance.
+
+        ``provenance`` is the honest column. As of M0.6 **every row is
+        engineering-selected**: the values are defensible reasoning about a
+        warehouse-scale scene, not measurements. Nothing here has been fitted
+        to incident data, and nothing has been tuned against the benchmark —
+        tuning against the evaluation set would make the benchmark a
+        measurement of itself.
+
+        A row may only become ``empirically-validated`` when it has been
+        calibrated against annotated real footage held out from tuning.
+        """
+        engineering = "engineering-selected"
+        rows: List[Dict[str, Any]] = [
+            ("interaction_radius_px", self.interaction_radius_px, "px",
+             "beyond this an image-space pair is not interacting", engineering),
+            ("critical_radius_px", self.critical_radius_px, "px",
+             "image-space separation at which proximity saturates", engineering),
+            ("conflict_radius_px", self.conflict_radius_px, "px",
+             "predicted miss distance counting as an image-space conflict", engineering),
+            ("trajectory_miss_radius_px", self.trajectory_miss_radius_px, "px",
+             "predicted miss beyond this contributes no trajectory risk", engineering),
+            ("unsafe_separation_px", self.unsafe_separation_px, "px",
+             "image-space separation defining an unsafe state", engineering),
+            ("closing_speed_reference_px_per_s", self.closing_speed_reference_px_per_s,
+             "px/s", "image-space closing speed at which the factor saturates",
+             engineering),
+            ("closing_speed_floor_px_per_s", self.closing_speed_floor_px_per_s,
+             "px/s", "below this the image-space gap counts as steady", engineering),
+            ("interaction_radius_m", self.interaction_radius_m, "m",
+             "beyond this a person and vehicle are not interacting", engineering),
+            ("critical_radius_m", self.critical_radius_m, "m",
+             "separation at which a person cannot step clear", engineering),
+            ("conflict_radius_m", self.conflict_radius_m, "m",
+             "predicted miss distance counting as a trajectory conflict", engineering),
+            ("trajectory_miss_radius_m", self.trajectory_miss_radius_m, "m",
+             "predicted miss beyond this contributes no trajectory risk", engineering),
+            ("unsafe_separation_m", self.unsafe_separation_m, "m",
+             "ground separation defining an unsafe state; time-to-risk targets it",
+             engineering),
+            ("closing_speed_reference_m_per_s", self.closing_speed_reference_m_per_s,
+             "m/s", "closing speed at which the factor saturates", engineering),
+            ("closing_speed_floor_m_per_s", self.closing_speed_floor_m_per_s,
+             "m/s", "below this the gap counts as steady", engineering),
+            ("prediction_horizon_seconds", self.prediction_horizon_seconds, "s",
+             "how far constant-velocity extrapolation is trusted", engineering),
+            ("persistence_violation_threshold", self.persistence_violation_threshold,
+             "count", "repeat zone entries at which persistence saturates", engineering),
+            ("persistence_window_seconds", self.persistence_window_seconds, "s",
+             "how far back persistence looks for violations", engineering),
+            ("escalation_signal_threshold", self.escalation_signal_threshold, "score",
+             "factor score counting as one corroborating signal", engineering),
+            ("report_threshold", self.report_threshold, "points",
+             "assessments below this are not reported", engineering),
+            ("weight.proximity", self.weights.proximity, "points",
+             "risk points for full proximity score", engineering),
+            ("weight.closing_speed", self.weights.closing_speed, "points",
+             "risk points for full closing-speed score", engineering),
+            ("weight.trajectory", self.weights.trajectory, "points",
+             "risk points for full trajectory score", engineering),
+            ("weight.zone", self.weights.zone, "points",
+             "risk points for full zone score", engineering),
+            ("weight.persistence", self.weights.persistence, "points",
+             "risk points for full persistence score", engineering),
+        ]
+        return [
+            {
+                "parameter": name,
+                "value": value,
+                "units": units,
+                "purpose": purpose,
+                "provenance": provenance,
+            }
+            for name, value, units, purpose, provenance in rows
+        ]
 
     def escalation_multiplier(self, signal_count: int) -> float:
         """Corroboration multiplier for ``signal_count`` independent signals."""
@@ -191,4 +410,12 @@ class RiskConfig:
             "persistence_violation_threshold": self.persistence_violation_threshold,
             "escalation_signal_threshold": self.escalation_signal_threshold,
             "weights": self.weights.to_dict(),
+            "thresholds": {
+                IMAGE_PIXELS: self.thresholds(IMAGE_PIXELS).to_dict(),
+                GROUND_PLANE_METERS: self.thresholds(GROUND_PLANE_METERS).to_dict(),
+            },
+            "thresholds_note": (
+                "pixel and metre thresholds are configured independently; "
+                "neither is derived from the other"
+            ),
         }

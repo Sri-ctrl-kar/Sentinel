@@ -13,7 +13,15 @@ cares what produced them.
 
 from .config import RiskConfig
 from .explainer import Explainer, format_incident
-from .kinematics import ImageMotion, MotionEstimator, closest_approach
+from .kinematics import (
+    GroundClosestApproach,
+    ImageMotion,
+    MotionEstimator,
+    WorldMotion,
+    closest_approach,
+    ground_closest_approach,
+    ground_separation,
+)
 from .models.risk import (
     FactorScore,
     RiskAssessment,
@@ -28,8 +36,12 @@ __all__ = [
     "Explainer",
     "format_incident",
     "ImageMotion",
+    "WorldMotion",
     "MotionEstimator",
     "closest_approach",
+    "ground_closest_approach",
+    "ground_separation",
+    "GroundClosestApproach",
     "FactorScore",
     "RiskAssessment",
     "RiskReport",

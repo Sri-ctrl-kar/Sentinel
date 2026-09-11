@@ -8,6 +8,7 @@ from .risk import (
     RiskAssessment,
     RiskReport,
     Severity,
+    TimeToRisk,
     severity_for,
 )
 
@@ -19,5 +20,6 @@ __all__ = [
     "RiskReport",
     "Severity",
     "SEVERITIES",
+    "TimeToRisk",
     "severity_for",
 ]
