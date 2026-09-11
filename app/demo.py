@@ -11,6 +11,7 @@ used as a smoke test of the whole reasoning stack::
     python -m app.demo
     python -m app.demo --timeline
     python -m app.demo --json
+    python -m app.demo --calibrated     # adds ground-plane measurements (M0.4)
 """
 
 from __future__ import annotations
@@ -25,7 +26,14 @@ from .events.generator import EventGenerator
 from .memory import TemporalEventMemory
 from .perception.trackers.byte_iou import ByteIoUTracker
 from .perception.types import Detection
+from .calibration import GroundPlaneCalibration
+from .calibration.examples import perspective_calibration, warehouse_calibration
 from .reasoning import Explainer, RiskConfig, RiskEngine
+from .reasoning.kinematics import (
+    MotionEstimator,
+    ground_closest_approach,
+    ground_separation,
+)
 from .reasoning.models.risk import RiskReport
 from .spatial import Zone, ZoneSet
 
@@ -117,7 +125,11 @@ def warehouse_config() -> RiskConfig:
 ALERT_SEVERITY = "high"
 
 
-def run_demo(at: Optional[float] = None, step: float = 0.1) -> RiskReport:
+def run_demo(
+    at: Optional[float] = None,
+    step: float = 0.1,
+    calibration: Optional[GroundPlaneCalibration] = None,
+) -> RiskReport:
     """Build the scene and assess it.
 
     With no explicit ``at``, returns the report for the **first moment the
@@ -129,7 +141,7 @@ def run_demo(at: Optional[float] = None, step: float = 0.1) -> RiskReport:
     Falls back to the last moment in memory if nothing ever crosses the bar.
     """
     memory = build_warehouse_memory()
-    engine = RiskEngine(warehouse_config())
+    engine = RiskEngine(warehouse_config(), calibration=calibration)
     if at is not None:
         return engine.assess(memory, at=at)
 
@@ -164,6 +176,96 @@ def _risk_timeline(step: float = 0.3) -> List[str]:
     return lines
 
 
+def calibration_report() -> List[str]:
+    """Demonstrate image -> ground-plane mapping on the demo scene.
+
+    Every number below comes from the synthetic calibration in
+    ``app/calibration/examples.py``. It is a mathematical example: no camera
+    was involved and nothing here evidences real-world measurement accuracy.
+    """
+    calibration = warehouse_calibration()
+    memory = build_warehouse_memory()
+    estimator = MotionEstimator(calibration=calibration)
+    at = 0.9  # the moment the demo raises its alert
+
+    lines = [
+        "GROUND-PLANE CALIBRATION (M0.4)",
+        "-------------------------------",
+        f"  calibration    : {calibration.name} ({calibration.quality.point_count} points)",
+        f"  source space   : {calibration.source_space}",
+        f"  target space   : {calibration.coordinate_space}",
+        "  SYNTHETIC EXAMPLE — no camera, no survey, no accuracy claim.",
+        "",
+        "  Image rectangle      -> World rectangle",
+        "    (100,100) (900,100) -> (0,0) (20,0)",
+        "    (900,500) (100,500) -> (20,10) (0,10)",
+        "",
+    ]
+
+    motions = {}
+    for entity_id in memory.entities():
+        history = [e for e in memory.entity_history(entity_id) if e.timestamp <= at]
+        motion = estimator.estimate(history, at, entity_id)
+        if motion is not None and motion.world is not None:
+            motions[entity_id] = motion
+
+    lines.append(f"  Entities at t={at:.2f}s:")
+    lines.append(
+        f"    {'entity':<12} {'image px':>16} {'ground m':>16} {'speed':>12}  in region"
+    )
+    for entity_id, motion in motions.items():
+        world = motion.world
+        image = f"({motion.position_px[0]:.0f},{motion.position_px[1]:.0f})"
+        ground = f"({world.position_m[0]:.2f},{world.position_m[1]:.2f})"
+        lines.append(
+            f"    {entity_id:<12} {image:>16} {ground:>16} "
+            f"{world.speed_m_per_s:>8.2f} m/s  {world.in_calibrated_region}"
+        )
+
+    ids = list(motions)
+    if len(ids) >= 2:
+        a, b = motions[ids[0]], motions[ids[1]]
+        separation = ground_separation(a, b)
+        approach = ground_closest_approach(a, b)
+        lines.append("")
+        lines.append("  Pairwise, on the ground plane:")
+        lines.append(f"    separation        : {separation:.2f} m")
+        if approach is not None:
+            lines.append(
+                f"    closing speed     : {approach.closing_speed_m_per_s:.2f} m/s"
+            )
+            lines.append(
+                f"    closest approach  : {approach.distance_m:.2f} m "
+                f"in {approach.seconds_to_closest_approach:.2f} s"
+            )
+        lines.append(
+            f"    image separation  : "
+            f"{((a.position_px[0]-b.position_px[0])**2 + (a.position_px[1]-b.position_px[1])**2)**0.5:.0f} px"
+            "   (the same gap, in the other space)"
+        )
+
+    lines.append("")
+    lines.append("  Why pixels are not enough — a perspective view of a floor:")
+    perspective = perspective_calibration()
+    for y, label in ((480, "near camera"), (170, "far from camera")):
+        left = perspective.image_to_world((400, y))
+        right = perspective.image_to_world((500, y))
+        lines.append(
+            f"    100 px at image y={y:<4} ({label:<15}) = "
+            f"{left.distance_to(right):.2f} m on the floor"
+        )
+    lines.append(
+        "    One pixel threshold cannot be correct at both depths. That is the"
+    )
+    lines.append("    limitation this milestone removes for on-plane points.")
+
+    lines.append("")
+    lines.append("  Calibration limitations:")
+    for note in calibration.limitations():
+        lines.append(f"    - {note}")
+    return lines
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="sentinel-demo",
@@ -186,12 +288,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--json", action="store_true", help="Emit the report as JSON instead of text"
     )
+    parser.add_argument(
+        "--calibrated",
+        action="store_true",
+        help="Show ground-plane (metre) measurements from the synthetic calibration",
+    )
     return parser
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = build_parser().parse_args(argv)
-    report = run_demo(at=args.at)
+    calibration = warehouse_calibration() if args.calibrated else None
+    report = run_demo(at=args.at, calibration=calibration)
 
     if args.json:
         print(json.dumps(report.to_dict(), indent=2))
@@ -199,6 +307,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     explainer = Explainer()
     print(explainer.explain_report(report, limit=None if args.all else 1))
+
+    if args.calibrated:
+        print()
+        print("\n".join(calibration_report()))
 
     if args.timeline:
         print()

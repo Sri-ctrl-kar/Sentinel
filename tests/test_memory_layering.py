@@ -98,6 +98,57 @@ def test_event_layer_has_no_model_specific_imports(path):
         )
 
 
+# ---------------------------------------------------------------------------
+# The calibration layer sits between memory and reasoning (M0.4)
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("path", list(module_files("calibration", recursive=True)))
+def test_calibration_layer_has_no_model_specific_imports(path):
+    for name in imported_names(path):
+        root = name.lstrip(".").split(".")[0]
+        assert root not in MODEL_SPECIFIC, (
+            f"{os.path.relpath(path, ROOT)} imports '{name}'. Calibration is "
+            f"consumed by the reasoning layer, which must load no model runtime "
+            f"— the homography solver is pure Python for this reason."
+        )
+
+
+@pytest.mark.parametrize("path", list(module_files("calibration", recursive=True)))
+def test_calibration_layer_does_not_import_perception_or_memory(path):
+    for name in imported_names(path):
+        assert "perception" not in name, (
+            f"{os.path.relpath(path, ROOT)} imports '{name}'. Calibration "
+            f"converts coordinates; it must not know what produced them."
+        )
+        assert "memory" not in name, (
+            f"{os.path.relpath(path, ROOT)} imports '{name}'. Calibration is a "
+            f"transform, not a store."
+        )
+
+
+def test_calibration_logic_stays_out_of_perception_and_memory():
+    """The transform must not leak into the layers that feed it."""
+    for package in ("perception", "memory", "events"):
+        for path in module_files(package, recursive=True):
+            for name in imported_names(path):
+                assert "calibration" not in name, (
+                    f"{os.path.relpath(path, ROOT)} imports '{name}'. "
+                    f"Calibration belongs between memory and reasoning."
+                )
+
+
+def test_importing_calibration_does_not_drag_in_a_model_runtime():
+    code = (
+        "import sys; import app.calibration; "
+        f"loaded=[m for m in {MODEL_SPECIFIC!r} if m in sys.modules]; "
+        "print(','.join(loaded))"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == ""
+
+
 def test_spatial_module_is_dependency_free():
     path = os.path.join(ROOT, "app", "spatial.py")
     for name in imported_names(path):

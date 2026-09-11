@@ -27,10 +27,23 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-#: The only coordinate space Sentinel currently understands. Recorded on every
-#: event and zone so that a future world-space representation is an explicit,
-#: greppable migration rather than a silent unit change.
+#: Raw image space: pixels, origin top-left of the decoded frame. Everything
+#: perception produces lives here, and it is the only space available without
+#: a calibration.
 IMAGE_PIXELS = "image_pixels"
+
+#: Metric ground-plane space, produced by :mod:`app.calibration` from a
+#: homography. Coordinates are metres on the floor plane. This name exists so
+#: that a metric measurement can never be mistaken for a pixel one: a value is
+#: only in metres if the thing carrying it says ``ground_plane_meters``.
+GROUND_PLANE_METERS = "ground_plane_meters"
+
+#: The world unit M0.4 supports. Calibration explicitly refuses anything else
+#: rather than silently relabelling unknown units as metres.
+UNIT_METERS = "meters"
+
+#: Every coordinate space Sentinel understands.
+COORDINATE_SPACES = (IMAGE_PIXELS, GROUND_PLANE_METERS)
 
 Point = Tuple[float, float]
 Box = Tuple[float, float, float, float]  # (x1, y1, x2, y2)
@@ -66,9 +79,71 @@ def anchor_point(box: Sequence[float], anchor: str = ANCHOR_BOTTOM_CENTER) -> Po
     raise ValueError(f"Unknown anchor '{anchor}'. Expected one of {ANCHORS}")
 
 
-def pixel_distance(a: Sequence[float], b: Sequence[float]) -> float:
-    """Euclidean distance **in pixels**. See the module docstring."""
+def euclidean_distance(a: Sequence[float], b: Sequence[float]) -> float:
+    """Euclidean distance between two 2D points, in whatever units they carry.
+
+    Unit-agnostic on purpose: the caller knows which coordinate space its
+    points are in, and the named wrappers below make that explicit at the call
+    site so no result is ever ambiguous.
+    """
     return ((float(a[0]) - float(b[0])) ** 2 + (float(a[1]) - float(b[1])) ** 2) ** 0.5
+
+
+def pixel_distance(a: Sequence[float], b: Sequence[float]) -> float:
+    """Euclidean distance **in image pixels**. See the module docstring."""
+    return euclidean_distance(a, b)
+
+
+def ground_distance(a: Sequence[float], b: Sequence[float]) -> float:
+    """Euclidean distance **in ground-plane metres**.
+
+    Only meaningful for points produced by a
+    :class:`~app.calibration.planar.GroundPlaneCalibration`. Passing pixel
+    coordinates here produces a number that is wrong in a way nothing can
+    detect, which is exactly why the two wrappers are named differently.
+    """
+    return euclidean_distance(a, b)
+
+
+def convex_hull(points: Sequence[Point]) -> List[Point]:
+    """Convex hull of a point set, counter-clockwise (monotone chain).
+
+    Used to describe the region a calibration was actually fitted over, so a
+    mapped point can be reported as inside it or extrapolated beyond it.
+    """
+    unique = sorted({(float(x), float(y)) for x, y in points})
+    if len(unique) <= 2:
+        return list(unique)
+
+    def half(source):
+        built: List[Point] = []
+        for point in source:
+            while len(built) >= 2 and _cross(built[-2], built[-1], point) <= 0:
+                built.pop()
+            built.append(point)
+        return built[:-1]
+
+    return half(unique) + half(list(reversed(unique)))
+
+
+def _cross(o: Point, a: Point, b: Point) -> float:
+    return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+
+def triangle_sine(a: Point, b: Point, c: Point) -> float:
+    """``|sin|`` of the angle at ``a`` between ``ab`` and ``ac``, in ``[0, 1]``.
+
+    A scale-free collinearity measure: 0 means the three points lie on a line.
+    Scale-free matters because the same three points must read as equally
+    collinear whether they are metres or pixels apart.
+    """
+    abx, aby = b[0] - a[0], b[1] - a[1]
+    acx, acy = c[0] - a[0], c[1] - a[1]
+    ab = (abx * abx + aby * aby) ** 0.5
+    ac = (acx * acx + acy * acy) ** 0.5
+    if ab <= 0 or ac <= 0:
+        return 0.0
+    return abs(abx * acy - aby * acx) / (ab * ac)
 
 
 @dataclass(frozen=True)

@@ -31,14 +31,23 @@ no randomness, no learned model and no wall-clock dependence.
 
 Units
 -----
-Every distance is image pixels and every velocity is pixels per second. Times
-are real seconds. See :mod:`app.spatial` and :mod:`app.reasoning.kinematics`.
+**Scoring is image-space.** Every threshold, distance and velocity used to
+compute a risk score is in pixels and pixels per second. Times are real
+seconds. See :mod:`app.spatial` and :mod:`app.reasoning.kinematics`.
+
+When a :class:`~app.calibration.planar.GroundPlaneCalibration` is supplied,
+each assessment additionally *reports* ground-plane measurements in metres
+under ``details["ground_plane"]``. Those are observations, not inputs: the
+score is identical with and without a calibration. Migrating the thresholds
+themselves to metres is M0.5 work, and doing it silently here would change
+every tuned value in the config under the same name.
 """
 
 from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
+from ..calibration.planar import GroundPlaneCalibration
 from ..events.schema import Event
 from ..memory.temporal import TemporalEventMemory
 from ..spatial import IMAGE_PIXELS
@@ -54,7 +63,12 @@ from .factors import (
     ZoneFactor,
 )
 from .factors.base import CANDIDATE_ENTITY, CANDIDATE_PAIR
-from .kinematics import ImageMotion, MotionEstimator
+from .kinematics import (
+    ImageMotion,
+    MotionEstimator,
+    ground_closest_approach,
+    ground_separation,
+)
 from .models.risk import (
     INCIDENT_CLOSE_PROXIMITY,
     INCIDENT_CONVERGING_TRAJECTORIES,
@@ -115,9 +129,13 @@ class RiskEngine:
         motion_estimator: Optional[MotionEstimator] = None,
         factors: Optional[Sequence[Any]] = None,
         meta_factors: Optional[Sequence[Any]] = None,
+        calibration: Optional[GroundPlaneCalibration] = None,
     ) -> None:
         self.config = config or RiskConfig()
-        self.motion_estimator = motion_estimator or MotionEstimator()
+        self.calibration = calibration
+        self.motion_estimator = motion_estimator or MotionEstimator(
+            calibration=calibration
+        )
         # Base factors contribute points; meta factors read their results.
         self.factors = list(
             factors
@@ -167,6 +185,10 @@ class RiskEngine:
                 "entities_considered": sorted(motions),
                 "candidates_evaluated": len(
                     self._candidates(memory, at, motions)
+                ),
+                "scoring_coordinate_space": IMAGE_PIXELS,
+                "calibration": (
+                    self.calibration.metadata() if self.calibration else None
                 ),
             },
         )
@@ -292,6 +314,7 @@ class RiskEngine:
         all_scores = scores + meta_scores
 
         incident_type = self._incident_type(risk_score, scores, meta_scores)
+        ground = self._ground_plane_details(candidate, motions)
         return RiskAssessment(
             risk_score=round(risk_score, 2),
             severity=severity_for(risk_score),
@@ -323,8 +346,54 @@ class RiskEngine:
                     for eid in candidate.entity_ids
                     if eid in motions
                 },
+                **({"ground_plane": ground} if ground else {}),
             },
         )
+
+    def _ground_plane_details(
+        self, candidate: RiskCandidate, motions: Dict[str, ImageMotion]
+    ) -> Optional[Dict[str, Any]]:
+        """Metric measurements for this candidate, when a calibration exists.
+
+        Reported alongside the score, never fed into it. A reader gets "these
+        two are 2.4 m apart" as well as the pixel-based verdict, and the two
+        cannot be confused because every key names its unit.
+        """
+        if self.calibration is None or not candidate.is_pair:
+            return None
+        primary = motions.get(candidate.primary)
+        secondary = motions.get(candidate.secondary or "")
+        if primary is None or secondary is None:
+            return None
+        if primary.world is None or secondary.world is None:
+            return None
+
+        details: Dict[str, Any] = {
+            "coordinate_space": primary.world.coordinate_space,
+            "units": primary.world.units,
+            "note": "reported only; risk scoring remains image-space at M0.4",
+            "positions_m": {
+                candidate.primary: [round(v, 3) for v in primary.world.position_m],
+                candidate.secondary: [
+                    round(v, 3) for v in secondary.world.position_m
+                ],
+            },
+            "speeds_m_per_s": {
+                candidate.primary: round(primary.world.speed_m_per_s, 3),
+                candidate.secondary: round(secondary.world.speed_m_per_s, 3),
+            },
+            "in_calibrated_region": (
+                primary.world.in_calibrated_region
+                and secondary.world.in_calibrated_region
+            ),
+        }
+        separation = ground_separation(primary, secondary)
+        if separation is not None:
+            details["separation_m"] = round(separation, 3)
+        approach = ground_closest_approach(primary, secondary)
+        if approach is not None:
+            details["closest_approach"] = approach.to_dict()
+        return details
 
     def _confidence(self, scores: Sequence[FactorScore]) -> float:
         """Confidence in the assessment, in ``[0, 1]``.

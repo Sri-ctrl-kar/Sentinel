@@ -92,3 +92,55 @@ def test_demo_cli_all_shows_every_assessment(capsys):
     main([])
     just_top = capsys.readouterr().out
     assert len(everything) >= len(just_top)
+
+
+# ---------------------------------------------------------------------------
+# M0.4: calibrated demo mode
+# ---------------------------------------------------------------------------
+def test_calibration_report_maps_both_entities_to_the_ground_plane():
+    from app.demo import calibration_report
+
+    text = "\n".join(calibration_report())
+    assert "GROUND-PLANE CALIBRATION" in text
+    assert "person_1" in text and "forklift_2" in text
+    assert "ground_plane_meters" in text
+    assert "separation" in text and "closing speed" in text
+
+
+def test_calibration_report_declares_itself_synthetic():
+    from app.demo import calibration_report
+
+    text = "\n".join(calibration_report())
+    assert "SYNTHETIC EXAMPLE" in text
+    assert "no accuracy claim" in text
+    assert "Calibration limitations" in text
+
+
+def test_calibration_report_is_deterministic():
+    from app.demo import calibration_report
+
+    assert calibration_report() == calibration_report()
+
+
+def test_demo_cli_calibrated_mode(capsys):
+    assert main(["--calibrated"]) == 0
+    output = capsys.readouterr().out
+    assert "SENTINEL INCIDENT ANALYSIS" in output
+    assert "GROUND-PLANE CALIBRATION" in output
+    assert "m/s" in output
+
+
+def test_demo_without_calibration_shows_no_metric_block(capsys):
+    assert main([]) == 0
+    output = capsys.readouterr().out
+    assert "GROUND-PLANE CALIBRATION" not in output
+    assert "image_pixels" in output
+
+
+def test_calibrated_demo_does_not_change_the_risk_score():
+    from app.calibration.examples import warehouse_calibration
+
+    plain = run_demo()
+    calibrated = run_demo(calibration=warehouse_calibration())
+    assert plain.max_score == calibrated.max_score
+    assert plain.timestamp == calibrated.timestamp
