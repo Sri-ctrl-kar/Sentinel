@@ -13,8 +13,15 @@ be confidently wrong, and it is deliberately the most conservative:
 * It refuses to score beyond ``prediction_horizon_seconds`` — constant-velocity
   extrapolation over long horizons is not credible.
 
-Everything here is image-space. A "closest approach of 40px" is 40 pixels in
-the frame, not 40 centimetres on the floor.
+Works in whichever space the candidate is scored in. A "closest approach of
+40px" is 40 pixels in the frame; a "closest approach of 1.2 m" is 1.2 metres on
+the calibrated floor. The two are never mixed, and the thresholds come from the
+active :class:`~app.reasoning.config.SpatialThresholds`.
+
+The factor deliberately does not say "collision". It has no object extents and
+no model of what the entities would do on seeing each other; it reports that
+predicted paths converge inside a conflict radius. See
+:mod:`app.reasoning.prediction` for the vocabulary.
 """
 
 from __future__ import annotations
@@ -32,8 +39,8 @@ class TrajectoryFactor(RiskFactor):
     time ``t`` until it happens. Two independent terms are multiplied:
 
     ``spatial``
-        1.0 when the predicted miss distance is at or inside
-        ``conflict_radius_px``, falling to 0.0 at ``trajectory_miss_radius_px``.
+        1.0 when the predicted miss distance is at or inside the conflict
+        radius, falling to 0.0 at the miss radius.
 
     ``temporal``
         1.0 for an immediate conflict, falling linearly to 0.0 at
@@ -52,8 +59,8 @@ class TrajectoryFactor(RiskFactor):
     name = "trajectory"
 
     def evaluate(self, context: RiskContext) -> FactorScore:
-        approach = context.approach()
-        if approach is None:
+        geometry = context.geometry()
+        if geometry is None:
             return self._inactive(
                 context, "no pair to measure: trajectory needs two observed entities"
             )
@@ -61,9 +68,10 @@ class TrajectoryFactor(RiskFactor):
         primary = context.primary_motion
         secondary = context.secondary_motion
         config = context.config
+        thresholds = context.thresholds
 
         # --- refusal 1: not enough history to have a heading at all --------
-        if not approach.is_estimable:
+        if not geometry.is_estimable:
             missing = [
                 m.entity_id
                 for m in (primary, secondary)
@@ -82,35 +90,45 @@ class TrajectoryFactor(RiskFactor):
             )
 
         # --- refusal 2: nothing is actually moving -------------------------
-        if primary.is_stationary and secondary.is_stationary:
+        if _both_stationary(context, primary, secondary):
             return self._inactive(
                 context,
-                "both entities are stationary in image space; "
+                f"both entities are stationary in {context.coordinate_space}; "
                 "no trajectory risk",
                 both_stationary=True,
-                primary_speed_px_per_s=round(primary.speed_px_per_s, 2),
-                secondary_speed_px_per_s=round(secondary.speed_px_per_s, 2),
+                **{
+                    thresholds.speed_key("primary_speed"): round(
+                        _speed(context, primary), 3
+                    ),
+                    thresholds.speed_key("secondary_speed"): round(
+                        _speed(context, secondary), 3
+                    ),
+                },
             )
 
         # --- refusal 3: already separating ---------------------------------
-        if not approach.is_converging:
+        if not geometry.is_converging:
             return self._score(
                 context,
                 0.0,
                 f"closest approach is in the past; {primary.entity_id} and "
                 f"{secondary.entity_id} are moving apart",
                 confidence=min(primary.confidence, secondary.confidence),
-                closing_speed_px_per_s=round(approach.closing_speed_px_per_s, 2),
                 is_converging=False,
+                **{
+                    thresholds.speed_key("closing_speed"): round(
+                        geometry.closing_speed, 3
+                    )
+                },
             )
 
-        miss_distance = approach.distance_px
-        seconds_ahead = approach.seconds_to_closest_approach
+        miss_distance = geometry.closest_approach_distance
+        seconds_ahead = geometry.seconds_to_closest_approach
 
         spatial = linear_falloff(
             miss_distance,
-            full_at=config.conflict_radius_px,
-            zero_at=config.trajectory_miss_radius_px,
+            full_at=thresholds.conflict_radius,
+            zero_at=thresholds.miss_radius,
         )
         temporal = linear_falloff(
             seconds_ahead,
@@ -119,10 +137,12 @@ class TrajectoryFactor(RiskFactor):
         )
         score = spatial * temporal
 
+        space_label = "ground-plane" if context.is_world_space else "image-space"
         if spatial <= 0.0:
             rationale = (
-                f"trajectories converge but miss by {miss_distance:.0f}px "
-                f"(beyond the {config.trajectory_miss_radius_px:.0f}px conflict window)"
+                f"trajectories converge but miss by "
+                f"{thresholds.format_distance(miss_distance)} (beyond the "
+                f"{thresholds.format_distance(thresholds.miss_radius)} conflict window)"
             )
         elif temporal <= 0.0:
             rationale = (
@@ -131,8 +151,8 @@ class TrajectoryFactor(RiskFactor):
             )
         else:
             rationale = (
-                f"image-space trajectories converge to {miss_distance:.0f}px "
-                f"in {seconds_ahead:.1f}s"
+                f"{space_label} trajectories converge to "
+                f"{thresholds.format_distance(miss_distance)} in {seconds_ahead:.1f}s"
             )
 
         confidence = min(primary.confidence, secondary.confidence)
@@ -145,16 +165,22 @@ class TrajectoryFactor(RiskFactor):
             rationale,
             confidence=confidence,
             evidence_event_ids=evidence,
-            closest_approach_distance_px=round(miss_distance, 2),
             seconds_to_closest_approach=round(seconds_ahead, 3),
             spatial_term=round(spatial, 4),
             temporal_term=round(temporal, 4),
-            conflict_radius_px=config.conflict_radius_px,
             prediction_horizon_seconds=config.prediction_horizon_seconds,
-            primary_velocity_px_per_s=[round(v, 2) for v in primary.velocity_px_per_s],
-            secondary_velocity_px_per_s=[
-                round(v, 2) for v in secondary.velocity_px_per_s
-            ],
+            **{
+                thresholds.distance_key("closest_approach_distance"): round(
+                    miss_distance, 3
+                ),
+                thresholds.distance_key("conflict_radius"): thresholds.conflict_radius,
+                thresholds.speed_key("primary_velocity"): [
+                    round(v, 3) for v in _velocity(context, primary)
+                ],
+                thresholds.speed_key("secondary_velocity"): [
+                    round(v, 3) for v in _velocity(context, secondary)
+                ],
+            },
         )
 
     # ------------------------------------------------------------------
@@ -166,11 +192,34 @@ class TrajectoryFactor(RiskFactor):
         radius: "they will pass 300px apart in 2 seconds" is not a time to
         incident, it is a time to a near miss.
         """
-        approach = context.approach()
-        if approach is None or not approach.is_estimable or not approach.is_converging:
+        geometry = context.geometry()
+        if geometry is None or not geometry.is_estimable or not geometry.is_converging:
             return None
-        if approach.distance_px > context.config.conflict_radius_px:
+        thresholds = context.thresholds
+        if geometry.closest_approach_distance > thresholds.conflict_radius:
             return None
-        if approach.seconds_to_closest_approach > context.config.prediction_horizon_seconds:
+        if (
+            geometry.seconds_to_closest_approach
+            > context.config.prediction_horizon_seconds
+        ):
             return None
-        return approach.seconds_to_closest_approach
+        return geometry.seconds_to_closest_approach
+
+
+def _velocity(context: RiskContext, motion):
+    """Velocity in the active coordinate space."""
+    if context.is_world_space and motion.world is not None:
+        return motion.world.velocity_m_per_s
+    return motion.velocity_px_per_s
+
+
+def _speed(context: RiskContext, motion) -> float:
+    if context.is_world_space and motion.world is not None:
+        return motion.world.speed_m_per_s
+    return motion.speed_px_per_s
+
+
+def _both_stationary(context: RiskContext, primary, secondary) -> bool:
+    if context.is_world_space and primary.world and secondary.world:
+        return primary.world.is_stationary and secondary.world.is_stationary
+    return primary.is_stationary and secondary.is_stationary

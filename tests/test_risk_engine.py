@@ -371,7 +371,9 @@ def test_explainer_renders_the_expected_sections():
     assert "person_1" in text and "forklift_2" in text
     assert "Evidence:" in text
     assert "Recommended intervention:" in text
-    assert "Predicted time-to-risk:" in text
+    assert "Time-to-risk:" in text
+    assert "Coordinate space:" in text
+    assert "Prediction:" in text
 
 
 def test_explainer_states_the_coordinate_space():
@@ -398,7 +400,9 @@ def test_explainer_says_when_it_cannot_predict():
     scenario.config.report_threshold = 0.0
     assessment = RiskEngine(scenario.config).assess(scenario.memory, at=scenario.at).top
     text = Explainer().explain(assessment)
-    assert "not predictable" in text
+    assert "PREDICTION_UNAVAILABLE" in text
+    assert "insufficient_history" in text
+    assert "Time-to-risk: none" in text
 
 
 def test_explainer_handles_an_empty_report():

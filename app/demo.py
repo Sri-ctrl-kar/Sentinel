@@ -12,6 +12,7 @@ used as a smoke test of the whole reasoning stack::
     python -m app.demo --timeline
     python -m app.demo --json
     python -m app.demo --calibrated     # adds ground-plane measurements (M0.4)
+    python -m app.demo --world          # world-space prediction and escalation (M0.5)
 """
 
 from __future__ import annotations
@@ -266,6 +267,85 @@ def calibration_report() -> List[str]:
     return lines
 
 
+def world_prediction_report() -> List[str]:
+    """Show a situation developing on the calibrated ground plane.
+
+    Walks the "worker enters the forklift bay while the forklift approaches"
+    scenario frame by frame, printing the four things that matter at each step:
+    the current state, what the constant-velocity predictor expects, how long
+    until the unsafe-separation threshold is crossed, and how the risk score
+    escalates as evidence accumulates.
+
+    Every number is metres or seconds on a synthetic calibration. It is a
+    mathematical example; no camera was involved.
+    """
+    from .scenarios import load_world
+
+    scenario = load_world("D")
+    engine = RiskEngine(scenario.config, calibration=scenario.calibration)
+    thresholds = scenario.config.thresholds("ground_plane_meters")
+
+    lines = [
+        "WORLD-SPACE PREDICTIVE RISK (M0.5)",
+        "----------------------------------",
+        f"  scenario       : {scenario.description}",
+        f"  coordinate space: ground_plane_meters",
+        f"  unsafe separation threshold: "
+        f"{thresholds.unsafe_separation:.1f} m",
+        "  SYNTHETIC EXAMPLE — no camera, no survey, no accuracy claim.",
+        "",
+        f"  {'time':>5}  {'sep':>7}  {'closing':>9}  {'min sep':>8}  "
+        f"{'t-to-risk':>10}  {'risk':>5}  severity   prediction",
+        "  " + "-" * 94,
+    ]
+
+    for report in engine.assess_timeline(scenario.memory, step=0.2):
+        pairs = [a for a in report.assessments if len(a.involved_entity_ids) == 2]
+        if not pairs:
+            lines.append(f"  {report.timestamp:5.2f}  {'-':>7}")
+            continue
+        assessment = max(pairs, key=lambda a: a.risk_score)
+        prediction = assessment.details.get("prediction", {}) or {}
+        ttr = assessment.time_to_risk
+
+        separation = prediction.get("current_separation_m")
+        closing = prediction.get("closing_speed_m_per_s")
+        minimum = prediction.get("minimum_separation_m")
+        if ttr is None:
+            ttr_text = "-"
+        elif ttr.status == "already_unsafe":
+            ttr_text = "NOW"
+        elif ttr.seconds is not None:
+            ttr_text = f"{ttr.seconds:.2f}s"
+        else:
+            ttr_text = "-"
+
+        lines.append(
+            f"  {report.timestamp:5.2f}  "
+            f"{_fmt_m(separation):>7}  {_fmt_ms(closing):>9}  "
+            f"{_fmt_m(minimum):>8}  {ttr_text:>10}  "
+            f"{assessment.risk_score:5.1f}  {assessment.severity:<9}  "
+            f"{assessment.prediction_outcome}"
+        )
+
+    lines.append("")
+    lines.append("  Reading the table: separation shrinks, the predictor reports a")
+    lines.append("  trajectory conflict before the pair is anywhere near each other,")
+    lines.append("  time-to-risk counts down to the threshold crossing, and the risk")
+    lines.append("  score escalates as independent factors start to agree.")
+    lines.append("")
+    lines.append("  The risk score is an ordinal 0-100 ranking, NOT a probability.")
+    return lines
+
+
+def _fmt_m(value: Optional[float]) -> str:
+    return "-" if value is None else f"{value:.2f}m"
+
+
+def _fmt_ms(value: Optional[float]) -> str:
+    return "-" if value is None else f"{value:+.2f}m/s"
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="sentinel-demo",
@@ -293,6 +373,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Show ground-plane (metre) measurements from the synthetic calibration",
     )
+    parser.add_argument(
+        "--world",
+        action="store_true",
+        help="Show world-space prediction, time-to-risk and risk escalation (M0.5)",
+    )
+    parser.add_argument(
+        "--evaluate",
+        action="store_true",
+        help="Run the full predictive evaluation harness",
+    )
     return parser
 
 
@@ -311,6 +401,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.calibrated:
         print()
         print("\n".join(calibration_report()))
+
+    if args.world:
+        print()
+        print("\n".join(world_prediction_report()))
+
+    if args.evaluate:
+        from .evaluation import ScenarioEvaluator
+
+        print()
+        print(ScenarioEvaluator().evaluate_all().to_table())
 
     if args.timeline:
         print()

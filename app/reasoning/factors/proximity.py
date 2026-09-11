@@ -5,12 +5,15 @@ how fast it is shrinking. Kept in one module because they share the same
 measurement — the image-plane separation — and differ only in whether they look
 at its value or its derivative.
 
-All distances are image pixels; all speeds are pixels per second.
+Both work in whichever coordinate space the candidate is being scored in:
+image pixels for an uncalibrated camera, ground-plane metres when a calibration
+supplied world positions. The formula is identical; only the thresholds and the
+unit labels differ, and those come from the active
+:class:`~app.reasoning.config.SpatialThresholds`.
 """
 
 from __future__ import annotations
 
-from ...spatial import pixel_distance
 from ..models.risk import FactorScore
 from .base import RiskContext, RiskFactor, linear_falloff
 
@@ -20,8 +23,7 @@ class ProximityFactor(RiskFactor):
 
     Scoring
     -------
-    Linear from 0.0 at ``interaction_radius_px`` to 1.0 at
-    ``critical_radius_px``::
+    Linear from 0.0 at the interaction radius to 1.0 at the critical radius::
 
         score = clamp01((interaction_radius - separation) /
                         (interaction_radius - critical_radius))
@@ -45,25 +47,34 @@ class ProximityFactor(RiskFactor):
             return self._inactive(
                 context, "no pair to measure: proximity needs two observed entities"
             )
+        geometry = context.geometry()
+        if geometry is None:
+            return self._inactive(
+                context,
+                f"separation is not measurable in {context.coordinate_space}",
+            )
 
-        config = context.config
-        separation = pixel_distance(primary.position_px, secondary.position_px)
+        thresholds = context.thresholds
+        separation = geometry.separation
         score = linear_falloff(
             separation,
-            full_at=config.critical_radius_px,
-            zero_at=config.interaction_radius_px,
+            full_at=thresholds.critical_radius,
+            zero_at=thresholds.interaction_radius,
         )
 
+        space_label = "on the ground plane" if context.is_world_space else "in image space"
         if score <= 0.0:
             rationale = (
-                f"separation {separation:.0f}px is beyond the "
-                f"{config.interaction_radius_px:.0f}px interaction radius"
+                f"separation {thresholds.format_distance(separation)} is beyond the "
+                f"{thresholds.format_distance(thresholds.interaction_radius)} "
+                "interaction radius"
             )
         else:
             rationale = (
                 f"{primary.entity_id} and {secondary.entity_id} are "
-                f"{separation:.0f}px apart in image space "
-                f"(critical below {config.critical_radius_px:.0f}px)"
+                f"{thresholds.format_distance(separation)} apart {space_label} "
+                f"(critical below "
+                f"{thresholds.format_distance(thresholds.critical_radius)})"
             )
 
         # Confidence here is about *observation*, not prediction: a current
@@ -77,9 +88,11 @@ class ProximityFactor(RiskFactor):
             rationale,
             confidence=confidence,
             evidence_event_ids=evidence,
-            separation_px=round(separation, 2),
-            interaction_radius_px=config.interaction_radius_px,
-            critical_radius_px=config.critical_radius_px,
+            **{
+                thresholds.distance_key("separation"): round(separation, 3),
+                thresholds.distance_key("interaction_radius"): thresholds.interaction_radius,
+                thresholds.distance_key("critical_radius"): thresholds.critical_radius,
+            },
         )
 
 
@@ -88,10 +101,10 @@ class ClosingSpeedFactor(RiskFactor):
 
     Scoring
     -------
-    ``closing_speed`` is the radial component of relative image velocity —
-    positive when the gap is closing, negative when it is opening. It is taken
-    from the same closest-approach solution the trajectory factor uses, so the
-    two can never disagree about which way things are moving.
+    ``closing_speed`` is the radial component of relative velocity — positive
+    when the gap is closing, negative when it is opening. It is taken from the
+    same closest-approach solution the trajectory factor uses, so the two can
+    never disagree about which way things are moving.
 
     ::
 
@@ -105,41 +118,47 @@ class ClosingSpeedFactor(RiskFactor):
     name = "closing_speed"
 
     def evaluate(self, context: RiskContext) -> FactorScore:
-        approach = context.approach()
-        if approach is None:
+        geometry = context.geometry()
+        if geometry is None:
             return self._inactive(
                 context, "no pair to measure: closing speed needs two observed entities"
             )
 
+        thresholds = context.thresholds
         primary = context.primary_motion
         secondary = context.secondary_motion
-        if not approach.is_estimable:
+        if not geometry.is_estimable:
             return self._inactive(
                 context,
-                "insufficient history to estimate image velocity; "
+                "insufficient history to estimate velocity; "
                 "closing speed not computed",
-                separation_px=round(approach.current_separation_px, 2),
                 insufficient_history=True,
+                **{
+                    thresholds.distance_key("separation"): round(
+                        geometry.separation, 3
+                    )
+                },
             )
 
-        config = context.config
-        closing = approach.closing_speed_px_per_s
+        closing = geometry.closing_speed
         score = linear_falloff(
             closing,
-            full_at=config.closing_speed_reference_px_per_s,
-            zero_at=config.closing_speed_floor_px_per_s,
+            full_at=thresholds.closing_speed_reference,
+            zero_at=thresholds.closing_speed_floor,
         )
 
-        if closing <= config.closing_speed_floor_px_per_s:
+        space_label = "on the ground plane" if context.is_world_space else "in image space"
+        if closing <= thresholds.closing_speed_floor:
             direction = "separating" if closing < 0 else "holding station"
             rationale = (
                 f"gap is {direction} "
-                f"({closing:+.0f}px/s image-space closing speed)"
+                f"({thresholds.format_speed(closing)} closing speed {space_label})"
             )
         else:
             rationale = (
-                f"separation is shrinking at {closing:.0f}px/s in image space "
-                f"(saturates at {config.closing_speed_reference_px_per_s:.0f}px/s)"
+                f"separation is shrinking at {thresholds.format_speed(closing)} "
+                f"{space_label} (saturates at "
+                f"{thresholds.format_speed(thresholds.closing_speed_reference)})"
             )
 
         confidence = min(
@@ -156,10 +175,12 @@ class ClosingSpeedFactor(RiskFactor):
             rationale,
             confidence=confidence,
             evidence_event_ids=evidence,
-            closing_speed_px_per_s=round(closing, 2),
-            separation_px=round(approach.current_separation_px, 2),
-            reference_px_per_s=config.closing_speed_reference_px_per_s,
-            is_converging=approach.is_converging,
+            is_converging=geometry.is_converging,
+            **{
+                thresholds.speed_key("closing_speed"): round(closing, 3),
+                thresholds.distance_key("separation"): round(geometry.separation, 3),
+                thresholds.speed_key("reference"): thresholds.closing_speed_reference,
+            },
         )
 
 

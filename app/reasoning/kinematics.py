@@ -269,8 +269,14 @@ class MotionEstimator:
         )
 
         if len(window) < self.min_samples or span < self.min_time_span:
-            # Not enough history. Leave velocity at zero, is_estimable False
-            # and confidence 0 — the engine must not predict from this.
+            # Not enough history for a velocity. Leave it at zero with
+            # is_estimable False and confidence 0 — the engine must not predict
+            # from this. The ground *position* is still a projection of an
+            # observation, not a prediction, so it is still produced: that is
+            # what lets an under-observed pair be measured in metres while the
+            # trajectory factor correctly refuses to guess where it is going.
+            if self.calibration is not None:
+                motion.world = self._world_motion(window, motion, at, entity_id)
             return motion
 
         motion.velocity_px_per_s = _least_squares_velocity(window)
@@ -579,6 +585,106 @@ def ground_closest_approach(
         ),
         coordinate_space=a.world.coordinate_space,
         units=a.world.units,
+    )
+
+
+@dataclass
+class SeparationGeometry:
+    """Pair geometry in whichever coordinate space it was measured in.
+
+    A space-neutral view over the same closest-approach solution the typed
+    wrappers use. The risk factors read this so one formula serves both spaces;
+    the unit-suffixed names appear only where values are written out, using the
+    active :class:`~app.reasoning.config.SpatialThresholds`.
+    """
+
+    coordinate_space: str
+    units: str
+    separation: float
+    closing_speed: float
+    closest_approach_distance: float
+    seconds_to_closest_approach: float
+    is_converging: bool
+    is_estimable: bool
+    in_calibrated_region: bool = True
+
+    @property
+    def is_world_space(self) -> bool:
+        return self.coordinate_space == GROUND_PLANE_METERS
+
+
+def separation_geometry(
+    a: ImageMotion, b: ImageMotion, coordinate_space: str
+) -> Optional[SeparationGeometry]:
+    """Pair geometry in ``coordinate_space``, or ``None`` if unavailable.
+
+    Refuses rather than substituting: asking for ground-plane geometry without
+    a calibration returns ``None``, never the pixel numbers wearing metric
+    names.
+    """
+    if coordinate_space == GROUND_PLANE_METERS:
+        if a.world is None or b.world is None:
+            return None
+        solution = _solve_closest_approach(
+            a.world.position_m,
+            a.world.velocity_m_per_s,
+            b.world.position_m,
+            b.world.velocity_m_per_s,
+            estimable=a.world.is_estimable and b.world.is_estimable,
+        )
+        return SeparationGeometry(
+            coordinate_space=GROUND_PLANE_METERS,
+            units=UNIT_METERS,
+            separation=solution.separation,
+            closing_speed=solution.closing_speed,
+            closest_approach_distance=solution.distance,
+            seconds_to_closest_approach=solution.seconds,
+            is_converging=solution.is_converging,
+            is_estimable=solution.is_estimable,
+            in_calibrated_region=(
+                a.world.in_calibrated_region and b.world.in_calibrated_region
+            ),
+        )
+
+    if coordinate_space == IMAGE_PIXELS:
+        solution = _solve_closest_approach(
+            a.position_px,
+            a.velocity_px_per_s,
+            b.position_px,
+            b.velocity_px_per_s,
+            estimable=a.is_estimable and b.is_estimable,
+        )
+        return SeparationGeometry(
+            coordinate_space=IMAGE_PIXELS,
+            units="pixels",
+            separation=solution.separation,
+            closing_speed=solution.closing_speed,
+            closest_approach_distance=solution.distance,
+            seconds_to_closest_approach=solution.seconds,
+            is_converging=solution.is_converging,
+            is_estimable=solution.is_estimable,
+        )
+
+    raise ValueError(f"Unknown coordinate space '{coordinate_space}'")
+
+
+def motion_in_space(motion: ImageMotion, coordinate_space: str):
+    """``(position, velocity, is_estimable, is_stationary)`` in the given space."""
+    if coordinate_space == GROUND_PLANE_METERS:
+        if motion.world is None:
+            return None
+        world = motion.world
+        return (
+            world.position_m,
+            world.velocity_m_per_s,
+            world.is_estimable,
+            world.is_stationary,
+        )
+    return (
+        motion.position_px,
+        motion.velocity_px_per_s,
+        motion.is_estimable,
+        motion.is_stationary,
     )
 
 

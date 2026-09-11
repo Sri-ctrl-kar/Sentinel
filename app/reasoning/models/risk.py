@@ -18,7 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
-from ...spatial import IMAGE_PIXELS
+from ...spatial import GROUND_PLANE_METERS, IMAGE_PIXELS
 
 # ---------------------------------------------------------------------------
 # Severity
@@ -145,6 +145,53 @@ class FactorScore:
 # Assessments
 # ---------------------------------------------------------------------------
 @dataclass
+class TimeToRisk:
+    """When a situation is expected to cross the unsafe-separation threshold.
+
+    Three distinct states, never conflated:
+
+    ``already_unsafe``
+        The threshold is crossed *now*. ``seconds`` is 0.0.
+    ``predicted``
+        Not yet unsafe, but predicted to become so. ``seconds`` is the
+        closed-form crossing time.
+    ``not_predicted``
+        The paths do not reach the threshold within the horizon, or no
+        prediction is mathematically supported. ``seconds`` is ``None`` and
+        ``reason`` says which.
+    """
+
+    status: str
+    seconds: Optional[float] = None
+    reason: Optional[str] = None
+    threshold: Optional[float] = None
+    coordinate_space: str = IMAGE_PIXELS
+    units: str = "pixels"
+
+    STATUS_ALREADY_UNSAFE = "already_unsafe"
+    STATUS_PREDICTED = "predicted"
+    STATUS_NOT_PREDICTED = "not_predicted"
+
+    @property
+    def is_predicted(self) -> bool:
+        return self.status == self.STATUS_PREDICTED
+
+    def to_dict(self) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {
+            "status": self.status,
+            "seconds": round(self.seconds, 3) if self.seconds is not None else None,
+            "coordinate_space": self.coordinate_space,
+            "units": self.units,
+        }
+        if self.reason:
+            payload["reason"] = self.reason
+        if self.threshold is not None:
+            suffix = "m" if self.coordinate_space == GROUND_PLANE_METERS else "px"
+            payload[f"unsafe_separation_threshold_{suffix}"] = round(self.threshold, 3)
+        return payload
+
+
+@dataclass
 class RiskAssessment:
     """A single developing situation, scored and explained."""
 
@@ -155,6 +202,12 @@ class RiskAssessment:
     timestamp: float
     confidence: float = 0.0
     predicted_time_to_incident_seconds: Optional[float] = None
+    #: What the constant-velocity predictor says about this pair.
+    prediction_outcome: Optional[str] = None
+    #: Structured time-to-risk, distinguishing current from predicted.
+    time_to_risk: Optional[TimeToRisk] = None
+    #: Why this assessment is not in the configured space, if it is not.
+    space_fallback_reason: Optional[str] = None
     contributing_factors: List[FactorScore] = field(default_factory=list)
     evidence_event_ids: List[str] = field(default_factory=list)
     recommended_intervention: str = ""
@@ -190,6 +243,9 @@ class RiskAssessment:
                 if self.predicted_time_to_incident_seconds is not None
                 else None
             ),
+            "prediction_outcome": self.prediction_outcome,
+            "time_to_risk": self.time_to_risk.to_dict() if self.time_to_risk else None,
+            "space_fallback_reason": self.space_fallback_reason,
             "contributing_factors": [f.to_dict() for f in self.contributing_factors],
             "evidence_event_ids": list(self.evidence_event_ids),
             "recommended_intervention": self.recommended_intervention,
@@ -239,6 +295,9 @@ class RiskReport:
         return {
             "timestamp": round(self.timestamp, 4),
             "coordinate_space": self.coordinate_space,
+            "score_interpretation": (
+                "0-100 ordinal risk score; NOT a calibrated probability"
+            ),
             "max_risk_score": round(self.max_score, 2),
             "severity": self.severity,
             "assessment_count": len(self.assessments),

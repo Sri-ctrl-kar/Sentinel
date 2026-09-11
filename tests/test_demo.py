@@ -144,3 +144,72 @@ def test_calibrated_demo_does_not_change_the_risk_score():
     calibrated = run_demo(calibration=warehouse_calibration())
     assert plain.max_score == calibrated.max_score
     assert plain.timestamp == calibrated.timestamp
+
+
+# ---------------------------------------------------------------------------
+# M0.5: world-space prediction demo
+# ---------------------------------------------------------------------------
+def test_world_prediction_report_shows_the_escalation():
+    from app.demo import world_prediction_report
+
+    lines = world_prediction_report()
+    text = "\n".join(lines)
+    assert "WORLD-SPACE PREDICTIVE RISK" in text
+    assert "ground_plane_meters" in text
+    assert "PREDICTED_TRAJECTORY_CONFLICT" in text
+    assert "critical" in text
+    assert "NOT a probability" in text
+
+
+def test_world_prediction_report_shows_risk_rising_over_time():
+    """current state -> predicted conflict -> time-to-risk -> escalation."""
+    from app.demo import world_prediction_report
+
+    rows = [l for l in world_prediction_report() if l.startswith("   0.") or l.startswith("   1.")]
+    scores = []
+    for row in rows:
+        parts = row.split()
+        if len(parts) >= 6:
+            try:
+                scores.append(float(parts[5]))
+            except ValueError:
+                continue
+    assert scores
+    assert max(scores) > min(scores), "risk should escalate across the scene"
+
+
+def test_world_prediction_report_is_deterministic():
+    from app.demo import world_prediction_report
+
+    assert world_prediction_report() == world_prediction_report()
+
+
+def test_demo_cli_world_mode(capsys):
+    assert main(["--world"]) == 0
+    output = capsys.readouterr().out
+    assert "WORLD-SPACE PREDICTIVE RISK" in output
+
+
+def test_demo_cli_evaluate_mode(capsys):
+    assert main(["--evaluate"]) == 0
+    output = capsys.readouterr().out
+    assert "SENTINEL PREDICTIVE EVALUATION" in output
+    assert "prediction lead time" in output
+
+
+def test_evaluation_module_cli(capsys):
+    from app.evaluation import main as evaluate_main
+
+    assert evaluate_main([]) == 0
+    assert "SENTINEL PREDICTIVE EVALUATION" in capsys.readouterr().out
+
+
+def test_evaluation_module_cli_json(capsys):
+    import json
+
+    from app.evaluation import main as evaluate_main
+
+    assert evaluate_main(["--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["scenario_count"] == 8
+    assert "metric_caveat" in payload

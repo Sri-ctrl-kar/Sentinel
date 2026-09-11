@@ -8,9 +8,16 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from ...events.schema import Event
 from ...memory.temporal import EntityState, TemporalEventMemory
-from ...spatial import IMAGE_PIXELS, ZoneSet
-from ..config import RiskConfig
-from ..kinematics import ClosestApproach, ImageMotion, closest_approach
+from ...spatial import GROUND_PLANE_METERS, IMAGE_PIXELS, ZoneSet
+from ..config import RiskConfig, SpatialThresholds
+from ..kinematics import (
+    ClosestApproach,
+    ImageMotion,
+    SeparationGeometry,
+    closest_approach,
+    motion_in_space,
+    separation_geometry,
+)
 from ..models.risk import FactorScore
 
 #: Candidate kinds.
@@ -40,9 +47,19 @@ class RiskCandidate:
 class RiskContext:
     """Everything a factor may look at, and nothing more.
 
-    A factor receives events, folded entity state, image-space motion and
-    zone geometry. It has no access to frames, detections, tracks or any model
-    — by construction, not by convention.
+    A factor receives events, folded entity state, motion and zone geometry.
+    It has no access to frames, detections, tracks or any model — by
+    construction, not by convention.
+
+    Coordinate space (M0.5)
+    -----------------------
+    ``coordinate_space`` is the space this candidate is actually being scored
+    in: ``ground_plane_meters`` when a calibration produced world positions for
+    both entities, ``image_pixels`` otherwise. Factors never read a
+    unit-suffixed config field directly; they read :attr:`thresholds`, which
+    returns the set belonging to the active space. That is what lets one
+    formula serve both spaces without any value ever being converted between
+    them.
     """
 
     memory: TemporalEventMemory
@@ -51,10 +68,51 @@ class RiskContext:
     candidate: RiskCandidate
     motions: Dict[str, ImageMotion] = field(default_factory=dict)
     coordinate_space: str = IMAGE_PIXELS
+    #: Why this candidate is not being scored in the configured space, if so.
+    space_fallback_reason: Optional[str] = None
+    #: Constant-velocity prediction for this pair, when one could be made.
+    prediction: Optional[Any] = None
     _approach: Optional[ClosestApproach] = field(default=None, repr=False)
     _approach_computed: bool = field(default=False, repr=False)
+    _geometry: Optional[SeparationGeometry] = field(default=None, repr=False)
+    _geometry_computed: bool = field(default=False, repr=False)
 
     # ------------------------------------------------------------------
+    @property
+    def thresholds(self) -> SpatialThresholds:
+        """Distance and speed thresholds for the active coordinate space."""
+        return self.config.thresholds(self.coordinate_space)
+
+    @property
+    def is_world_space(self) -> bool:
+        return self.coordinate_space == GROUND_PLANE_METERS
+
+    def geometry(self) -> Optional[SeparationGeometry]:
+        """Pair geometry in the active space, cached.
+
+        ``None`` when this candidate is not a pair, or when the active space
+        cannot be measured for it.
+        """
+        if self._geometry_computed:
+            return self._geometry
+        self._geometry_computed = True
+        primary, secondary = self.primary_motion, self.secondary_motion
+        if primary is None or secondary is None:
+            self._geometry = None
+        else:
+            self._geometry = separation_geometry(
+                primary, secondary, self.coordinate_space
+            )
+        return self._geometry
+
+    def position_of(self, entity_id: str):
+        """An entity's position in the active space, or ``None``."""
+        motion = self.motion(entity_id)
+        if motion is None:
+            return None
+        resolved = motion_in_space(motion, self.coordinate_space)
+        return resolved[0] if resolved else None
+
     @property
     def zones(self) -> ZoneSet:
         return self.config.zones or ZoneSet()

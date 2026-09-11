@@ -4,10 +4,11 @@
 
 Sentinel is a multimodal predictive incident-intelligence system.
 
-## Current milestone: M0.4 — Ground-Plane Spatial Calibration
+## Current milestone: M0.5 — World-Space Predictive Risk
 
 ```
-video → detection → tracking → events → temporal memory → calibration → risk assessment → predicted incident
+video → detection → tracking → events → temporal memory → calibration
+      → world-space kinematics → trajectory prediction → risk assessment
 ```
 
 **M0.1** delivered perception: video in, detections tracked with persistent IDs,
@@ -24,16 +25,20 @@ anything has happened.
 
 **M0.4** gives those measurements physical meaning. A homography maps image
 pixels onto the floor plane, so Sentinel can say "8.0 m apart, closing at
-8.75 m/s" instead of "320 px apart, closing at 350 px/s". Calibration is
-**optional and explicit**: with none supplied the system stays in
-`image_pixels` and says so — there is no mode in which pixel numbers quietly
-acquire metric names.
+8.75 m/s" instead of "320 px apart, closing at 350 px/s".
+
+**M0.5** lets that drive the decision. When a calibration is available the risk
+engine **scores in metres**, against metric thresholds, using a constant-velocity
+trajectory predictor that reports predicted minimum separation and a
+closed-form time to the unsafe-separation threshold. Without a calibration
+everything falls back to the M0.3 image-space behaviour, and every assessment
+names the space it was scored in.
 
 Try it with no video, no weights and no GPU:
 
 ```bash
-python -m app.demo --timeline
-python -m app.demo --calibrated
+python -m app.demo --world       # prediction, time-to-risk, escalation
+python -m app.evaluation         # the eight-scenario benchmark
 ```
 
 There is still no UI, no LLM, no audio and no autonomous agents — those are
@@ -75,19 +80,22 @@ app/
 │   ├── planar.py                    GroundPlaneCalibration, GroundPoint, quality
 │   └── examples.py                  synthetic fixtures (NOT camera measurements)
 │
-├── reasoning/                       ── LAYER 4: what it means (M0.3)
-│   ├── risk_engine.py               RiskEngine — orchestration and aggregation
-│   ├── config.py                    RiskConfig — every threshold, documented
-│   ├── kinematics.py                image-space velocity + closest approach
+├── reasoning/                       ── LAYER 4: what it means (M0.3, M0.5)
+│   ├── risk_engine.py               RiskEngine — space selection, aggregation
+│   ├── config.py                    RiskConfig + SpatialThresholds per space
+│   ├── kinematics.py                velocity, closest approach, both spaces
+│   ├── prediction.py                constant-velocity trajectory prediction
 │   ├── explainer.py                 renders assessments as readable analysis
-│   ├── models/risk.py               RiskAssessment, FactorScore, RiskReport
-│   └── factors/                     one narrow question each, independently testable
+│   ├── models/risk.py               RiskAssessment, FactorScore, TimeToRisk
+│   └── factors/                     one narrow question each, space-agnostic
 │       ├── proximity.py             ProximityFactor, ClosingSpeedFactor
-│       ├── trajectory.py            TrajectoryFactor (the only predictor)
+│       ├── trajectory.py            TrajectoryFactor
 │       ├── zone.py                  ZoneFactor — person in a machine's zone
 │       └── persistence.py           PersistenceFactor, EscalationFactor
 │
 ├── storage/memory.py                flat event log + JSON persistence
+├── scenarios.py                     deterministic world-space scenarios A-H
+├── evaluation.py                    benchmark harness + lead-time metric
 └── demo.py                          synthetic warehouse scenario (no video needed)
 ```
 
@@ -301,6 +309,136 @@ Migrating the thresholds themselves to metres is M0.5 work — doing it silently
 here would change every tuned value in the config while leaving its name the
 same.
 
+### World-space predictive risk (M0.5)
+
+#### Which space is used, and when
+
+Space is resolved **per candidate pair**, and every assessment records it:
+
+| Condition | Space | `space_fallback_reason` |
+| --- | --- | --- |
+| Calibration supplied, both entities project to the plane | `ground_plane_meters` | `None` |
+| Calibration supplied, one entity cannot be projected | `image_pixels` | `no_world_position_for_one_or_both_entities` |
+| No calibration | `image_pixels` | `None` |
+
+A pair is scored **wholly in one space**. The two threshold sets are configured
+independently — neither is derived from the other, because outside a specific
+calibration no pixels-per-metre ratio exists — and a test asserts that no
+assessment ever emits a `_px` measurement while scoring in metres, or vice
+versa.
+
+| Threshold | Image space | Ground plane |
+| --- | ---: | ---: |
+| interaction radius | 260 px | 6.5 m |
+| critical radius | 70 px | 1.5 m |
+| conflict radius | 90 px | 2.0 m |
+| miss radius | 320 px | 8.0 m |
+| unsafe separation | 90 px | 2.0 m |
+| closing-speed reference | 160 px/s | 4.0 m/s |
+
+The metric values are engineering judgement for a warehouse-scale scene —
+1.5 m is roughly "too close to step clear of a moving vehicle" — and have
+**not** been validated against incident data.
+
+#### Trajectory prediction mathematics
+
+Constant velocity, in the active space:
+
+```
+position(t) = position₀ + velocity · t
+```
+
+For a pair, with relative position `r = p_b − p_a` and relative velocity
+`v = v_b − v_a`:
+
+**Minimum separation** is at the stationary point of `|r + vt|²`:
+
+```
+t* = −(r·v) / (v·v)          clamped to 0 ≤ t* ≤ horizon
+min_separation = |r + v·t*|
+```
+
+**Time to a separation threshold `d`** solves `|r + vt| = d`, a quadratic:
+
+```
+(v·v)t² + 2(r·v)t + (r·r − d²) = 0
+```
+
+The smallest non-negative root within the horizon is when the pair *first*
+becomes that close. Both results are closed-form, so the reported crossing time
+does not depend on how finely the trajectory happens to be sampled. A sampled
+separation curve is produced alongside, purely so the curve can be inspected.
+
+Outcomes are named for what the geometry actually supports:
+
+| Outcome | Meaning |
+| --- | --- |
+| `PREDICTED_TRAJECTORY_CONFLICT` | Predicted closest approach falls inside the conflict radius |
+| `PREDICTED_UNSAFE_PROXIMITY` | Predicted to breach unsafe separation, but not to intersect |
+| `CURRENTLY_UNSAFE_PROXIMITY` | Unsafely close **now** — an observation, not foresight |
+| `NO_PREDICTED_CONFLICT` | Paths stay clear over the horizon |
+| `PREDICTION_UNAVAILABLE` | Insufficient history or unsupported geometry |
+
+The word *collision* is deliberately absent. The predictor has no object
+extents, no 3D shape and no model of what the entities would do on seeing each
+other. It reports where the lines go.
+
+#### Time-to-risk
+
+Three states, never conflated:
+
+| Status | Meaning | `seconds` |
+| --- | --- | --- |
+| `already_unsafe` | Inside the unsafe-separation threshold now | `0.0` |
+| `predicted` | Predicted to cross it | closed-form crossing time |
+| `not_predicted` | Never reaches it in the horizon, or no prediction is supported | `None` + `reason` |
+
+`not_predicted` carries a reason — `insufficient_history`, `both_stationary`,
+or "threshold not reached within the prediction horizon". **A number is never
+invented to fill the gap.**
+
+#### Prediction lead time
+
+```
+prediction_lead_time_seconds = first_unsafe_time − first_alert_time
+```
+
+`first_unsafe_time` is the **onset** of unsafe separation measured from the
+*recorded positions*, never from the predictor — grading a prediction against
+itself would be worthless. A pair that is already unsafely close in its first
+frame and never transitions is reported as `no_unsafe_transition`, not as a
+missed detection: a predictive metric grades predicted transitions, not static
+closeness.
+
+This is **not accuracy**. It says how much warning a scenario would have given,
+on scripted constant-velocity motion. It is not validated against real
+incidents, and it is not a probability.
+
+#### Synthetic evaluation results
+
+`python -m app.evaluation` — eight deterministic scenarios, no video, no model:
+
+```
+   scenario                  risk severity  space                conflict  t-to-risk  min sep  lead   outcome
+   A moving apart             0.0 normal    ground_plane_meters  False             -    9.50m     -   true_negative
+   B approaching, stays clear 42.6 medium   ground_plane_meters  False             -    3.50m     -   true_negative
+   C predicted unsafe        69.9 high      ground_plane_meters  True          0.50s    0.00m 0.60s   true_positive
+   D zone entry + approach  100.0 critical  ground_plane_meters  True          0.35s    0.00m 0.80s   true_positive
+   E both stationary         18.0 normal    ground_plane_meters  False             -    3.50m     -   true_negative
+   F insufficient history     0.0 normal    ground_plane_meters  False             -        -     -   true_negative
+   G equal px, differing m   29.4 low       ground_plane_meters  False          0.00s    1.60m     -   no_unsafe_transition
+   H uncalibrated fallback   70.6 high      image_pixels         True          0.45s  10.00px 0.60s   true_positive
+
+   mean prediction lead time: 0.67 s
+   possible false positives: 0   missed: 0   no unsafe transition: 1
+```
+
+Scenario **G** is the argument for this milestone in one row. Two stationary
+pairs, both separated by exactly 110.5 px in the image. On the calibrated
+ground plane one is 1.60 m apart and the other 3.32 m — a 2.1× difference. An
+image-space system must score them identically; Sentinel scores them 29.4 and
+19.1.
+
 ### Risk model (M0.3)
 
 The score is a weighted sum of independently computed factors, times a
@@ -443,6 +581,11 @@ already been flagging the collision course at medium risk for half a second.
 - **Refusals are explicit.** When the engine cannot predict, it says so in a
   field (`insufficient_history`, `both_stationary`) rather than returning a
   confident-looking zero.
+- **A risk score is not a probability.** It is an ordinal 0-100 severity
+  ranking from a documented formula. Nothing is calibrated against incident
+  frequencies, and every report carries that statement in
+  `score_interpretation`. A test asserts no field is ever *named* like a
+  likelihood.
 
 ### Model choices
 
@@ -537,6 +680,9 @@ python -m app.demo              # the moment Sentinel would have raised the aler
 python -m app.demo --timeline   # how the risk score develops across the scene
 python -m app.demo --json       # the structured assessment
 python -m app.demo --calibrated # the same scene measured in metres (M0.4)
+python -m app.demo --world      # prediction, time-to-risk, escalation (M0.5)
+python -m app.demo --evaluate   # the eight-scenario benchmark
+python -m app.evaluation        # the benchmark on its own (--json for machine use)
 ```
 
 Run `python -m app.main --help` for the full list.
@@ -617,6 +763,32 @@ print(approach.closing_speed_m_per_s, approach.distance_m)
 
 Without `calibration=`, `motion.world` is `None` and the `ground_*` helpers
 return `None`. They never fall back to pixels.
+
+With a calibration the engine also scores in metres and predicts ahead:
+
+```python
+report = engine.assess(memory, at=3.5)
+top = report.top
+
+print(top.coordinate_space)        # "ground_plane_meters"
+print(top.prediction_outcome)      # "PREDICTED_TRAJECTORY_CONFLICT"
+print(top.time_to_risk.status)     # "predicted"
+print(top.time_to_risk.seconds)    # 0.50
+
+prediction = top.details["prediction"]
+print(prediction["minimum_separation_m"])    # 0.0
+print(prediction["closing_speed_m_per_s"])   # 5.0
+```
+
+And to run the benchmark harness over your own scenarios:
+
+```python
+from app.evaluation import ScenarioEvaluator
+
+report = ScenarioEvaluator(alert_severity="high").evaluate_all()
+print(report.to_table())
+print(report.mean_lead_time_seconds)
+```
 
 ---
 
@@ -816,6 +988,12 @@ collinear rejection, wrong point counts, extrapolation flagging, shared use
 across entities, and — equally important — that nothing becomes metric when no
 calibration is supplied.
 
+`tests/test_prediction.py` and `tests/test_world_risk.py` cover M0.5: the
+closed-form crossing solver, prediction outcomes and refusals, per-candidate
+space selection, the guarantee that the two spaces are never mixed within one
+assessment, scenarios A-H, and the evaluation harness including the lead-time
+metric's non-circularity.
+
 `tests/test_memory_layering.py` parses the source tree and fails the build if
 `app/memory/` or `app/reasoning/` ever imports a model library or the perception
 layer, and spawns a clean interpreter to prove `import app.reasoning` loads no
@@ -841,28 +1019,53 @@ so the scores they assert are the ones the real stack produces, not fixtures:
 
 These are real constraints of the current build, not TODO placeholders.
 
-### Coordinates are pixels unless you calibrate — and scoring still is
+### World-space results are only as good as the calibration
 
-M0.4 added ground-plane calibration, so metric measurement is now *possible*.
-Two things did not change, and both matter:
+M0.5 scores in metres when calibrated. Everything that measurement rests on is
+the calibration, so:
 
-- **Perception, tracking, events and memory are still entirely pixel-space.**
-  Everything stored in the event log is `image_pixels`. Calibration is applied
+- **World-space results depend entirely on calibration quality.** A homography
+  fitted to badly surveyed points produces confident, precise, wrong metres.
+- **Planar homography assumes the measured points lie on the calibrated
+  plane.** A person's head, a raised forklift tine, anything on a mezzanine —
+  all project to the wrong ground position. Sentinel projects each box's
+  bottom-centre ground-contact anchor to reduce this, which is a heuristic, not
+  a fix.
+- **Camera movement silently invalidates a fixed calibration.** Any pan, tilt,
+  zoom or re-mount, and every metre reported afterwards is wrong with no
+  indication.
+- **Four points mathematically define a homography but establish nothing about
+  measurement accuracy.** The residual from four points is necessarily zero and
+  validates nothing; supply 5+ to detect a bad correspondence.
+- **Nothing in this repository has been validated against a real camera.** The
+  fixtures are mathematical examples.
+
+### Still pixel-space
+
+- **Perception, tracking, events and memory remain entirely pixel-space.**
+  Everything stored in the event log is `image_pixels`; calibration is applied
   above memory, at read time.
-- **Risk scoring is still pixel-space**, with or without a calibration. Metric
-  values are reported next to each assessment, never fed into it. So all the
-  M0.3 caveats below remain live for the *score*:
-  - `--movement-threshold` and `--stationary-threshold` are pixel values whose
-    meaning changes with resolution, zoom and subject depth. A single threshold
-    cannot be correct across the whole frame.
-  - `speed_px_per_frame` is pixel speed, not physical speed.
-  - Zone geometry is tied to one exact camera framing.
+- **Without a calibration, scoring is image-space** and inherits every M0.3
+  caveat: a single pixel threshold cannot be correct across a frame,
+  `speed_px_per_frame` is not physical speed, and zone geometry is tied to one
+  exact framing.
+- **`--movement-threshold` and `--stationary-threshold` are still pixel values**
+  in the event generator, even when the risk engine is scoring in metres.
 
-Without a calibration nothing changes at all: every value stays `image_pixels`,
-`ImageMotion.world` is `None`, and the metric helpers return `None` rather than
-falling back. With one, the caveats above still apply to the score but
-`details["ground_plane"]` carries genuine metres — subject to the planar
-calibration limitations documented earlier.
+### Prediction
+
+- **Constant velocity is the whole motion model.** People change direction,
+  vehicles turn, and the prediction is wrong from that instant until the next
+  update. The horizon is capped at 6 s for this reason.
+- **No object extents.** Separation is measured between two points, so two
+  entities at 1.9 m are "unsafe" whether they are a person and a pallet truck
+  or a person and an articulated lorry.
+- **No intent, no avoidance.** The predictor assumes nobody reacts — which is
+  why it says *trajectory conflict*, not *collision*.
+- **Lead time is not accuracy.** It is warning time measured on scripted
+  synthetic motion against that scenario's own data.
+- **Risk scores are ordinal, not probabilities.** A 90 is worse than a 45; it
+  is not "twice as likely" or "90% likely".
 
 ### Tracking and identity
 
@@ -947,36 +1150,41 @@ image↔world mapping, calibration quality and limitations metadata, world-space
 position/displacement/velocity/separation in the kinematics layer, and an
 explicit pixel-space fallback.
 
+**In M0.5:** world-space predictive risk — per-space thresholds, space-agnostic
+factors, constant-velocity trajectory prediction with closed-form minimum
+separation and threshold-crossing time, structured time-to-risk, the
+prediction-lead-time metric, scenarios A-H and the evaluation harness.
+
 **Not yet:** frontend, LLM reasoning, audio, agents, counterfactual simulation,
 database.
 
 ---
 
-## What remains for M0.5
+## What remains for M0.6
 
-M0.4 makes metric measurement *available*. It deliberately stops short of
-letting it change any decision. The next steps, in rough order of value:
+M0.5 closes the measurement-to-decision loop: Sentinel now reasons in metres
+and predicts ahead. What it still lacks is evidence that those numbers are
+right, and a way for anyone to use them.
 
-1. **Migrate risk thresholds to metres.** The engine now has metric separation
-   and closing speed in hand but still scores on pixels. A metric `RiskConfig`
-   — "critical below 1.5 m", "saturates at 3 m/s" — would finally be correct
-   across the whole frame instead of at one depth. This needs a real migration:
-   every threshold renamed and re-tuned, with the pixel path kept for
-   uncalibrated cameras, because silently reinterpreting the existing numbers
-   would be exactly the error M0.4 was built to prevent.
-2. **Calibration capture.** Today correspondences are hand-written. A small
-   tool to click four floor points on a frame and enter their measured
-   positions is what makes calibration usable by anyone who is not editing
-   Python.
-3. **Validation against labelled footage.** The factor weights remain
-   engineering judgement. Precision/recall against real near-miss data would
-   turn the scoring model from judgement into evidence — and with metric units
-   the thresholds would finally be transferable between cameras.
-4. **The LLM reasoning layer**, sitting on top of the risk engine — explaining
-   *why* a situation developed and what to do, grounded in the deterministic
-   score. The `Explainer` interface is the seam it plugs into.
-5. **Re-identification**, so an entity that leaves and re-enters keeps its
+1. **Validation against real footage.** This is now the binding constraint on
+   everything else. The metric thresholds and factor weights are engineering
+   judgement; a labelled near-miss dataset would turn the benchmark from a
+   self-consistency check into evidence. Until then, no accuracy claim can be
+   made and none is.
+2. **Calibration capture.** Correspondences are still hand-written. A tool to
+   click four floor points on a frame and enter their measured positions is
+   what makes calibration usable by anyone not editing Python — and it is what
+   makes item 1 practical on real cameras.
+3. **A better motion model.** Constant velocity is honest but weak. Turn-rate
+   or a Kalman filter would extend the usable horizon; a learned model would
+   predict better and explain worse, which is a trade this project should make
+   consciously.
+4. **Object extents.** Separation between two points ignores that a lorry is
+   not a pedestrian. Per-class radii would sharpen both the unsafe threshold
+   and the conflict radius.
+5. **The LLM reasoning layer**, explaining *why* a situation developed and what
+   to do, grounded in the deterministic score. The `Explainer` interface is the
+   seam it plugs into.
+6. **Re-identification**, so an entity that leaves and re-enters keeps its
    history and its persistence record.
-6. **Broader incident modelling**: vehicle-vehicle conflicts, static hazards,
-   occlusion-aware separation.
 7. **The frontend**, once there is something stable to display.

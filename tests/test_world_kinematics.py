@@ -247,22 +247,47 @@ def config():
     return RiskConfig(vehicle_classes=["forklift"], report_threshold=0.0)
 
 
-def test_calibration_does_not_change_any_risk_score():
-    memory = build_memory()
-    plain = RiskEngine(config()).assess(memory, at=1.1)
-    calibrated = RiskEngine(config(), calibration=CALIBRATION).assess(memory, at=1.1)
-
-    assert [a.risk_score for a in plain] == [a.risk_score for a in calibrated]
-    assert [a.severity for a in plain] == [a.severity for a in calibrated]
-    assert [a.incident_type for a in plain] == [a.incident_type for a in calibrated]
-
-
-def test_scoring_remains_image_space_and_says_so():
+def test_calibrated_scoring_uses_world_space_and_says_so():
+    """M0.5 changed this deliberately: M0.4 scored in pixels even when calibrated."""
     report = RiskEngine(config(), calibration=CALIBRATION).assess(build_memory(), at=1.1)
+    assert report.metadata["scoring_coordinate_space"] == GROUND_PLANE_METERS
+    assert report.coordinate_space == GROUND_PLANE_METERS
+    for assessment in report:
+        assert assessment.coordinate_space == GROUND_PLANE_METERS
+        assert assessment.space_fallback_reason is None
+
+
+def test_uncalibrated_scoring_remains_image_space_and_says_so():
+    """The M0.3 fallback, preserved exactly."""
+    report = RiskEngine(config()).assess(build_memory(), at=1.1)
     assert report.metadata["scoring_coordinate_space"] == IMAGE_PIXELS
     assert report.coordinate_space == IMAGE_PIXELS
     for assessment in report:
         assert assessment.coordinate_space == IMAGE_PIXELS
+
+
+def test_the_two_spaces_are_never_mixed_within_one_assessment():
+    """Every measurement in an assessment carries the same space's unit suffix."""
+    report = RiskEngine(config(), calibration=CALIBRATION).assess(build_memory(), at=1.1)
+    pair = next(a for a in report if len(a.involved_entity_ids) == 2)
+
+    for factor in pair.contributing_factors:
+        for key in factor.details:
+            # Ground-plane scoring must not emit pixel-suffixed measurements.
+            assert not key.endswith("_px"), f"{factor.name}.{key} is pixel-suffixed"
+            assert not key.endswith("_px_per_s"), f"{factor.name}.{key}"
+
+
+def test_calibrated_and_uncalibrated_scores_may_differ():
+    """They are different measurements against different thresholds.
+
+    Asserting they are EQUAL would be asserting that calibration is inert,
+    which is the opposite of what M0.5 delivers.
+    """
+    memory = build_memory()
+    plain = RiskEngine(config()).assess(memory, at=1.1)
+    calibrated = RiskEngine(config(), calibration=CALIBRATION).assess(memory, at=1.1)
+    assert plain.coordinate_space != calibrated.coordinate_space
 
 
 def test_calibrated_assessments_report_metric_measurements():
@@ -291,8 +316,26 @@ def test_report_metadata_records_whether_a_calibration_was_used():
 
 
 def test_metric_details_are_measurements_not_probabilities():
-    """Guard the vocabulary: a risk score is not a probability."""
+    """Guard the vocabulary: a risk score is not a probability.
+
+    The word may appear only in a disclaimer. What must never appear is a
+    *claim* — a field named like a probability, or a score presented as one.
+    """
     report = RiskEngine(config(), calibration=CALIBRATION).assess(build_memory(), at=1.1)
     payload = report.to_dict()
-    serialised = str(payload).lower()
-    assert "probability" not in serialised
+
+    def keys(node):
+        if isinstance(node, dict):
+            for key, value in node.items():
+                yield str(key)
+                yield from keys(value)
+        elif isinstance(node, list):
+            for item in node:
+                yield from keys(item)
+
+    for key in keys(payload):
+        assert "probability" not in key.lower()
+        assert "likelihood" not in key.lower()
+
+    # ...and the report says plainly what the score is not.
+    assert "NOT a calibrated probability" in payload["score_interpretation"]

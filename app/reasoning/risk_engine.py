@@ -31,16 +31,22 @@ no randomness, no learned model and no wall-clock dependence.
 
 Units
 -----
-**Scoring is image-space.** Every threshold, distance and velocity used to
-compute a risk score is in pixels and pixels per second. Times are real
-seconds. See :mod:`app.spatial` and :mod:`app.reasoning.kinematics`.
+**Each assessment states the space it was scored in.** With a
+:class:`~app.calibration.planar.GroundPlaneCalibration` supplying world
+positions for both entities, scoring uses ground-plane metres and the metric
+threshold set. Without one — or when an individual pair cannot be projected —
+scoring uses image pixels and the pixel threshold set, exactly as in M0.3.
 
-When a :class:`~app.calibration.planar.GroundPlaneCalibration` is supplied,
-each assessment additionally *reports* ground-plane measurements in metres
-under ``details["ground_plane"]``. Those are observations, not inputs: the
-score is identical with and without a calibration. Migrating the thresholds
-themselves to metres is M0.5 work, and doing it silently here would change
-every tuned value in the config under the same name.
+The two threshold sets are configured independently and neither is derived
+from the other: no pixels-per-metre ratio exists outside a specific
+calibration, so converting between them would be meaningless. A pair is scored
+wholly in one space; values from the two are never mixed. Where a candidate
+falls back, ``space_fallback_reason`` says why, so the change of space is
+visible rather than silent.
+
+**A risk score is not a probability.** It is an ordinal 0-100 severity ranking
+produced by a documented formula. Nothing here is calibrated against incident
+frequencies, and no field should be read as a likelihood.
 """
 
 from __future__ import annotations
@@ -50,7 +56,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 from ..calibration.planar import GroundPlaneCalibration
 from ..events.schema import Event
 from ..memory.temporal import TemporalEventMemory
-from ..spatial import IMAGE_PIXELS
+from ..spatial import GROUND_PLANE_METERS, IMAGE_PIXELS
 from .config import RiskConfig
 from .factors import (
     ClosingSpeedFactor,
@@ -69,6 +75,14 @@ from .kinematics import (
     ground_closest_approach,
     ground_separation,
 )
+from .prediction import (
+    PREDICTED_TRAJECTORY_CONFLICT,
+    PREDICTED_UNSAFE_PROXIMITY,
+    PREDICTION_UNAVAILABLE,
+    REASON_INSUFFICIENT_HISTORY,
+    PairPrediction,
+    TrajectoryPredictor,
+)
 from .models.risk import (
     INCIDENT_CLOSE_PROXIMITY,
     INCIDENT_CONVERGING_TRAJECTORIES,
@@ -81,8 +95,13 @@ from .models.risk import (
     FactorScore,
     RiskAssessment,
     RiskReport,
+    TimeToRisk,
     severity_for,
 )
+
+#: Why a candidate was scored in image space despite a calibration existing.
+FALLBACK_NO_WORLD_POSITION = "no_world_position_for_one_or_both_entities"
+FALLBACK_NO_CALIBRATION = "no_calibration_supplied"
 
 #: Recommended interventions per incident type. Deliberately a static lookup:
 #: at M0.3 the engine must not improvise advice, and a reviewer must be able to
@@ -130,11 +149,15 @@ class RiskEngine:
         factors: Optional[Sequence[Any]] = None,
         meta_factors: Optional[Sequence[Any]] = None,
         calibration: Optional[GroundPlaneCalibration] = None,
+        predictor: Optional[TrajectoryPredictor] = None,
     ) -> None:
         self.config = config or RiskConfig()
         self.calibration = calibration
         self.motion_estimator = motion_estimator or MotionEstimator(
             calibration=calibration
+        )
+        self.predictor = predictor or TrajectoryPredictor(
+            horizon_seconds=self.config.prediction_horizon_seconds
         )
         # Base factors contribute points; meta factors read their results.
         self.factors = list(
@@ -179,14 +202,19 @@ class RiskEngine:
         return RiskReport(
             timestamp=at,
             assessments=assessments,
-            coordinate_space=IMAGE_PIXELS,
+            coordinate_space=self.configured_space,
             metadata={
                 "config": self.config.to_dict(),
                 "entities_considered": sorted(motions),
                 "candidates_evaluated": len(
                     self._candidates(memory, at, motions)
                 ),
-                "scoring_coordinate_space": IMAGE_PIXELS,
+                "configured_coordinate_space": self.configured_space,
+                "scoring_coordinate_space": self.configured_space,
+                "spaces_used": _count_spaces(assessments),
+                "score_interpretation": (
+                    "0-100 ordinal risk score; NOT a calibrated probability"
+                ),
                 "calibration": (
                     self.calibration.metadata() if self.calibration else None
                 ),
@@ -219,6 +247,29 @@ class RiskEngine:
     def score(self, events: Iterable[Event]) -> RiskReport:
         """Assess a plain sequence of events (M0 compatibility entry point)."""
         return self.assess(TemporalEventMemory.from_events(events))
+
+    @property
+    def configured_space(self) -> str:
+        """The space this engine will score in where the data allows."""
+        return GROUND_PLANE_METERS if self.calibration else IMAGE_PIXELS
+
+    def _resolve_space(
+        self, candidate: RiskCandidate, motions: Dict[str, ImageMotion]
+    ) -> Tuple[str, Optional[str]]:
+        """Which space to score this candidate in, and why if it is not the default.
+
+        World space needs a world *position* for every entity involved — not a
+        velocity, which mirrors how image space already lets proximity work
+        while trajectory refuses. A pair that cannot be projected is scored in
+        pixels with the reason recorded, never in a mixture of the two.
+        """
+        if self.calibration is None:
+            return IMAGE_PIXELS, None
+        for entity_id in candidate.entity_ids:
+            motion = motions.get(entity_id)
+            if motion is None or motion.world is None:
+                return IMAGE_PIXELS, FALLBACK_NO_WORLD_POSITION
+        return GROUND_PLANE_METERS, None
 
     # ------------------------------------------------------------------
     # Candidate generation
@@ -292,12 +343,19 @@ class RiskEngine:
         candidate: RiskCandidate,
         motions: Dict[str, ImageMotion],
     ) -> RiskAssessment:
+        space, fallback_reason = self._resolve_space(candidate, motions)
+        thresholds = self.config.thresholds(space)
+        prediction = self._predict(candidate, motions, space, thresholds)
+
         context = RiskContext(
             memory=memory,
             at=at,
             config=self.config,
             candidate=candidate,
             motions=motions,
+            coordinate_space=space,
+            space_fallback_reason=fallback_reason,
+            prediction=prediction,
         )
 
         scores = [factor.evaluate(context) for factor in self.factors]
@@ -325,15 +383,26 @@ class RiskEngine:
             predicted_time_to_incident_seconds=TrajectoryFactor.predicted_time_to_incident(
                 context
             ),
+            prediction_outcome=prediction.outcome if prediction else None,
+            time_to_risk=self._time_to_risk(prediction, thresholds, space),
+            space_fallback_reason=fallback_reason,
             contributing_factors=all_scores,
             evidence_event_ids=_dedupe(
                 eid for score in all_scores for eid in score.evidence_event_ids
             ),
             recommended_intervention=INTERVENTIONS.get(incident_type, ""),
             escalation_multiplier=multiplier,
-            coordinate_space=IMAGE_PIXELS,
+            coordinate_space=space,
             details={
                 "candidate_kind": candidate.kind,
+                "coordinate_space": space,
+                "units": thresholds.distance_label,
+                "thresholds": thresholds.to_dict(),
+                **(
+                    {"prediction": prediction.to_dict()}
+                    if prediction is not None
+                    else {}
+                ),
                 "subtotal_points": round(subtotal, 4),
                 "base_points": round(
                     sum(s.contribution for s in scores if s.name != "persistence"), 4
@@ -348,6 +417,83 @@ class RiskEngine:
                 },
                 **({"ground_plane": ground} if ground else {}),
             },
+        )
+
+    # ------------------------------------------------------------------
+    # Prediction and time-to-risk
+    # ------------------------------------------------------------------
+    def _predict(
+        self,
+        candidate: RiskCandidate,
+        motions: Dict[str, ImageMotion],
+        space: str,
+        thresholds: Any,
+    ) -> Optional[PairPrediction]:
+        """Constant-velocity prediction for a pair, in the active space."""
+        if not candidate.is_pair:
+            return None
+        primary = motions.get(candidate.primary)
+        secondary = motions.get(candidate.secondary or "")
+        if primary is None or secondary is None:
+            return None
+        return self.predictor.predict_pair(
+            primary,
+            secondary,
+            coordinate_space=space,
+            unsafe_separation=thresholds.unsafe_separation,
+            conflict_radius=thresholds.conflict_radius,
+        )
+
+    def _time_to_risk(
+        self, prediction: Optional[PairPrediction], thresholds: Any, space: str
+    ) -> Optional[TimeToRisk]:
+        """When this pair is expected to become unsafely close.
+
+        Distinguishes "already unsafe" from "predicted to become unsafe" from
+        "no prediction supported", and never invents a number for the last.
+        """
+        units = "meters" if space == GROUND_PLANE_METERS else "pixels"
+        if prediction is None:
+            return None
+
+        if prediction.outcome == PREDICTION_UNAVAILABLE:
+            return TimeToRisk(
+                status=TimeToRisk.STATUS_NOT_PREDICTED,
+                seconds=None,
+                reason=prediction.unavailable_reason or REASON_INSUFFICIENT_HISTORY,
+                threshold=thresholds.unsafe_separation,
+                coordinate_space=space,
+                units=units,
+            )
+
+        if (
+            prediction.current_separation is not None
+            and prediction.current_separation <= thresholds.unsafe_separation
+        ):
+            return TimeToRisk(
+                status=TimeToRisk.STATUS_ALREADY_UNSAFE,
+                seconds=0.0,
+                threshold=thresholds.unsafe_separation,
+                coordinate_space=space,
+                units=units,
+            )
+
+        if prediction.seconds_to_unsafe_separation is not None:
+            return TimeToRisk(
+                status=TimeToRisk.STATUS_PREDICTED,
+                seconds=prediction.seconds_to_unsafe_separation,
+                threshold=thresholds.unsafe_separation,
+                coordinate_space=space,
+                units=units,
+            )
+
+        return TimeToRisk(
+            status=TimeToRisk.STATUS_NOT_PREDICTED,
+            seconds=None,
+            reason="threshold not reached within the prediction horizon",
+            threshold=thresholds.unsafe_separation,
+            coordinate_space=space,
+            units=units,
         )
 
     def _ground_plane_details(
@@ -471,6 +617,15 @@ class RiskEngine:
             # prediction.
             return INCIDENT_CLOSE_PROXIMITY
         return INCIDENT_NONE
+
+
+def _count_spaces(assessments: Sequence[RiskAssessment]) -> Dict[str, int]:
+    counts: Dict[str, int] = {}
+    for assessment in assessments:
+        counts[assessment.coordinate_space] = (
+            counts.get(assessment.coordinate_space, 0) + 1
+        )
+    return counts
 
 
 def _dedupe(values: Iterable[str]) -> List[str]:
