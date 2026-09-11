@@ -7,12 +7,23 @@ convenience.
 
 What ``prediction_lead_time_seconds`` is
 ----------------------------------------
-The gap between the moment Sentinel first raises an alert and the moment the
-entities *actually* reach unsafe separation in the recorded data::
+The gap between the first moment Sentinel makes a **valid forward-looking
+prediction** of an unsafe approach and the moment the entities *actually* reach
+unsafe separation in the recorded data::
 
-    prediction_lead_time_seconds = first_unsafe_time - first_alert_time
+    prediction_lead_time_seconds = first_unsafe_time - first_valid_prediction_time
 
-It answers "how much warning would this have given?" on this scenario.
+A prediction is *valid* only when all of these hold (M0.6):
+
+* the outcome is forward-looking — ``PREDICTED_UNSAFE_PROXIMITY`` or
+  ``PREDICTED_TRAJECTORY_CONFLICT``. ``CURRENTLY_UNSAFE_PROXIMITY`` describes
+  the present and is explicitly excluded;
+* the predictor had sufficient history (the prediction is available at all);
+* it was made **strictly before** the actual unsafe transition.
+
+Earlier revisions measured from the first *severity alert* instead, which would
+have credited the system for "predicting" an unsafe state after it had already
+begun. That was an evaluation bug and is fixed here.
 
 What it is **not**:
 
@@ -40,13 +51,18 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
-from .calibration.planar import GroundPlaneCalibration
-from .memory.temporal import TemporalEventMemory
-from .reasoning.config import RiskConfig
-from .reasoning.kinematics import MotionEstimator, separation_geometry
-from .reasoning.models.risk import SEVERITIES, RiskAssessment
-from .reasoning.risk_engine import RiskEngine
-from .scenarios import ALL_WORLD_SCENARIOS, WorldScenario
+from ..calibration.planar import GroundPlaneCalibration
+from ..memory.temporal import TemporalEventMemory
+from ..reasoning.config import RiskConfig
+from ..reasoning.kinematics import MotionEstimator, separation_geometry
+from ..reasoning.models.risk import SEVERITIES, RiskAssessment
+from ..reasoning.prediction import (
+    CURRENTLY_UNSAFE_PROXIMITY,
+    PREDICTED_TRAJECTORY_CONFLICT,
+    PREDICTED_UNSAFE_PROXIMITY,
+)
+from ..reasoning.risk_engine import RiskEngine
+from ..scenarios import ALL_WORLD_SCENARIOS, WorldScenario
 
 #: Severity at or above which the harness counts a situation as "alerted".
 DEFAULT_ALERT_SEVERITY = "high"
@@ -59,6 +75,11 @@ OUTCOME_TRUE_NEGATIVE = "true_negative"
 #: The pair was already unsafely close at the first observation and never
 #: transitioned, so no prediction was possible either way.
 OUTCOME_NO_TRANSITION = "no_unsafe_transition"
+
+#: Forward-looking prediction outcomes. A present-tense observation of unsafe
+#: proximity is NOT one of these: predicting something that has already begun
+#: is not prediction.
+PREDICTIVE_OUTCOMES = (PREDICTED_UNSAFE_PROXIMITY, PREDICTED_TRAJECTORY_CONFLICT)
 
 
 @dataclass
@@ -80,8 +101,12 @@ class ScenarioResult:
     minimum_separation: Optional[float] = None
     closing_speed: Optional[float] = None
     first_alert_time: Optional[float] = None
+    #: First moment a forward-looking unsafe prediction was made.
+    first_valid_prediction_time: Optional[float] = None
     first_unsafe_time: Optional[float] = None
     prediction_lead_time_seconds: Optional[float] = None
+    #: Set when a prediction existed but only after the transition had begun.
+    late_prediction: bool = False
     outcome_status: str = OUTCOME_TRUE_NEGATIVE
     unsafe_at_start: bool = False
     space_fallback_reason: Optional[str] = None
@@ -105,11 +130,65 @@ class ScenarioResult:
             f"minimum_separation_{distance_suffix}": _round(self.minimum_separation),
             f"closing_speed_{speed_suffix}": _round(self.closing_speed),
             "first_alert_time": _round(self.first_alert_time),
+            "first_valid_prediction_time": _round(self.first_valid_prediction_time),
             "first_unsafe_time": _round(self.first_unsafe_time),
+            "late_prediction": self.late_prediction,
             "unsafe_at_start": self.unsafe_at_start,
             "prediction_lead_time_seconds": _round(self.prediction_lead_time_seconds),
             "outcome_status": self.outcome_status,
             "space_fallback_reason": self.space_fallback_reason,
+        }
+
+
+@dataclass
+class LeadTimeStats:
+    """Distribution of lead times over the valid predictions only.
+
+    Scenarios with no unsafe transition, no prediction, or a late prediction
+    contribute nothing — a lead-time number is never manufactured to fill a
+    gap, so ``count`` is as important as ``mean``.
+    """
+
+    values: List[float] = field(default_factory=list)
+
+    @property
+    def count(self) -> int:
+        return len(self.values)
+
+    @property
+    def mean(self) -> Optional[float]:
+        return sum(self.values) / len(self.values) if self.values else None
+
+    @property
+    def median(self) -> Optional[float]:
+        if not self.values:
+            return None
+        ordered = sorted(self.values)
+        middle = len(ordered) // 2
+        if len(ordered) % 2:
+            return ordered[middle]
+        return (ordered[middle - 1] + ordered[middle]) / 2.0
+
+    @property
+    def minimum(self) -> Optional[float]:
+        return min(self.values) if self.values else None
+
+    @property
+    def maximum(self) -> Optional[float]:
+        return max(self.values) if self.values else None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "valid_predictions": self.count,
+            "mean_seconds": _round(self.mean),
+            "median_seconds": _round(self.median),
+            "min_seconds": _round(self.minimum),
+            "max_seconds": _round(self.maximum),
+            "definition": (
+                "actual_unsafe_transition_time - first_valid_prediction_time, "
+                "counted only for forward-looking predictions made before the "
+                "transition"
+            ),
         }
 
 
@@ -143,13 +222,27 @@ class EvaluationReport:
         return [r for r in self.results if r.outcome_status == OUTCOME_MISSED]
 
     @property
+    def lead_time(self) -> LeadTimeStats:
+        return LeadTimeStats(
+            values=[
+                r.prediction_lead_time_seconds
+                for r in self.results
+                if r.prediction_lead_time_seconds is not None
+            ]
+        )
+
+    @property
     def mean_lead_time_seconds(self) -> Optional[float]:
-        values = [
-            r.prediction_lead_time_seconds
-            for r in self.results
-            if r.prediction_lead_time_seconds is not None
-        ]
-        return sum(values) / len(values) if values else None
+        return self.lead_time.mean
+
+    @property
+    def late_predictions(self) -> List[ScenarioResult]:
+        """Predictions that arrived only after the unsafe state had begun."""
+        return [r for r in self.results if r.late_prediction]
+
+    @property
+    def unsafe_transitions(self) -> List[ScenarioResult]:
+        return [r for r in self.results if r.first_unsafe_time is not None]
 
     def to_table(self) -> str:
         header = (
@@ -175,9 +268,20 @@ class EvaluationReport:
                 f"{_fmt(r.prediction_lead_time_seconds, 's'):>7}  {r.outcome_status}"
             )
         lines.append("")
-        mean = self.mean_lead_time_seconds
-        if mean is not None:
-            lines.append(f"  mean prediction lead time: {mean:.2f} s")
+        stats = self.lead_time
+        if stats.count:
+            lines.append(
+                f"  lead time over {stats.count} valid prediction(s): "
+                f"mean {stats.mean:.2f}s  median {stats.median:.2f}s  "
+                f"min {stats.minimum:.2f}s  max {stats.maximum:.2f}s"
+            )
+        else:
+            lines.append("  lead time: no valid predictions to measure")
+        if self.late_predictions:
+            lines.append(
+                f"  late predictions (after the transition began): "
+                f"{[r.scenario for r in self.late_predictions]}"
+            )
         no_transition = sum(
             1 for r in self.results if r.outcome_status == OUTCOME_NO_TRANSITION
         )
@@ -202,7 +306,9 @@ class EvaluationReport:
         return {
             "alert_severity": self.alert_severity,
             "scenario_count": len(self.results),
-            "mean_prediction_lead_time_seconds": _round(self.mean_lead_time_seconds),
+            "lead_time": self.lead_time.to_dict(),
+            "unsafe_transitions": len(self.unsafe_transitions),
+            "late_predictions": [r.scenario for r in self.late_predictions],
             "possible_false_positives": [
                 r.scenario for r in self.possible_false_positives
             ],
@@ -239,13 +345,29 @@ class ScenarioEvaluator:
         )
 
         first_alert = self._first_alert_time(engine, scenario)
+        first_prediction = self._first_valid_prediction_time(engine, scenario)
         first_unsafe, unsafe_at_start = self._unsafe_onset(scenario)
+
+        # Lead time exists only for a genuine forward-looking prediction made
+        # before the transition. No transition, no prediction, or a prediction
+        # that arrived late all yield None rather than a manufactured number.
         lead = None
-        if first_alert is not None and first_unsafe is not None:
-            lead = round(first_unsafe - first_alert, 4)
+        late = False
+        if first_prediction is not None and first_unsafe is not None:
+            if first_prediction < first_unsafe:
+                lead = round(first_unsafe - first_prediction, 4)
+            else:
+                late = True
 
         return self._build_result(
-            scenario, assessment, first_alert, first_unsafe, lead, unsafe_at_start
+            scenario,
+            assessment,
+            first_alert,
+            first_unsafe,
+            lead,
+            unsafe_at_start,
+            first_prediction,
+            late,
         )
 
     def evaluate_all(
@@ -266,6 +388,21 @@ class ScenarioEvaluator:
         for report in engine.assess_timeline(scenario.memory, step=self.step_seconds):
             if report.at_or_above(self.alert_severity):
                 return report.timestamp
+        return None
+
+    def _first_valid_prediction_time(
+        self, engine: RiskEngine, scenario: WorldScenario
+    ) -> Optional[float]:
+        """First moment a forward-looking unsafe prediction is made.
+
+        Present-tense ``CURRENTLY_UNSAFE_PROXIMITY`` and unavailable
+        predictions are both excluded, so nothing here can credit the system
+        for observing what has already happened.
+        """
+        for report in engine.assess_timeline(scenario.memory, step=self.step_seconds):
+            for assessment in report.assessments:
+                if assessment.prediction_outcome in PREDICTIVE_OUTCOMES:
+                    return report.timestamp
         return None
 
     def _unsafe_onset(self, scenario: WorldScenario):
@@ -334,6 +471,8 @@ class ScenarioEvaluator:
         first_unsafe: Optional[float],
         lead: Optional[float],
         unsafe_at_start: bool = False,
+        first_prediction: Optional[float] = None,
+        late_prediction: bool = False,
     ) -> ScenarioResult:
         alerted = first_alert is not None
         became_unsafe = first_unsafe is not None
@@ -368,6 +507,8 @@ class ScenarioEvaluator:
                 prediction_lead_time_seconds=lead,
                 outcome_status=outcome,
                 unsafe_at_start=unsafe_at_start,
+                first_valid_prediction_time=first_prediction,
+                late_prediction=late_prediction,
             )
 
         units = (
@@ -400,6 +541,8 @@ class ScenarioEvaluator:
             prediction_lead_time_seconds=lead,
             outcome_status=outcome,
             unsafe_at_start=unsafe_at_start,
+            first_valid_prediction_time=first_prediction,
+            late_prediction=late_prediction,
             space_fallback_reason=assessment.space_fallback_reason,
         )
 

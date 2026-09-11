@@ -349,13 +349,23 @@ def test_harness_finds_no_missed_detections():
 
 
 def test_lead_time_is_measured_against_observed_data_not_the_predictor():
-    """The onset time must come from recorded separation, or the metric is circular."""
+    """The onset time must come from recorded separation, or the metric is circular.
+
+    M0.6 changed the other half of this subtraction. It used to measure from
+    ``first_alert_time`` (a severity crossing), which would have credited the
+    system for "predicting" an unsafe state that had already begun. It now
+    measures from ``first_valid_prediction_time``, which is required to be a
+    forward-looking prediction made before the transition. The non-circularity
+    this test guards — that the onset comes from recorded positions, never from
+    the predictor — is unchanged.
+    """
     report = ScenarioEvaluator().evaluate_all()
     result = report.by_name("C")
     assert result.first_unsafe_time is not None
-    assert result.first_alert_time is not None
+    assert result.first_valid_prediction_time is not None
+    assert result.first_valid_prediction_time < result.first_unsafe_time
     assert result.prediction_lead_time_seconds == pytest.approx(
-        result.first_unsafe_time - result.first_alert_time, abs=1e-6
+        result.first_unsafe_time - result.first_valid_prediction_time, abs=1e-6
     )
 
 

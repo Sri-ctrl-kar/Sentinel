@@ -194,14 +194,20 @@ def test_demo_cli_evaluate_mode(capsys):
     assert main(["--evaluate"]) == 0
     output = capsys.readouterr().out
     assert "SENTINEL PREDICTIVE EVALUATION" in output
-    assert "prediction lead time" in output
+    assert "lead time" in output
 
 
 def test_evaluation_module_cli(capsys):
+    """M0.6: `python -m app.evaluation` is the full benchmark, not just risk.
+
+    The scenario-only report is still available via ScenarioEvaluator and is
+    covered by tests/test_world_risk.py; this entry point was promoted to run
+    every metric family.
+    """
     from app.evaluation import main as evaluate_main
 
     assert evaluate_main([]) == 0
-    assert "SENTINEL PREDICTIVE EVALUATION" in capsys.readouterr().out
+    assert "SENTINEL BENCHMARK" in capsys.readouterr().out
 
 
 def test_evaluation_module_cli_json(capsys):
@@ -211,5 +217,5 @@ def test_evaluation_module_cli_json(capsys):
 
     assert evaluate_main(["--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["scenario_count"] == 8
-    assert "metric_caveat" in payload
+    assert payload["risk"]["scenario_count"] == 8
+    assert "metric_caveat" in payload["risk"]

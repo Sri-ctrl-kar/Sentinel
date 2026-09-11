@@ -309,6 +309,84 @@ class RiskConfig:
             f"No thresholds defined for coordinate space '{coordinate_space}'."
         )
 
+    # ------------------------------------------------------------------
+    def threshold_audit(self) -> List[Dict[str, Any]]:
+        """Every threshold, with its units, purpose and provenance.
+
+        ``provenance`` is the honest column. As of M0.6 **every row is
+        engineering-selected**: the values are defensible reasoning about a
+        warehouse-scale scene, not measurements. Nothing here has been fitted
+        to incident data, and nothing has been tuned against the benchmark —
+        tuning against the evaluation set would make the benchmark a
+        measurement of itself.
+
+        A row may only become ``empirically-validated`` when it has been
+        calibrated against annotated real footage held out from tuning.
+        """
+        engineering = "engineering-selected"
+        rows: List[Dict[str, Any]] = [
+            ("interaction_radius_px", self.interaction_radius_px, "px",
+             "beyond this an image-space pair is not interacting", engineering),
+            ("critical_radius_px", self.critical_radius_px, "px",
+             "image-space separation at which proximity saturates", engineering),
+            ("conflict_radius_px", self.conflict_radius_px, "px",
+             "predicted miss distance counting as an image-space conflict", engineering),
+            ("trajectory_miss_radius_px", self.trajectory_miss_radius_px, "px",
+             "predicted miss beyond this contributes no trajectory risk", engineering),
+            ("unsafe_separation_px", self.unsafe_separation_px, "px",
+             "image-space separation defining an unsafe state", engineering),
+            ("closing_speed_reference_px_per_s", self.closing_speed_reference_px_per_s,
+             "px/s", "image-space closing speed at which the factor saturates",
+             engineering),
+            ("closing_speed_floor_px_per_s", self.closing_speed_floor_px_per_s,
+             "px/s", "below this the image-space gap counts as steady", engineering),
+            ("interaction_radius_m", self.interaction_radius_m, "m",
+             "beyond this a person and vehicle are not interacting", engineering),
+            ("critical_radius_m", self.critical_radius_m, "m",
+             "separation at which a person cannot step clear", engineering),
+            ("conflict_radius_m", self.conflict_radius_m, "m",
+             "predicted miss distance counting as a trajectory conflict", engineering),
+            ("trajectory_miss_radius_m", self.trajectory_miss_radius_m, "m",
+             "predicted miss beyond this contributes no trajectory risk", engineering),
+            ("unsafe_separation_m", self.unsafe_separation_m, "m",
+             "ground separation defining an unsafe state; time-to-risk targets it",
+             engineering),
+            ("closing_speed_reference_m_per_s", self.closing_speed_reference_m_per_s,
+             "m/s", "closing speed at which the factor saturates", engineering),
+            ("closing_speed_floor_m_per_s", self.closing_speed_floor_m_per_s,
+             "m/s", "below this the gap counts as steady", engineering),
+            ("prediction_horizon_seconds", self.prediction_horizon_seconds, "s",
+             "how far constant-velocity extrapolation is trusted", engineering),
+            ("persistence_violation_threshold", self.persistence_violation_threshold,
+             "count", "repeat zone entries at which persistence saturates", engineering),
+            ("persistence_window_seconds", self.persistence_window_seconds, "s",
+             "how far back persistence looks for violations", engineering),
+            ("escalation_signal_threshold", self.escalation_signal_threshold, "score",
+             "factor score counting as one corroborating signal", engineering),
+            ("report_threshold", self.report_threshold, "points",
+             "assessments below this are not reported", engineering),
+            ("weight.proximity", self.weights.proximity, "points",
+             "risk points for full proximity score", engineering),
+            ("weight.closing_speed", self.weights.closing_speed, "points",
+             "risk points for full closing-speed score", engineering),
+            ("weight.trajectory", self.weights.trajectory, "points",
+             "risk points for full trajectory score", engineering),
+            ("weight.zone", self.weights.zone, "points",
+             "risk points for full zone score", engineering),
+            ("weight.persistence", self.weights.persistence, "points",
+             "risk points for full persistence score", engineering),
+        ]
+        return [
+            {
+                "parameter": name,
+                "value": value,
+                "units": units,
+                "purpose": purpose,
+                "provenance": provenance,
+            }
+            for name, value, units, purpose, provenance in rows
+        ]
+
     def escalation_multiplier(self, signal_count: int) -> float:
         """Corroboration multiplier for ``signal_count`` independent signals."""
         if signal_count < 0:

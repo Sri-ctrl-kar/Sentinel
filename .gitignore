@@ -54,7 +54,9 @@ Thumbs.db
 # Pipeline output and generated demo media
 data/*.json
 data/demo/*.mp4
+data/clips/*.mp4
 
-# ...but example configuration is checked in
+# ...but example configuration and clip annotations are checked in
 !data/zones.example.json
+!data/clips/*.json
 

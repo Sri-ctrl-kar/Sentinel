@@ -4,11 +4,12 @@
 
 Sentinel is a multimodal predictive incident-intelligence system.
 
-## Current milestone: M0.5 — World-Space Predictive Risk
+## Current milestone: M0.6 — Reality Validation & Benchmarking
 
 ```
 video → detection → tracking → events → temporal memory → calibration
       → world-space kinematics → trajectory prediction → risk assessment
+      → evaluation
 ```
 
 **M0.1** delivered perception: video in, detections tracked with persistent IDs,
@@ -34,11 +35,15 @@ closed-form time to the unsafe-separation threshold. Without a calibration
 everything falls back to the M0.3 image-space behaviour, and every assessment
 names the space it was scored in.
 
-Try it with no video, no weights and no GPU:
+**M0.6** asks whether any of it is credible. It adds a benchmark that scores
+the pipeline against ground truth it did not produce, keeps five metric
+families separate, audits every threshold, and states plainly what has and has
+not been validated. It found real things — see
+[what M0.6 validated](#what-m06-validates).
 
 ```bash
+python -m app.evaluation         # the full benchmark
 python -m app.demo --world       # prediction, time-to-risk, escalation
-python -m app.evaluation         # the eight-scenario benchmark
 ```
 
 There is still no UI, no LLM, no audio and no autonomous agents — those are
@@ -95,7 +100,14 @@ app/
 │
 ├── storage/memory.py                flat event log + JSON persistence
 ├── scenarios.py                     deterministic world-space scenarios A-H
-├── evaluation.py                    benchmark harness + lead-time metric
+├── evaluation/                      ── LAYER 5: is any of it credible? (M0.6)
+│   ├── assignment.py                Hungarian assignment (exact, brute-force tested)
+│   ├── tracking.py                  identity metrics + MOTA/IDF1
+│   ├── events.py                    per-action precision/recall/F1
+│   ├── scenario_risk.py             unsafe transitions + lead time
+│   ├── spatial.py                   calibration conditioning, perspective check
+│   ├── protocol.py                  clip annotation format + pipeline runner
+│   └── report.py                    the assembled benchmark
 └── demo.py                          synthetic warehouse scenario (no video needed)
 ```
 
@@ -116,6 +128,11 @@ Two rules make the rest of the roadmap possible, and both are enforced by
 3. **Calibration logic lives only in `app/calibration/`.** A test fails the
    build if `perception/`, `events/` or `memory/` ever imports it. Those layers
    produce pixels; converting pixels to metres is somebody else's job.
+4. **Evaluation is a consumer, never a dependency.** No layer may import
+   `app/evaluation/`, and no evaluation vocabulary (`lead_time`,
+   `false_positive`, `mota`, `idf1`) may appear anywhere in `app/reasoning/`.
+   Both are asserted by tests. A system that knows how it is being scored will
+   eventually be built to score well.
 
 Data flows strictly downward. Layers 3 and 4 consume `Event` objects and have
 no idea a camera was involved. Geometry is **not** duplicated: the risk engine
@@ -439,6 +456,156 @@ ground plane one is 1.60 m apart and the other 3.32 m — a 2.1× difference. An
 image-space system must score them identically; Sentinel scores them 29.4 and
 19.1.
 
+### What M0.6 validates
+
+Run it:
+
+```bash
+python -m app.evaluation                    # full benchmark, human-readable
+python -m app.evaluation --json             # machine-readable
+python -m app.evaluation --clip my.json     # your own annotated clip
+```
+
+Five metric families, deliberately **never collapsed into one accuracy
+number**. A single figure would hide which layer moved.
+
+#### Metric definitions
+
+| Metric | Definition |
+| --- | --- |
+| `MOTA` | `1 - (FN + FP + IDSW) / GT`, matched per frame by **optimal assignment** on IoU ≥ 0.5. Unbounded below — a tracker emitting enough false positives scores negative. Not a percentage. |
+| `IDF1` | `2·IDTP / (2·IDTP + IDFP + IDFN)` under one **global optimal** identity assignment. |
+| `ID switches` | A ground-truth entity reported under a different track ID than last time. |
+| `Fragmentation` | Distinct track IDs per ground-truth entity; 1 is perfect. |
+| Event `P/R/F1` | Per action, matched by optimal assignment on timing error within a 0.5s tolerance, requiring the same entity (via the tracking identity mapping) and the same zone. |
+| `prediction_lead_time` | `actual_unsafe_transition_time − first_valid_prediction_time`. |
+
+The assignment underneath MOTA, IDF1 and event matching is exact Hungarian,
+**verified against brute force on 200 random matrices**. Greedy matching would
+have produced different — generally flattering — numbers under the same names.
+
+#### What counts as a prediction
+
+A prediction earns lead-time credit only if **all** hold:
+
+- the outcome is forward-looking (`PREDICTED_UNSAFE_PROXIMITY` or
+  `PREDICTED_TRAJECTORY_CONFLICT`). `CURRENTLY_UNSAFE_PROXIMITY` describes the
+  present and is excluded;
+- the predictor had sufficient history;
+- it was made **strictly before** the actual unsafe transition.
+
+M0.5 measured from the first *severity alert* instead. That would have credited
+the system for "predicting" a state that had already begun — an evaluation bug,
+fixed here. The measured lead time changed from 0.67s to 1.67s as a result,
+because the prediction fires earlier than the severity crossing.
+
+`first_unsafe_time` is an **onset** — a transition from safe to unsafe — taken
+from recorded positions, never from the predictor. Grading a prediction against
+itself would be worthless.
+
+#### Benchmark results
+
+```
+TRACKING  (rendered clip, 80 frames, blob detector)
+  GT entities 3 · predicted tracks 3 · ID switches 0
+  MOTA 0.972 · IDF1 0.986 · det P/R 0.983/0.989 @IoU≥0.5
+
+EVENTS
+  appeared       TP 3  FP 0  FN 0   P 1.000  R 1.000  F1 1.000   mean |dt| 0.050s
+  disappeared    TP 2  FP 1  FN 1   P 0.667  R 0.667  F1 0.667   mean |dt| 0.000s
+  not annotated, so not scored: moved ×45, stationary ×1
+
+RISK  (8 scenarios)
+  unsafe transitions 3 · correct predictions 3 · false positives 0
+  missed 0 · no unsafe transition 1 · late predictions 0
+  lead time (n=3): mean 1.67s · median 1.80s · min 1.40s · max 1.80s
+
+SPATIAL
+  calibrated 7 · uncalibrated 1 · perspective distinction: PASS
+  110.0px near = 1.60 m, 110.0px far = 3.32 m (ratio 2.07×)
+
+  calibration conditioning — world error from a 2px survey error:
+    well_conditioned_rectangle   cond 0.447    worst  0.025 m
+    perspective_trapezoid        cond 0.537    worst  0.109 m
+    ill_conditioned_flat_view    cond 0.026    worst 96.209 m
+    collinear_rejected           REJECTED
+
+THRESHOLDS
+  0 of 24 empirically validated. The rest are engineering assumptions.
+```
+
+#### What this actually found
+
+Three findings, none of which were designed for:
+
+1. **Disappearance is reported late by up to 0.80s.** The rendered car leaves
+   at 3.15s; the pipeline reports it at 3.95s. Cause: a track must coast for
+   `max_age` (30 frames = 1.5s at 20fps) before retirement. This is the
+   `disappeared` FP+FN above. It is a real latency characteristic, left visible
+   rather than hidden by widening the tolerance.
+2. **Calibration conditioning dominates world-space accuracy.** The same 2px
+   survey error costs 2.5 cm on a well-spread rectangle and **96 m** on a
+   nearly-collinear one — a 3829× amplification. Both configurations are
+   *accepted* by the M0.4 validator; only conditioning separates them.
+3. **The lead-time metric was measuring the wrong thing** (above).
+
+#### Clip annotation workflow
+
+No video is committed to this repository. To evaluate your own footage, write a
+JSON file next to it — designed to be hand-writable for a 10-30 second clip:
+
+```json
+{
+  "name": "loading_bay",
+  "video": "bay.mp4",
+  "fps": 20.0,
+  "annotated_actions": ["appeared", "disappeared", "entered_zone"],
+  "calibration": {"image_points": [[100,100],[900,100],[900,500],[100,500]],
+                  "world_points": [[0,0],[20,0],[20,10],[0,10]]},
+  "zones": [{"name": "forklift_bay", "rect": [400,200,800,500]}],
+  "entities": [
+    {"id": "worker_1", "class_name": "person",
+     "boxes": {"0": [100,300,140,390], "20": [260,300,300,390]}}
+  ],
+  "events": [{"entity": "worker_1", "action": "entered_zone",
+              "time": 3.2, "zone": "forklift_bay"}]
+}
+```
+
+Only `entities` is required. **Boxes are linearly interpolated between
+annotated frames**, so mark one every 10-20 frames rather than every frame.
+
+`annotated_actions` is a completeness claim: *"for these actions I labelled
+every occurrence"*. Only those are scored. Without it, a pipeline emitting
+`moved` events for a clip whose annotator never labelled movement would be
+charged 45 false positives for doing its job — which is why the table above
+reports those as *not annotated* rather than *wrong*.
+
+The bundled clip is generated, with ground truth taken from the renderer's own
+drawing commands:
+
+```bash
+python scripts/generate_demo_video.py \
+    -o data/clips/rendered_bay.mp4 --annotations data/clips/rendered_bay.json
+```
+
+#### What is NOT validated
+
+- **No real footage has been evaluated.** Every clip is rendered: perfect
+  contrast, no motion blur, no occlusion by scene geometry, no detector domain
+  gap. These results show the pipeline is internally correct and
+  self-consistent. They show **nothing** about accuracy on real cameras.
+- **No threshold is empirically validated.** All 24 are engineering
+  assumptions, labelled as such in the benchmark output. None has been tuned
+  against the benchmark — tuning against the evaluation set would make the
+  benchmark a measurement of itself.
+- **No calibration has been checked against a surveyed scene.** Conditioning
+  analysis shows how much accuracy a given input error *costs*; it says nothing
+  about how accurate any real calibration is.
+- **Risk scores remain ordinal 0-100 rankings, not calibrated probabilities.**
+  Nothing here calibrates them against incident frequencies.
+- **Lead time is warning time on scripted motion**, not accuracy.
+
 ### Risk model (M0.3)
 
 The score is a weighted sum of independently computed factors, times a
@@ -681,8 +848,9 @@ python -m app.demo --timeline   # how the risk score develops across the scene
 python -m app.demo --json       # the structured assessment
 python -m app.demo --calibrated # the same scene measured in metres (M0.4)
 python -m app.demo --world      # prediction, time-to-risk, escalation (M0.5)
-python -m app.demo --evaluate   # the eight-scenario benchmark
-python -m app.evaluation        # the benchmark on its own (--json for machine use)
+python -m app.demo --evaluate   # the eight-scenario risk harness
+python -m app.evaluation        # the FULL benchmark (--json for machine use)
+python -m app.evaluation --clip data/clips/rendered_bay.json
 ```
 
 Run `python -m app.main --help` for the full list.
@@ -988,6 +1156,11 @@ collinear rejection, wrong point counts, extrapolation flagging, shared use
 across entities, and — equally important — that nothing becomes metric when no
 calibration is supplied.
 
+`tests/test_evaluation_metrics.py` and `tests/test_benchmark.py` cover M0.6:
+the Hungarian assignment against brute force, MOTA/IDF1 against hand-computed
+cases, event matching, the corrected lead-time rules, calibration conditioning,
+the perspective regression, and the benchmark's own honesty statements.
+
 `tests/test_prediction.py` and `tests/test_world_risk.py` cover M0.5: the
 closed-form crossing solver, prediction outcomes and refusals, per-candidate
 space selection, the guarantee that the two spaces are never mixed within one
@@ -1051,6 +1224,19 @@ the calibration, so:
   exact framing.
 - **`--movement-threshold` and `--stationary-threshold` are still pixel values**
   in the event generator, even when the risk engine is scoring in metres.
+
+### Validation
+
+- **Nothing has been evaluated on real footage.** Every benchmark clip is
+  rendered. The pipeline is shown to be internally correct; its accuracy on a
+  real camera is unmeasured.
+- **All 24 thresholds are engineering assumptions**, none empirically
+  validated, and the benchmark prints that count on every run.
+- **Disappearance is reported up to 0.80s late** (measured), because a track
+  must coast for `max_age` before retirement.
+- **Calibration conditioning is not enforced, only reported.** A legal but
+  nearly-collinear calibration is accepted and can amplify a 2px survey error
+  into 96 m of world error.
 
 ### Prediction
 
@@ -1155,36 +1341,42 @@ factors, constant-velocity trajectory prediction with closed-form minimum
 separation and threshold-crossing time, structured time-to-risk, the
 prediction-lead-time metric, scenarios A-H and the evaluation harness.
 
+**In M0.6:** the benchmark — exact Hungarian assignment, MOTA/IDF1, per-action
+event precision/recall/F1, corrected lead time, calibration conditioning
+analysis, the perspective regression, the threshold audit, and a clip
+annotation format for real footage.
+
 **Not yet:** frontend, LLM reasoning, audio, agents, counterfactual simulation,
 database.
 
 ---
 
-## What remains for M0.6
+## What remains for M0.7
 
-M0.5 closes the measurement-to-decision loop: Sentinel now reasons in metres
-and predicts ahead. What it still lacks is evidence that those numbers are
-right, and a way for anyone to use them.
+M0.6 built the instrument and pointed it at rendered clips. The instrument is
+sound; the subject is not yet real.
 
-1. **Validation against real footage.** This is now the binding constraint on
-   everything else. The metric thresholds and factor weights are engineering
-   judgement; a labelled near-miss dataset would turn the benchmark from a
-   self-consistency check into evidence. Until then, no accuracy claim can be
-   made and none is.
-2. **Calibration capture.** Correspondences are still hand-written. A tool to
-   click four floor points on a frame and enter their measured positions is
-   what makes calibration usable by anyone not editing Python — and it is what
-   makes item 1 practical on real cameras.
-3. **A better motion model.** Constant velocity is honest but weak. Turn-rate
-   or a Kalman filter would extend the usable horizon; a learned model would
-   predict better and explain worse, which is a trade this project should make
-   consciously.
-4. **Object extents.** Separation between two points ignores that a lorry is
-   not a pedestrian. Per-class radii would sharpen both the unsafe threshold
-   and the conflict radius.
-5. **The LLM reasoning layer**, explaining *why* a situation developed and what
-   to do, grounded in the deterministic score. The `Explainer` interface is the
-   seam it plugs into.
-6. **Re-identification**, so an entity that leaves and re-enters keeps its
-   history and its persistence record.
-7. **The frontend**, once there is something stable to display.
+1. **Run the benchmark on real footage.** Everything is now in place — the
+   annotation format, the metrics, the runner. What is missing is a clip of an
+   actual camera and a human willing to annotate 30 seconds of it. Until that
+   exists, every number in this repository describes a rendered scene, and the
+   headline risk: a blob detector on perfect synthetic contrast tells you
+   nothing about YOLO on a dim warehouse.
+2. **Calibrate the thresholds against that footage.** All 24 are engineering
+   assumptions. With annotated real data they could become measurements — with
+   tuning and evaluation data held separate, which the benchmark is structured
+   to support but has had no occasion to exercise.
+3. **Calibration capture.** Correspondences are still hand-written. M0.6 showed
+   why this matters: conditioning varies world-space error by 3800×, so a tool
+   that helps a user place well-spread points is a correctness feature, not
+   convenience.
+4. **Reduce disappearance latency.** M0.6 measured 0.80s. Emitting a
+   provisional `disappeared` on the first missed frame and retracting it if the
+   track recovers would cut it, at the cost of a more complex event contract.
+5. **A better motion model.** Constant velocity is honest but weak; turn-rate
+   or a Kalman filter would extend the usable horizon.
+6. **Object extents.** Separation between two points ignores that a lorry is
+   not a pedestrian.
+7. **The LLM reasoning layer**, grounded in the deterministic score. The
+   `Explainer` interface is the seam it plugs into.
+8. **The frontend**, once there is something stable to display.
