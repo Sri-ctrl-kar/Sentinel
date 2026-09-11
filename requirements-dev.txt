@@ -1,0 +1,4 @@
+# Sentinel M0.1 — test and development tooling.
+
+-r requirements.txt
+pytest>=8.0

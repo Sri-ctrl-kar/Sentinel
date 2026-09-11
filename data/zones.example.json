@@ -1,0 +1,16 @@
+{
+  "_comment": "Zones are regions of the IMAGE, in pixels, not regions of the world. Coordinates are valid only for the exact camera framing they were drawn against.",
+  "coordinate_space": "image_pixels",
+  "zones": [
+    {
+      "name": "loading_bay",
+      "rect": [380, 180, 640, 320],
+      "anchor": "bottom_center"
+    },
+    {
+      "name": "walkway",
+      "polygon": [[0, 240], [380, 240], [380, 384], [0, 384]],
+      "anchor": "bottom_center"
+    }
+  ]
+}
