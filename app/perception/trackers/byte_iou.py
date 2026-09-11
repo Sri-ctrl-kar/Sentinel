@@ -15,6 +15,36 @@ smoothed linear predictor. That keeps the module dependency-free and
 deterministic (hence trivially unit-testable) at a small cost in precision that
 does not matter at M0.1, where the output is discrete events rather than
 sub-pixel trajectories.
+
+Association evidence (M0.3.1)
+-----------------------------
+The motion model is **evidence, not a constraint**. An earlier version scored
+candidates solely on ``iou(predicted_box, detection)``, which meant a wrong
+prediction could veto an obviously correct match. At a direction reversal the
+predicted box sits ``2 x step`` from the detection while the track's last known
+box sits only ``1 x step`` away, so the tracker fragmented one object into a
+new ID per reversal — and would have done better with no motion model at all.
+
+Association now considers three tiers of evidence in strict priority order:
+
+1. **IoU against the predicted box** — the motion model agrees. This is the
+   original behaviour and still decides every ordinary frame.
+2. **IoU against the last observed box** — the motion model disagrees, but the
+   detection still overlaps where the object was last actually seen. This is
+   the reversal case.
+3. **Normalised centre distance** — neither box overlaps at all, because the
+   object moved further than its own size in one frame.
+
+Each tier is consulted only for pairs the previous tier left unmatched. That
+ordering is the whole design: relaxation applies exactly where prediction
+failed, and never where it succeeded.
+
+Why tiers rather than ``max(predicted_iou, observed_iou)``: at a crossing, one
+track's *last observed* box can overlap the *other* object's detection better
+than its own predicted box overlaps its own detection. Taking the maximum lets
+that stale overlap win and swaps the two identities. Tiering consumes every
+confident predicted match first, so the ambiguous evidence is never reached
+while the motion model is still doing its job.
 """
 
 from __future__ import annotations
@@ -42,6 +72,55 @@ def iou(a: BBox, b: BBox) -> float:
 
 def _shift(box: BBox, dx: float, dy: float) -> BBox:
     return (box[0] + dx, box[1] + dy, box[2] + dx, box[3] + dy)
+
+
+def _center(box: BBox) -> Tuple[float, float]:
+    return ((box[0] + box[2]) / 2.0, (box[1] + box[3]) / 2.0)
+
+
+def _reference_size(box: BBox) -> float:
+    """A single characteristic length for a box, in pixels.
+
+    The geometric mean of width and height: stable for both the tall thin boxes
+    people produce and the wide flat ones vehicles produce, unlike using width
+    or height alone.
+    """
+    width = max(0.0, box[2] - box[0])
+    height = max(0.0, box[3] - box[1])
+    return (width * height) ** 0.5
+
+
+def _area(box: BBox) -> float:
+    return max(0.0, box[2] - box[0]) * max(0.0, box[3] - box[1])
+
+
+def center_distance(a: BBox, b: BBox) -> float:
+    """Distance between two box centres, in pixels."""
+    ax, ay = _center(a)
+    bx, by = _center(b)
+    return ((ax - bx) ** 2 + (ay - by) ** 2) ** 0.5
+
+
+def normalised_center_distance(track_box: BBox, detection_box: BBox) -> float:
+    """Centre distance scaled by the mean characteristic size of the two boxes.
+
+    Scaling matters: 40px is a long way for a distant pedestrian and nothing at
+    all for a lorry filling half the frame. A single pixel gate would be wrong
+    for one of them.
+    """
+    reference = (_reference_size(track_box) + _reference_size(detection_box)) / 2.0
+    if reference <= 0:
+        return float("inf")
+    return center_distance(track_box, detection_box) / reference
+
+
+def size_consistency(a: BBox, b: BBox) -> float:
+    """Ratio of the smaller box area to the larger, in ``[0, 1]``."""
+    area_a, area_b = _area(a), _area(b)
+    larger = max(area_a, area_b)
+    if larger <= 0:
+        return 0.0
+    return min(area_a, area_b) / larger
 
 
 class _TrackState:
@@ -152,6 +231,16 @@ class ByteIoUTracker(Tracker):
         one-frame false positives).
     class_aware:
         When true, a detection can only match a track of the same class.
+    center_distance_gate:
+        Fallback gate, in multiples of the mean box size, used only when no
+        IoU match is available for a pair. ``0`` disables the fallback and
+        restores pure IoU association. The default of 1.5 accepts a detection
+        displaced by about one and a half object-widths, which covers a fast
+        reversal without reaching a genuinely different object.
+    min_size_consistency:
+        Minimum smaller/larger area ratio for a centre-distance fallback match.
+        Stops a track adopting a detection of wildly different size when only
+        the loose gate is in play.
     """
 
     name = "byte_iou"
@@ -165,6 +254,8 @@ class ByteIoUTracker(Tracker):
         min_hits: int = 2,
         class_aware: bool = True,
         velocity_smoothing: float = 0.5,
+        center_distance_gate: float = 1.5,
+        min_size_consistency: float = 0.25,
     ) -> None:
         self.high_threshold = float(high_threshold)
         self.low_threshold = float(low_threshold)
@@ -173,6 +264,8 @@ class ByteIoUTracker(Tracker):
         self.min_hits = int(min_hits)
         self.class_aware = bool(class_aware)
         self.velocity_smoothing = float(velocity_smoothing)
+        self.center_distance_gate = float(center_distance_gate)
+        self.min_size_consistency = float(min_size_consistency)
         self._tracks: List[_TrackState] = []
         self._next_id = 1
         self._lost: List[Track] = []
@@ -255,10 +348,17 @@ class ByteIoUTracker(Tracker):
     # ------------------------------------------------------------------
     # Association
     # ------------------------------------------------------------------
+    #: Candidate tiers, lowest number wins. Every candidate in a tier is
+    #: considered before any candidate in the next, so weaker evidence can only
+    #: ever claim pairs that stronger evidence left unmatched.
+    TIER_PREDICTED_IOU = 0
+    TIER_OBSERVED_IOU = 1
+    TIER_CENTER = 2
+
     def _associate(
         self, detections: Sequence[Detection], track_indices: Sequence[int]
     ) -> Tuple[List[Tuple[int, int]], List[int], List[int]]:
-        """Greedy highest-IoU-first matching.
+        """Greedy best-evidence-first matching.
 
         Returns ``(matches, unmatched_detection_indices, unmatched_track_indices)``
         where each match is a ``(track_index, detection_index)`` pair.
@@ -266,24 +366,15 @@ class ByteIoUTracker(Tracker):
         if not detections or not track_indices:
             return [], list(range(len(detections))), list(track_indices)
 
-        candidates: List[Tuple[float, int, int]] = []
-        for track_idx in track_indices:
-            state = self._tracks[track_idx]
-            predicted = state.predicted_bbox()
-            for det_idx, det in enumerate(detections):
-                if self.class_aware and det.class_id != state.class_id:
-                    continue
-                score = iou(predicted, det.bbox)
-                if score >= self.iou_threshold:
-                    candidates.append((score, track_idx, det_idx))
-
-        # Sort by IoU descending; ties broken by index so results are stable.
-        candidates.sort(key=lambda c: (-c[0], c[1], c[2]))
+        candidates = self._candidates(detections, track_indices)
+        # Tier first, then score descending; ties broken by index so the result
+        # is deterministic regardless of dict or set iteration order.
+        candidates.sort(key=lambda c: (c[0], -c[1], c[2], c[3]))
 
         matched_tracks: set = set()
         matched_dets: set = set()
         matches: List[Tuple[int, int]] = []
-        for _score, track_idx, det_idx in candidates:
+        for _tier, _score, track_idx, det_idx in candidates:
             if track_idx in matched_tracks or det_idx in matched_dets:
                 continue
             matched_tracks.add(track_idx)
@@ -293,3 +384,66 @@ class ByteIoUTracker(Tracker):
         unmatched_dets = [i for i in range(len(detections)) if i not in matched_dets]
         unmatched_tracks = [i for i in track_indices if i not in matched_tracks]
         return matches, unmatched_dets, unmatched_tracks
+
+    def _candidates(
+        self, detections: Sequence[Detection], track_indices: Sequence[int]
+    ) -> List[Tuple[int, float, int, int]]:
+        """Score every admissible (track, detection) pair as ``(tier, score, t, d)``."""
+        candidates: List[Tuple[int, float, int, int]] = []
+
+        for track_idx in track_indices:
+            state = self._tracks[track_idx]
+            predicted = state.predicted_bbox()
+            observed = state.bbox
+
+            for det_idx, det in enumerate(detections):
+                if self.class_aware and det.class_id != state.class_id:
+                    continue
+
+                # --- tier 0: the motion model agrees ------------------------
+                predicted_overlap = iou(predicted, det.bbox)
+                if predicted_overlap >= self.iou_threshold:
+                    candidates.append(
+                        (self.TIER_PREDICTED_IOU, predicted_overlap, track_idx, det_idx)
+                    )
+                    continue
+
+                # --- tier 1: the motion model was wrong, but the object is
+                # still where we last saw it. This is the reversal case: the
+                # prediction points backwards, so it must not veto the match.
+                observed_overlap = iou(observed, det.bbox)
+                if observed_overlap >= self.iou_threshold:
+                    candidates.append(
+                        (self.TIER_OBSERVED_IOU, observed_overlap, track_idx, det_idx)
+                    )
+                    continue
+
+                # --- tier 2: nothing overlaps, because the object moved
+                # further than its own size in a single frame.
+                if self.center_distance_gate <= 0:
+                    continue
+                proximity = self._center_score(predicted, observed, det.bbox)
+                if proximity is not None:
+                    candidates.append((self.TIER_CENTER, proximity, track_idx, det_idx))
+
+        return candidates
+
+    def _center_score(
+        self, predicted: BBox, observed: BBox, detection_box: BBox
+    ) -> Optional[float]:
+        """Fallback affinity in ``[0, 1)``, or ``None`` if the pair is not admissible.
+
+        Measured from whichever of the predicted or last-observed box is nearer,
+        for the same reason tier 0 takes the better of the two.
+        """
+        if size_consistency(observed, detection_box) < self.min_size_consistency:
+            return None
+        distance = min(
+            normalised_center_distance(predicted, detection_box),
+            normalised_center_distance(observed, detection_box),
+        )
+        if distance > self.center_distance_gate:
+            return None
+        # Nearer is better. Bounded below 1.0 so a fallback score can never be
+        # confused with an IoU score when read in logs.
+        return max(0.0, 1.0 - distance / self.center_distance_gate) * 0.999

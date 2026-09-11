@@ -520,6 +520,57 @@ per zone. Zones may overlap; an entity in three zones emits three
 
 ---
 
+### Fixed in M0.3.1 — tracker identity fragmentation
+
+**The bug.** The tracker scored association on a single measurement,
+`iou(predicted_box, detection)`, which made the motion model a *hard
+constraint* rather than evidence. At a direction reversal the predicted box
+sits `2 × step` from the detection while the last observed box sits only
+`1 × step` away, so a correct match was vetoed by a wrong prediction — the
+tracker performed *worse than having no motion model at all*. The orphaned
+track then coasted further the wrong way each frame and could never recover,
+minting a new ID at every reversal. Fragmentation began exactly where the
+geometry says: once `2 × step` exceeded the object's own width.
+
+This was found during M0.3 validation, where a worker pacing in and out of a
+zone shattered into **7 identities**, hiding the repeated-violation pattern the
+persistence factor exists to detect.
+
+**The fix.** Association now considers three tiers of evidence, each consulted
+only for pairs the previous tier left unmatched:
+
+| Tier | Evidence | Handles |
+| ---: | --- | --- |
+| 0 | IoU against the **predicted** box | every ordinary frame; resolves crossings |
+| 1 | IoU against the **last observed** box | direction reversals, where prediction points backwards |
+| 2 | Normalised **centre distance** + size consistency | motion faster than the object's own size |
+
+The ordering is the whole design: relaxation applies exactly where prediction
+failed, and never where it succeeded. `max_age` was not touched, and no
+appearance model was added.
+
+Tiering rather than `max(predicted_iou, observed_iou)` matters, and the
+difference is not theoretical — taking the maximum fixed the reversal but
+introduced identity swaps at crossings, because one track's stale observed box
+can overlap the *other* object's detection better than its own predicted box
+overlaps its own. Consuming every confident predicted match first means the
+ambiguous evidence is never reached while the motion model is still working.
+
+Measured on the original reproduction (`tests/test_tracker_identity.py`):
+
+| | Before | After |
+| --- | ---: | ---: |
+| Ground-truth entities | 2 | 2 |
+| Track IDs created | 7 | **2** |
+| ID switches | 5 | **0** |
+| False merges | 0 | 0 |
+
+Reversal is now clean at every step size from 5px to 80px on a 40px-wide box
+(it previously broke at 20px), while crossing, parallel, occlusion and
+beyond-`max_age` behaviour are unchanged.
+
+---
+
 ## AMD / ROCm notes
 
 - **`torch.cuda` *is* the ROCm API.** On a ROCm build, `torch.cuda.is_available()`
@@ -552,6 +603,12 @@ generator and memory, so they are exactly reproducible; the `blob` backend
 drives a genuine end-to-end run (real video decoding, real tracking, real JSON
 output) against a synthetic clip whose ground truth is known. Tests needing
 OpenCV skip cleanly if it isn't installed.
+
+`tests/test_tracker_identity.py` scores the tracker against ground truth using
+`tests/tracking_metrics.py`, which reports track IDs created, ID switches and
+false merges. Ground truth is used **only to grade the result** — the tracker
+is handed nothing but detections, so a test can never flatter it by leaking the
+answer.
 
 `tests/test_memory_layering.py` parses the source tree and fails the build if
 `app/memory/` or `app/reasoning/` ever imports a model library or the perception
@@ -602,6 +659,10 @@ require a homography or camera calibration, which is **not** in scope.
 - **No re-identification.** An entity gone longer than `--track-max-age`
   returns with a new ID and a new timeline. Occlusion shorter than that is
   handled; a person leaving and re-entering the frame is two entities.
+- **Crossing objects of the same class can still swap** if one of them is
+  also mispredicted at the moment they overlap. The tiered association below
+  resolves the ordinary crossing correctly, but overlap plus a bad prediction
+  is genuinely ambiguous without appearance features.
 - **No cross-camera identity.** One video, one namespace of entity IDs.
 - **Entity IDs are per-run.** `person_1` in two runs is two different people.
 
@@ -666,6 +727,10 @@ test.
 **In M0.3:** predictive risk engine, image-space kinematics, five factor types,
 deterministic explainable scoring, structured risk assessments, the synthetic
 warehouse demo.
+
+**In M0.3.1:** tracker identity fix — tiered association evidence, ground-truth
+identity metrics, and regression tests for reversal, occlusion, crossing and
+crowding.
 
 **Not yet:** frontend, LLM reasoning, audio, agents, counterfactual simulation,
 database.

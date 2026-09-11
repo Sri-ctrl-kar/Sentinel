@@ -221,12 +221,14 @@ def scenario_e() -> Scenario:
     """
     # The person paces in and out of the bay on a 16-frame triangle wave.
     #
-    # The 8px step matters: the tracker predicts each track forward by its last
-    # velocity, so at a direction reversal the predicted box sits 2 steps away
-    # from the real detection. At 8px that still overlaps a 40px-wide box and
-    # identity survives; at 20px it does not, and the pacer fragments into a
-    # crowd of strangers with no history between them. Persistence is only
-    # visible when the repetition belongs to ONE entity.
+    # The 8px step was originally required to work around the M0.3 tracker
+    # fragmentation bug: association scored only on the predicted box, so at a
+    # reversal the prediction pointed backwards and the pacer shattered into a
+    # crowd of strangers with no history between them. M0.3.1 fixed that (the
+    # tracker now falls back to the last observed box), and this path no longer
+    # depends on the small step — see tests/test_tracker_identity.py. The
+    # geometry is kept as-is so the documented M0.3 scores stay stable.
+    # Persistence is only visible when the repetition belongs to ONE entity.
     class _Pacer(Actor):
         def detection_at(self, frame: int):
             phase = frame % 16
