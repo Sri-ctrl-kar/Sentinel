@@ -53,6 +53,17 @@ class ZoneFactor(RiskFactor):
     SCORE_VEHICLE_PRESENT = 1.00
 
     def evaluate(self, context: RiskContext) -> FactorScore:
+        """Score the candidate and record who was standing in which zone.
+
+        The occupancy map is attached to every result, including the inactive
+        ones, so a downstream consumer never has to parse the rationale string
+        to find out where an entity was.
+        """
+        score = self._evaluate(context)
+        score.details.setdefault("zone_occupancy", self._occupancy(context))
+        return score
+
+    def _evaluate(self, context: RiskContext) -> FactorScore:
         config = context.config
         operating = {z.lower() for z in config.operating_zones}
         if not operating:
@@ -138,6 +149,13 @@ class ZoneFactor(RiskFactor):
         )
 
     # ------------------------------------------------------------------
+    def _occupancy(self, context: RiskContext) -> dict:
+        """Which zones each entity in this candidate occupies, from memory."""
+        return {
+            entity_id: self._zones_of(context, entity_id)
+            for entity_id in context.candidate.entity_ids
+        }
+
     def _person_id(self, context: RiskContext) -> Optional[str]:
         for entity_id in context.candidate.entity_ids:
             if context.config.is_person(context.class_of(entity_id)):

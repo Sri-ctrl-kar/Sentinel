@@ -4,12 +4,13 @@
 
 Sentinel is a multimodal predictive incident-intelligence system.
 
-## Current milestone: M0.6 — Reality Validation & Benchmarking
+## Current milestone: M0.7 — Multimodal Incident Intelligence
 
 ```
 video → detection → tracking → events → temporal memory → calibration
       → world-space kinematics → trajectory prediction → risk assessment
-      → evaluation
+      → incident evidence → AI interpretation → grounding check
+      (evaluation runs alongside, grading the deterministic half)
 ```
 
 **M0.1** delivered perception: video in, detections tracked with persistent IDs,
@@ -41,14 +42,23 @@ families separate, audits every threshold, and states plainly what has and has
 not been validated. It found real things — see
 [what M0.6 validated](#what-m06-validates).
 
+**M0.7** adds the AI layer — and fences it in. The deterministic pipeline
+still decides everything: whether an incident exists, how severe it is, what
+is predicted and when. That decision is frozen into an **incident evidence**
+contract, a language model is asked to *explain* it, and the explanation is
+then checked back against the evidence by code. The AI layer explains
+Sentinel's structured evidence; it does not replace the deterministic risk
+engine. See [incident intelligence](#incident-intelligence-m07).
+
 ```bash
+python -m app.incident --scenario D --reasoner mock   # no key, no network
 python -m app.evaluation         # the full benchmark
 python -m app.demo --world       # prediction, time-to-risk, escalation
 ```
 
-There is still no UI, no LLM, no audio and no autonomous agents — those are
-later milestones, and the interfaces here are shaped so they can be added
-without a rewrite.
+There is still no UI, no audio and no autonomous agents — those are later
+milestones, and the interfaces here are shaped so they can be added without a
+rewrite.
 
 ---
 
@@ -98,6 +108,19 @@ app/
 │       ├── zone.py                  ZoneFactor — person in a machine's zone
 │       └── persistence.py           PersistenceFactor, EscalationFactor
 │
+├── intelligence/                    ── LAYER 6: saying it in words (M0.7)
+│   ├── evidence.py                  IncidentEvidence — the frozen AI boundary
+│   ├── lifecycle.py                 observed/developing/imminent/current/resolved
+│   ├── schema.py                    IncidentExplanation + its JSON Schema
+│   ├── reasoner.py                  IncidentReasoner ABC, registry, grounding gate
+│   ├── prompt.py                    the evidence-grounded prompt
+│   ├── grounding.py                 mechanical checks on generated text
+│   ├── settings.py                  env/.env handling; no key anywhere else
+│   └── providers/
+│       ├── mock.py                  deterministic template (NOT a model)
+│       └── anthropic_claude.py      Claude  ← the ONLY file importing an LLM SDK
+│
+├── incident.py                      the M0.7 demo command
 ├── storage/memory.py                flat event log + JSON persistence
 ├── scenarios.py                     deterministic world-space scenarios A-H
 ├── evaluation/                      ── LAYER 5: is any of it credible? (M0.6)
@@ -111,8 +134,8 @@ app/
 └── demo.py                          synthetic warehouse scenario (no video needed)
 ```
 
-Two rules make the rest of the roadmap possible, and both are enforced by
-`tests/test_memory_layering.py` rather than by convention:
+These rules make the rest of the roadmap possible, and every one is enforced
+by `tests/test_memory_layering.py` rather than by convention:
 
 1. **Model-specific code never escapes `perception/backends/`.** `pipeline.py`
    talks to the `Detector` and `Tracker` interfaces, so moving inference to AMD
@@ -133,6 +156,15 @@ Two rules make the rest of the roadmap possible, and both are enforced by
    `false_positive`, `mota`, `idf1`) may appear anywhere in `app/reasoning/`.
    Both are asserted by tests. A system that knows how it is being scored will
    eventually be built to score well.
+5. **The AI layer is strictly downstream, and no deterministic layer may
+   import it or any model SDK.** `perception/`, `events/`, `memory/`,
+   `calibration/`, `reasoning/`, `evaluation/` and `storage/` are asserted to
+   import neither `app.intelligence` nor `anthropic`/`openai`/`transformers`/
+   any other model package; a test also asserts that exactly one file in the
+   repository — `app/intelligence/providers/anthropic_claude.py` — imports an
+   LLM SDK at all, and that a clean interpreter can `import app.intelligence`
+   with no model runtime and no vendor package loaded. Risk scores are
+   therefore identical whether or not a reasoner is ever constructed.
 
 Data flows strictly downward. Layers 3 and 4 consume `Event` objects and have
 no idea a camera was involved. Geometry is **not** duplicated: the risk engine
@@ -844,6 +876,296 @@ exponentially smoothed linear predictor for the Kalman filter.
 
 ---
 
+## Incident intelligence (M0.7)
+
+M0.7 is the first milestone in which a language model touches Sentinel at all,
+and the design question was never "which model" — it was **what the model is
+allowed to decide**. The answer is: nothing.
+
+### Why the deterministic layer stays authoritative
+
+Everything that constitutes a safety judgement is computed, not generated:
+
+| Decision | Made by |
+| --- | --- |
+| Is there an object, and what class is it? | detector (M0.1) |
+| Is it the same object as last frame? | tracker (M0.1, M0.3.1) |
+| What happened, and when? | event generator + temporal memory (M0.2) |
+| Where is that on the floor, in metres? | calibration (M0.4) |
+| How fast, and toward what? | kinematics + predictor (M0.5) |
+| **Does an incident exist? How severe? When?** | **risk engine (M0.3, M0.5)** |
+| What lifecycle state is it in? | `app/intelligence/lifecycle.py` — deterministic |
+| How do you say that to a human? | the AI layer |
+
+A language model is good at the last row and unaccountable for any of the
+others. It cannot raise an incident, suppress one, change a score, move a
+severity band, or invent a time-to-risk, because it is never asked for any of
+those things and is never given a field to put them in. **Risk scores are
+ordinal engineering signals, not probabilities** — and the prompt, the schema
+and the grounding checker each enforce that separately.
+
+### The evidence contract
+
+`IncidentEvidence` (`app/intelligence/evidence.py`) is the boundary. It is a
+frozen dataclass, JSON-serialisable in both directions, and every field is
+copied from a completed `RiskAssessment` — nothing in it is computed for the
+first time at this layer.
+
+```python
+from app.intelligence import evidence_from_assessment, build_reasoner, check_grounding
+
+evidence    = evidence_from_assessment(assessment)   # deterministic, frozen
+explanation = build_reasoner("mock").reason(evidence)
+report      = check_grounding(explanation, evidence) # enforcement, not trust
+```
+
+| Field | Contents |
+| --- | --- |
+| `incident_id`, `timestamp` | identity and when, in seconds |
+| `coordinate_space`, `distance_unit`, `speed_unit` | `image_pixels`/`px`/`px/s` or `ground_plane_meters`/`m`/`m/s` |
+| `entities[]` | entity ID, class, position, velocity, speed, zone membership — each tagged with its space |
+| `risk_score`, `severity`, `incident_type` | exactly as the engine produced them |
+| `incident_state` | lifecycle state, derived deterministically |
+| `factors[]` | name, score, weight, contribution, rationale, confidence |
+| `prediction` | outcome, horizon, predicted minimum separation, seconds to it, unsafe threshold, or the reason none exists |
+| `time_to_risk` | `already_unsafe` / `predicted` / `not_predicted` (+ reason) |
+| `current_separation`, `closing_speed` | present-tense measurements |
+| `triggered_event_ids`, `triggered_event_actions` | what in memory backs this |
+| `calibration_active`, `space_fallback_reason` | whether metres were real |
+
+Two methods make it more than a data bag:
+
+* `quantities()` returns each measurement as a `Quantity` carrying its unit, so
+  a separation of `8.0` can never be read as metres when it was pixels;
+* `numeric_facts()` enumerates **every number an explanation is permitted to
+  state**. A figure that is not in that list did not come from Sentinel — which
+  is what makes hallucinated numbers mechanically detectable.
+
+The evidence is useful with no LLM at all: `python -m app.incident --json`
+prints it, it round-trips through JSON, and its `score_interpretation` field
+says in words that the score is not a probability.
+
+### Incident lifecycle
+
+Separate from severity, and never chosen by a model:
+
+| State | Derived when |
+| --- | --- |
+| `observed` | scored, nothing developing |
+| `developing` | a future unsafe approach is predicted, beyond the imminent horizon |
+| `imminent` | predicted to cross the unsafe threshold within 2.0 s |
+| `current` | the unsafe condition exists **now** (`already_unsafe`) |
+| `resolved` | was active; no longer |
+
+Severity (`normal`/`low`/`medium`/`high`/`critical`) says *how bad*; lifecycle
+says *where in its life*. A test asserts the two vocabularies do not overlap,
+and another asserts that changing the severity band never moves the state.
+
+### The reasoner interface
+
+```python
+class IncidentReasoner(ABC):
+    provider: str            # "mock", "anthropic", ...
+    model: str
+    is_language_model: bool  # False for the mock — consumers label output with this
+
+    @abstractmethod
+    def reason(self, evidence: IncidentEvidence) -> IncidentExplanation: ...
+```
+
+Providers are registered by name and imported only when built, so nothing
+vendor-specific loads unless you ask for it. `register_reasoner()` adds a new
+one — a local model, an AMD-hosted endpoint, another vendor — without touching
+the core.
+
+`IncidentExplanation` is small on purpose: `summary`, `severity_explanation`,
+`evidence_points[]`, `predicted_outcome`, `recommended_action`, `urgency`,
+`uncertainty`, `coordinate_space`, plus host-attached metadata (`provider`,
+`model`, `is_language_model`). There is no field for a probability, a distance,
+a speed or a confidence, because there is no such field for a model to fill.
+Validation is strict: a missing field, a wrong type, an empty string, an
+unknown urgency **or an extra field** is rejected with `ExplanationSchemaError`.
+
+### The mock provider
+
+`--reasoner mock` is a deterministic template, not a model. It reads the
+evidence and writes sentences with the numbers slotted in. It exists so the
+whole layer — prompt, schema, grounding, CLI — is testable with no key, no
+network and no run-to-run variance, and it is the grounding suite's control: if
+the mock ever fails a grounding check, the checker has a bug.
+
+It never pretends otherwise: `is_language_model=False`, the model identifier is
+`deterministic-template-v0.7`, and every summary is prefixed
+`[mock reasoner: deterministic template, not a language model]`.
+
+### The real provider
+
+`app/intelligence/providers/anthropic_claude.py` is the only file in the
+repository that imports a model SDK.
+
+```bash
+pip install anthropic
+cp .env.example .env          # then set ANTHROPIC_API_KEY
+python -m app.incident --scenario D --reasoner anthropic
+```
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `SENTINEL_REASONER` | `mock` | default provider |
+| `SENTINEL_REASONER_MODEL` | `claude-opus-5` | model for the anthropic provider |
+| `SENTINEL_REASONER_MAX_TOKENS` | `2000` | generation cap |
+| `SENTINEL_REASONER_TIMEOUT_SECONDS` | `60` | client timeout |
+| `ANTHROPIC_API_KEY` | — | required only by that provider |
+
+`.env` is read if present and never overrides an exported variable. The key is
+read in exactly one module; `ReasonerSettings` carries a boolean
+`has_credentials` and never the value, so no key can reach a log, a report or
+an explanation. A missing package or a missing key raises `ReasonerUnavailable`
+with an actionable message, never a stack trace.
+
+The provider requests structured output using the same JSON Schema the local
+validator enforces, so malformed output is rejected at the API boundary *and*
+again locally. Its prompt construction, response parsing and error handling are
+unit-tested with a stub client — **no test in this repository requires network
+access or credentials**.
+
+### Grounding guarantees
+
+The prompt tells the model eight rules. The checker
+(`app/intelligence/grounding.py`) then verifies the output against the evidence
+mechanically, and `GroundedReasoner(..., strict=True)` refuses to pass failing
+output through at all:
+
+| Code | Catches |
+| --- | --- |
+| `invented_number` | any figure not in `numeric_facts()` (sign included; rounding tolerated) |
+| `unit_mismatch` | pixels described as metres/feet/mph, or calibrated metres described as pixels |
+| `coordinate_space_mismatch` | an explanation that mislabels the space it is describing |
+| `probability_language` | `%`, "percent", "probability", "likelihood", "chance", "odds" — unless negated, so the disclaimer itself is allowed |
+| `past_tense_claim` | a predicted conflict written as one that happened |
+| `missing_prediction_framing` | a forward-looking incident never framed as a prediction |
+| `unknown_entity` | an entity ID that is not in the evidence |
+| `entity_count_inflation` | "three entities" when the evidence lists two |
+| `invented_location` | a warehouse, aisle, street or dock that no field mentions |
+| `claimed_intervention` | any suggestion Sentinel stopped, halted, alerted or notified anything |
+| `unacknowledged_limitation` | silence about a prediction the engine declined to make |
+
+`tests/test_incident_grounding.py` pins all eight required adversarial cases as
+permanent regressions, each with a matching negative test so the checks cannot
+be satisfied by refusing everything. The checker is deliberately blunt: it can
+be stricter than a careful reader would be, which costs a rewrite, where a miss
+would cost a fabricated incident report.
+
+### Example output
+
+```
+========================================================================
+  DETERMINISTIC SENTINEL SIGNAL
+  measured and computed by the pipeline — this is the source of truth
+========================================================================
+incident      : INC-1.20-person_1+forklift_2
+type          : PERSON_VEHICLE_COLLISION_RISK
+lifecycle     : imminent (predicted to become unsafe within 2s)
+risk score    : 100.0/100  severity critical   (ordinal engineering signal, NOT a probability)
+space         : ground_plane_meters (distances in m, speeds in m/s)
+timestamp     : 1.20 s
+
+entities:
+  person_1     person       at (11.00, 5.00) m  speed 2.50 m/s  zones: forklift_bay
+  forklift_2   forklift     at (14.90, 5.00) m  speed 3.00 m/s  zones: forklift_bay
+
+measurements:
+  current separation: 3.90 m
+  closing speed: 5.50 m/s
+  predicted minimum separation: 0.00 m
+
+risk factors:
+  proximity       0.52 x   30 =  15.60 pts   person_1 and forklift_2 are 3.90 m apart on the ground plane (critical below 1.50 m)
+  closing_speed   1.00 x   25 =  25.00 pts   separation is shrinking at 5.50 m/s on the ground plane (saturates at 4.00 m/s)
+  trajectory      0.88 x   25 =  22.05 pts   ground-plane trajectories converge to 0.00 m in 0.7s
+  zone            1.00 x   20 =  20.00 pts   person_1 is inside operating zone forklift_bay; forklift_2 is in the same zone
+  persistence     0.33 x   15 =   5.00 pts   person_1 entered forklift_bay once in the last 60s
+
+prediction:
+  outcome     : PREDICTED_TRAJECTORY_CONFLICT
+  horizon     : 6.0 s
+  min. sep.   : 0.00 m
+  time to risk: predicted (0.35 s)
+  recommended : slow/stop the vehicle and redirect the person out of its path
+
+========================================================================
+  AI INCIDENT INTERPRETATION
+  explains the evidence above — it does not decide, score or override it
+  provider: mock / deterministic-template-v0.7 (deterministic template)
+========================================================================
+summary   : [mock reasoner: deterministic template, not a language model] Sentinel's
+            deterministic risk engine raised PERSON_VEHICLE_COLLISION_RISK involving
+            person_1 (person) and forklift_2 (forklift) at 1.20 s, in lifecycle state
+            imminent.
+
+severity  : Severity band critical follows from risk score 100.0 of 100, an ordinal
+            engineering signal and not a probability. Contributions: proximity
+            contributed 15.6 of 30 points; closing_speed contributed 25.0 of 25 points;
+            trajectory contributed 22.0 of 25 points; zone contributed 20.0 of 20
+            points; persistence contributed 5.0 of 15 points.
+
+evidence  :
+  - current separation: 3.90 m
+  - closing speed: 5.50 m/s
+  - predicted minimum separation: 0.00 m
+  - person_1 speed 2.50 m/s
+  - person_1 recorded inside zone forklift_bay
+  - forklift_2 speed 3.00 m/s
+  - forklift_2 recorded inside zone forklift_bay
+
+predicted : Deterministic prediction outcome: PREDICTED_TRAJECTORY_CONFLICT. On the
+            current constant-velocity paths the pair is predicted to cross the unsafe
+            separation threshold in 0.35 s. It has not happened. Predicted closest
+            approach 0.00 m, expected 0.71 s from now. Prediction horizon 6.0 s.
+
+recommend : Recommendation for a human operator (Sentinel takes no action itself):
+            slow/stop the vehicle and redirect the person out of its path.
+urgency   : immediate
+
+uncertain : Distances are on the calibrated ground plane; their accuracy depends on the
+            calibration survey, which this evidence does not quantify. Prediction
+            assumes constant velocity and does not model operator reaction or obstacles.
+
+------------------------------------------------------------------------
+  GROUNDING CHECK (every claim verified against the evidence)
+------------------------------------------------------------------------
+  PASS — grounded: every claim traces to the supplied evidence
+```
+
+Run it yourself:
+
+```bash
+python -m app.incident --scenario D --reasoner mock        # the demo above
+python -m app.incident --scenario D --no-calibration       # same scene, in pixels
+python -m app.incident --scenario G --limit 2 --json       # machine-readable
+python -m app.incident --scenario D --reasoner anthropic   # needs a key
+python -m app.incident --scenario D --strict               # exit 3 if ungrounded
+```
+
+### What the AI layer does not do
+
+* It does **not** decide whether an incident exists, or change any score — a
+  test asserts the deterministic scores are identical with the layer present.
+* It does **not** read the video, the tracks, the memory or the config. It sees
+  one `IncidentEvidence` and nothing else.
+* It does **not** act, and is checked for claiming otherwise.
+* Grounding is **textual and blunt**, not semantic. It catches invented
+  numbers, wrong units, tense errors, extra entities, place names and action
+  claims; it cannot catch a fluent, correctly-numbered sentence that is
+  nonetheless a poor interpretation. It is a floor, not a guarantee of quality.
+* The real provider is exercised against a stub client in CI. Its behaviour
+  with live model output is unverified here — the grounding gate exists
+  precisely because that output cannot be trusted in advance.
+* Explanation quality has not been measured against human writing; there is no
+  eval set for prose, only the grounding suite.
+
+---
+
 ## Setup
 
 Python 3.9+.
@@ -914,6 +1236,17 @@ python -m app.main clip.mp4 --zone forklift_bay=400,200,800,500 \
 python scripts/generate_demo_video.py -o data/demo/demo.mp4
 python -m app.main data/demo/demo.mp4 --detector blob --classes person truck car
 ```
+
+### Incident intelligence demo (no video, no weights, no key, no network)
+
+```bash
+python -m app.incident --scenario D --reasoner mock
+```
+
+Prints the deterministic evidence and risk state, then — behind a banner that
+cannot be missed — an AI interpretation of it, then the grounding verdict. See
+[incident intelligence](#incident-intelligence-m07) for the flags and for the
+Anthropic provider.
 
 ### Risk demo (no video, no weights, no GPU)
 
@@ -1242,10 +1575,25 @@ space selection, the guarantee that the two spaces are never mixed within one
 assessment, scenarios A-H, and the evaluation harness including the lead-time
 metric's non-circularity.
 
+Seven files cover M0.7. `tests/test_incident_evidence.py` checks the evidence
+contract round-trips and mirrors the assessment exactly;
+`tests/test_incident_lifecycle.py` pins the five states and their independence
+from severity; `tests/test_explanation_schema.py` is mostly about rejection,
+because rejection is the feature; `tests/test_incident_prompt.py` asserts each
+of the eight prompt rules survives; `tests/test_incident_reasoner.py` exercises
+the interface, the registry, the mock and — with a stub client — the Anthropic
+provider; `tests/test_incident_cli.py` covers the demo command and the
+environment/credential handling; and `tests/test_incident_grounding.py` holds
+the adversarial suite: all eight required hallucination cases, each with a
+negative control, plus the strict gate. None of them touches the network.
+
 `tests/test_memory_layering.py` parses the source tree and fails the build if
 `app/memory/` or `app/reasoning/` ever imports a model library or the perception
 layer, and spawns a clean interpreter to prove `import app.reasoning` loads no
-model runtime. The architectural boundary is checked, not just documented.
+model runtime. Since M0.7 it also asserts that no deterministic layer imports
+`app.intelligence` or any LLM SDK, that exactly one file imports one, and that
+`import app.intelligence` loads neither a model runtime nor a vendor package.
+The architectural boundary is checked, not just documented.
 
 The M0.3 scenarios (`tests/scenarios.py`) script detections frame by frame
 through the real tracker, event generator, temporal memory and risk engine —
@@ -1388,10 +1736,32 @@ the calibration, so:
 - **Assessment is O(people x vehicles) per moment**, and each moment replays
   entity history. Fine for clips; a busy scene at a fine time step will be slow.
 
+### The AI layer (M0.7)
+
+- **Grounding is textual, not semantic.** The checker catches invented numbers,
+  wrong units, tense errors, extra entities, place names, probability language
+  and claimed interventions. It cannot catch a fluent, correctly-numbered
+  sentence that is nonetheless a bad reading of the situation.
+- **It is deliberately blunt and can over-flag.** A legitimate mention of
+  "pixels" inside a calibrated report, or of a place word that happens to
+  appear in prose, is reported as a violation. That trade is on purpose: a
+  false alarm costs a rewrite, a miss costs a fabricated incident report.
+- **The real provider is unexercised against a live model here.** Its request
+  construction, response parsing and failure paths are unit-tested with a stub
+  client; no test calls the API, so no claim is made about what a given model
+  actually writes. The gate exists because that cannot be assumed.
+- **Explanation quality is unmeasured.** There is no eval set for prose. The
+  grounding suite establishes that an explanation is not *wrong*, not that it
+  is good.
+- **One incident at a time.** There is no narrative across incidents, no
+  cross-referencing of a scene, and no memory between calls.
+- **The mock is a template.** It reads well on the synthetic scenarios because
+  they are simple; it is not a stand-in for what a model would produce.
+
 ### Not yet built
 
-Frontend, LLM reasoning, audio, autonomous agents, counterfactual simulation,
-database persistence.
+Frontend, audio, autonomous agents, counterfactual simulation, database
+persistence.
 
 ---
 
@@ -1427,15 +1797,21 @@ event precision/recall/F1, corrected lead time, calibration conditioning
 analysis, the perspective regression, the threshold audit, and a clip
 annotation format for real footage.
 
-**Not yet:** frontend, LLM reasoning, audio, agents, counterfactual simulation,
-database.
+**In M0.7:** the incident evidence contract, deterministic incident lifecycle,
+the provider-agnostic reasoner interface, the structured explanation schema,
+evidence-grounded prompting, the deterministic mock provider, the Anthropic
+provider, mechanical grounding checks with eight adversarial regression cases,
+and the `python -m app.incident` demo.
+
+**Not yet:** frontend, audio, agents, counterfactual simulation, database.
 
 ---
 
-## What remains for M0.7
+## What remains
 
-M0.6 built the instrument and pointed it at rendered clips. The instrument is
-sound; the subject is not yet real.
+M0.6 built the instrument and pointed it at rendered clips; M0.7 gave it a
+voice and fenced that voice in. The instrument is sound; the subject is not yet
+real.
 
 1. **Run the benchmark on real footage.** Everything is now in place — the
    annotation format, the metrics, the runner. What is missing is a clip of an
@@ -1458,6 +1834,10 @@ sound; the subject is not yet real.
    or a Kalman filter would extend the usable horizon.
 6. **Object extents.** Separation between two points ignores that a lorry is
    not a pedestrian.
-7. **The LLM reasoning layer**, grounded in the deterministic score. The
-   `Explainer` interface is the seam it plugs into.
-8. **The frontend**, once there is something stable to display.
+7. **Run the AI layer against a live model and read the output critically.**
+   M0.7 built the contract, the prompt and the enforcement; what it has not
+   done is accumulate a corpus of real generations to judge. The grounding
+   suite says an explanation is not wrong — not that it is useful.
+8. **An explanation-quality eval.** Grounding is a floor. Whether a human
+   operator acts correctly on the text is a separate, unmeasured question.
+9. **The frontend**, once there is something stable to display.
