@@ -4,12 +4,13 @@
 
 Sentinel is a multimodal predictive incident-intelligence system.
 
-## Current milestone: M0.6 — Reality Validation & Benchmarking
+## Current milestone: M0.8 — AMD ROCm Acceleration & Benchmarking
 
 ```
 video → detection → tracking → events → temporal memory → calibration
       → world-space kinematics → trajectory prediction → risk assessment
-      → evaluation
+      → incident evidence → AI interpretation → grounding check
+      (evaluation runs alongside, grading the deterministic half)
 ```
 
 **M0.1** delivered perception: video in, detections tracked with persistent IDs,
@@ -41,14 +42,34 @@ families separate, audits every threshold, and states plainly what has and has
 not been validated. It found real things — see
 [what M0.6 validated](#what-m06-validates).
 
+**M0.7** adds the AI layer — and fences it in. The deterministic pipeline
+still decides everything: whether an incident exists, how severe it is, what
+is predicted and when. That decision is frozen into an **incident evidence**
+contract, a language model is asked to *explain* it, and the explanation is
+then checked back against the evidence by code. The AI layer explains
+Sentinel's structured evidence; it does not replace the deterministic risk
+engine. See [incident intelligence](#incident-intelligence-m07).
+
+**M0.8** makes the hardware question measurable. A device abstraction tells an
+AMD GPU from an NVIDIA one — ROCm answers the *CUDA* API, so they are
+distinguished by `torch.version.hip` and an AMD card is never reported as
+CUDA — and a benchmark harness measures the real pipeline on whichever device
+it is given, separating model load, inference and end-to-end cost, with
+CPU/GPU correctness parity checked rather than assumed. Detection is 98% of the
+frame budget and is the only thing accelerated. See
+[AMD ROCm acceleration](#amd-rocm-acceleration-m08).
+
 ```bash
+python -m app.benchmark --info                        # what hardware is here
+python -m app.benchmark --video clip.mp4 --device cpu # measure it
+python -m app.incident --scenario D --reasoner mock   # no key, no network
 python -m app.evaluation         # the full benchmark
 python -m app.demo --world       # prediction, time-to-risk, escalation
 ```
 
-There is still no UI, no LLM, no audio and no autonomous agents — those are
-later milestones, and the interfaces here are shaped so they can be added
-without a rewrite.
+There is still no UI, no audio and no autonomous agents — those are later
+milestones, and the interfaces here are shaped so they can be added without a
+rewrite.
 
 ---
 
@@ -98,6 +119,29 @@ app/
 │       ├── zone.py                  ZoneFactor — person in a machine's zone
 │       └── persistence.py           PersistenceFactor, EscalationFactor
 │
+├── intelligence/                    ── LAYER 6: saying it in words (M0.7)
+│   ├── evidence.py                  IncidentEvidence — the frozen AI boundary
+│   ├── lifecycle.py                 observed/developing/imminent/current/resolved
+│   ├── schema.py                    IncidentExplanation + its JSON Schema
+│   ├── reasoner.py                  IncidentReasoner ABC, registry, grounding gate
+│   ├── prompt.py                    the evidence-grounded prompt
+│   ├── grounding.py                 mechanical checks on generated text
+│   ├── settings.py                  env/.env handling; no key anywhere else
+│   └── providers/
+│       ├── mock.py                  deterministic template (NOT a model)
+│       └── anthropic_claude.py      Claude  ← the ONLY file importing an LLM SDK
+│
+├── accel/                           ── where the compute goes (M0.8)
+│   ├── device.py                    DeviceSpec, ROCm-vs-CUDA, proof of execution
+│   └── probe.py                     reproducibility metadata (no secrets)
+│
+├── benchmark/                       ── how fast, and is it still correct (M0.8)
+│   ├── timing.py                    nearest-rank p50/p95/p99, Stopwatch
+│   ├── harness.py                   the real pipeline, measured on one device
+│   ├── compare.py                   speedup + CPU/GPU correctness parity
+│   └── __main__.py                  --info / --video / --compare / --parity
+│
+├── incident.py                      the M0.7 demo command
 ├── storage/memory.py                flat event log + JSON persistence
 ├── scenarios.py                     deterministic world-space scenarios A-H
 ├── evaluation/                      ── LAYER 5: is any of it credible? (M0.6)
@@ -111,8 +155,8 @@ app/
 └── demo.py                          synthetic warehouse scenario (no video needed)
 ```
 
-Two rules make the rest of the roadmap possible, and both are enforced by
-`tests/test_memory_layering.py` rather than by convention:
+These rules make the rest of the roadmap possible, and every one is enforced
+by `tests/test_memory_layering.py` rather than by convention:
 
 1. **Model-specific code never escapes `perception/backends/`.** `pipeline.py`
    talks to the `Detector` and `Tracker` interfaces, so moving inference to AMD
@@ -133,6 +177,15 @@ Two rules make the rest of the roadmap possible, and both are enforced by
    `false_positive`, `mota`, `idf1`) may appear anywhere in `app/reasoning/`.
    Both are asserted by tests. A system that knows how it is being scored will
    eventually be built to score well.
+5. **The AI layer is strictly downstream, and no deterministic layer may
+   import it or any model SDK.** `perception/`, `events/`, `memory/`,
+   `calibration/`, `reasoning/`, `evaluation/` and `storage/` are asserted to
+   import neither `app.intelligence` nor `anthropic`/`openai`/`transformers`/
+   any other model package; a test also asserts that exactly one file in the
+   repository — `app/intelligence/providers/anthropic_claude.py` — imports an
+   LLM SDK at all, and that a clean interpreter can `import app.intelligence`
+   with no model runtime and no vendor package loaded. Risk scores are
+   therefore identical whether or not a reasoner is ever constructed.
 
 Data flows strictly downward. Layers 3 and 4 consume `Event` objects and have
 no idea a camera was involved. Geometry is **not** duplicated: the risk engine
@@ -549,6 +602,81 @@ Three findings, none of which were designed for:
    *accepted* by the M0.4 validator; only conditioning separates them.
 3. **The lead-time metric was measuring the wrong thing** (above).
 
+#### Running on your own video (real-footage smoke test)
+
+`app/main.py` is the only video entry point — there is no second
+video-processing implementation. `--diagnostics` adds a structural report:
+
+```bash
+# image-space fallback: no calibration needed
+python -m app.main clip.mp4 --detector yolo --diagnostics
+
+# with the existing calibration path (no calibration is ever inferred)
+python -m app.main clip.mp4 --detector yolo \
+    --calibration my_calibration.json --diagnostics
+
+# limit the work while checking a long clip
+python -m app.main clip.mp4 --detector yolo --max-frames 400 --diagnostics
+```
+
+It reports resolution, frame count and source FPS, processing FPS and
+real-time factor, detector backend/model/accelerator, detection counts, track
+count and persistence, event counts by action, risk assessments, and whether
+world-space reasoning was active.
+
+**It is labelled, in its own output, `REAL-FOOTAGE SMOKE TEST` /
+`NOT A GROUND-TRUTH ACCURACY BENCHMARK`.** There is no ground truth for a
+user-supplied clip, so:
+
+- **ID switches are not reported at all** — they cannot be computed without
+  ground truth. The report prints `not measurable without ground truth` and
+  gives the observable symptom instead: the share of tracks that lived only a
+  frame or two.
+- **Detection counts say the detector fired, not that it fired on the right
+  things.**
+- `frames_present` (persistence) and `events_recorded` are reported separately
+  and never conflated — event emission is governed by sampling and movement
+  thresholds, so the two are different quantities.
+
+For *measured* quality, annotate a clip and use the benchmark instead:
+`python -m app.evaluation --clip your_annotation.json`.
+
+##### What a real run looked like
+
+Run against 40 s of a public-domain pedestrian clip (OpenCV's `vtest.avi`,
+Apache-2.0) — **not committed to this repository**:
+
+```
+VIDEO       768x576 @ 10.00 fps, 795 frames
+PROCESSING  400 frames, 22.01 fps  (2.20x faster than real time, CPU)
+DETECTION   ultralytics-yolo / yolov8n.pt / cpu
+            3265 detections, 8.16 per frame
+TRACKING    13 track IDs, mean 243.4 frames each (26.58 s)
+            short-lived (<=3 frames): 0  (0% of tracks)
+            ID switches: not measurable without ground truth
+RISK        max 59.9/100 medium
+SPATIAL     image_pixels, no calibration supplied
+```
+
+The pipeline ran end to end on real footage at better than real time on CPU,
+found people and vehicles, and produced long-lived tracks with no
+short-lived-track symptom. What this does **not** establish: whether those 13
+identities are the right 13. A busy pedestrian scene plausibly contains more
+than 13 people over 40 s, so identity reuse cannot be ruled out — only
+annotated ground truth would settle it.
+
+A second clip returned **0 detections**. That was correct: it is night-time
+fireworks footage with no people or vehicles in it (mean pixel value 5.6/255),
+and at `--confidence 0.05` with no class filter YOLO produced only spurious
+hits — `donut`, `teddy bear`, `banana` — which the default confidence and class
+filter properly rejected. The report flagged it for the operator:
+
+```
+NOTES
+  - No detections at all. Check the detector backend and its class filter
+    before reading anything else in this report.
+```
+
 #### Clip annotation workflow
 
 No video is committed to this repository. To evaluate your own footage, write a
@@ -769,6 +897,585 @@ exponentially smoothed linear predictor for the Kalman filter.
 
 ---
 
+## Incident intelligence (M0.7)
+
+M0.7 is the first milestone in which a language model touches Sentinel at all,
+and the design question was never "which model" — it was **what the model is
+allowed to decide**. The answer is: nothing.
+
+### Why the deterministic layer stays authoritative
+
+Everything that constitutes a safety judgement is computed, not generated:
+
+| Decision | Made by |
+| --- | --- |
+| Is there an object, and what class is it? | detector (M0.1) |
+| Is it the same object as last frame? | tracker (M0.1, M0.3.1) |
+| What happened, and when? | event generator + temporal memory (M0.2) |
+| Where is that on the floor, in metres? | calibration (M0.4) |
+| How fast, and toward what? | kinematics + predictor (M0.5) |
+| **Does an incident exist? How severe? When?** | **risk engine (M0.3, M0.5)** |
+| What lifecycle state is it in? | `app/intelligence/lifecycle.py` — deterministic |
+| How do you say that to a human? | the AI layer |
+
+A language model is good at the last row and unaccountable for any of the
+others. It cannot raise an incident, suppress one, change a score, move a
+severity band, or invent a time-to-risk, because it is never asked for any of
+those things and is never given a field to put them in. **Risk scores are
+ordinal engineering signals, not probabilities** — and the prompt, the schema
+and the grounding checker each enforce that separately.
+
+### The evidence contract
+
+`IncidentEvidence` (`app/intelligence/evidence.py`) is the boundary. It is a
+frozen dataclass, JSON-serialisable in both directions, and every field is
+copied from a completed `RiskAssessment` — nothing in it is computed for the
+first time at this layer.
+
+```python
+from app.intelligence import evidence_from_assessment, build_reasoner, check_grounding
+
+evidence    = evidence_from_assessment(assessment)   # deterministic, frozen
+explanation = build_reasoner("mock").reason(evidence)
+report      = check_grounding(explanation, evidence) # enforcement, not trust
+```
+
+| Field | Contents |
+| --- | --- |
+| `incident_id`, `timestamp` | identity and when, in seconds |
+| `coordinate_space`, `distance_unit`, `speed_unit` | `image_pixels`/`px`/`px/s` or `ground_plane_meters`/`m`/`m/s` |
+| `entities[]` | entity ID, class, position, velocity, speed, zone membership — each tagged with its space |
+| `risk_score`, `severity`, `incident_type` | exactly as the engine produced them |
+| `incident_state` | lifecycle state, derived deterministically |
+| `factors[]` | name, score, weight, contribution, rationale, confidence |
+| `prediction` | outcome, horizon, predicted minimum separation, seconds to it, unsafe threshold, or the reason none exists |
+| `time_to_risk` | `already_unsafe` / `predicted` / `not_predicted` (+ reason) |
+| `current_separation`, `closing_speed` | present-tense measurements |
+| `triggered_event_ids`, `triggered_event_actions` | what in memory backs this |
+| `calibration_active`, `space_fallback_reason` | whether metres were real |
+
+Two methods make it more than a data bag:
+
+* `quantities()` returns each measurement as a `Quantity` carrying its unit, so
+  a separation of `8.0` can never be read as metres when it was pixels;
+* `numeric_facts()` enumerates **every number an explanation is permitted to
+  state**. A figure that is not in that list did not come from Sentinel — which
+  is what makes hallucinated numbers mechanically detectable.
+
+The evidence is useful with no LLM at all: `python -m app.incident --json`
+prints it, it round-trips through JSON, and its `score_interpretation` field
+says in words that the score is not a probability.
+
+### Incident lifecycle
+
+Separate from severity, and never chosen by a model:
+
+| State | Derived when |
+| --- | --- |
+| `observed` | scored, nothing developing |
+| `developing` | a future unsafe approach is predicted, beyond the imminent horizon |
+| `imminent` | predicted to cross the unsafe threshold within 2.0 s |
+| `current` | the unsafe condition exists **now** (`already_unsafe`) |
+| `resolved` | was active; no longer |
+
+Severity (`normal`/`low`/`medium`/`high`/`critical`) says *how bad*; lifecycle
+says *where in its life*. A test asserts the two vocabularies do not overlap,
+and another asserts that changing the severity band never moves the state.
+
+### The reasoner interface
+
+```python
+class IncidentReasoner(ABC):
+    provider: str            # "mock", "anthropic", ...
+    model: str
+    is_language_model: bool  # False for the mock — consumers label output with this
+
+    @abstractmethod
+    def reason(self, evidence: IncidentEvidence) -> IncidentExplanation: ...
+```
+
+Providers are registered by name and imported only when built, so nothing
+vendor-specific loads unless you ask for it. `register_reasoner()` adds a new
+one — a local model, an AMD-hosted endpoint, another vendor — without touching
+the core.
+
+`IncidentExplanation` is small on purpose: `summary`, `severity_explanation`,
+`evidence_points[]`, `predicted_outcome`, `recommended_action`, `urgency`,
+`uncertainty`, `coordinate_space`, plus host-attached metadata (`provider`,
+`model`, `is_language_model`). There is no field for a probability, a distance,
+a speed or a confidence, because there is no such field for a model to fill.
+Validation is strict: a missing field, a wrong type, an empty string, an
+unknown urgency **or an extra field** is rejected with `ExplanationSchemaError`.
+
+### The mock provider
+
+`--reasoner mock` is a deterministic template, not a model. It reads the
+evidence and writes sentences with the numbers slotted in. It exists so the
+whole layer — prompt, schema, grounding, CLI — is testable with no key, no
+network and no run-to-run variance, and it is the grounding suite's control: if
+the mock ever fails a grounding check, the checker has a bug.
+
+It never pretends otherwise: `is_language_model=False`, the model identifier is
+`deterministic-template-v0.7`, and every summary is prefixed
+`[mock reasoner: deterministic template, not a language model]`.
+
+### The real provider
+
+`app/intelligence/providers/anthropic_claude.py` is the only file in the
+repository that imports a model SDK.
+
+```bash
+pip install -r requirements-ai.txt   # anthropic>=1.5,<2
+cp .env.example .env                 # then set ANTHROPIC_API_KEY
+python -m app.incident --scenario D --reasoner anthropic
+```
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `SENTINEL_REASONER` | `mock` | default provider |
+| `SENTINEL_REASONER_MODEL` | `claude-opus-5` | model for the anthropic provider |
+| `SENTINEL_REASONER_MAX_TOKENS` | `16000` | generation cap |
+| `SENTINEL_REASONER_TIMEOUT_SECONDS` | `60` | client timeout |
+| `ANTHROPIC_API_KEY` | — | one of the credentials that provider accepts |
+
+Credentials are resolved by the SDK, in its own order: `ANTHROPIC_API_KEY`,
+then `ANTHROPIC_AUTH_TOKEN`, then a workload-identity setup, then an
+`ant auth login` profile in `~/.config/anthropic`. Sentinel detects whether
+*any* of those exists and passes none of them explicitly — overriding a working
+setup with our guess at it would be worse than useless. `.env` is read if
+present and never overrides an exported variable. `ReasonerSettings` records
+the *name* of the credential source and never its value, so no key can reach a
+log, a report, an explanation or a request payload (a test asserts the last
+one). A missing package, a missing credential, a rejected credential or an
+unreachable API all raise `ReasonerUnavailable` with an actionable message;
+every other SDK failure is translated into `ReasonerError`. No vendor exception
+escapes the provider.
+
+#### What was verified, and how
+
+Verified on 2026-09-12 against **`anthropic` 1.5.0**, without a live call:
+
+| Claim | How it was checked |
+| --- | --- |
+| `claude-opus-5` is a current model ID | present in the SDK's own `anthropic.types.Model` literal; no date suffix |
+| every request key is a real API parameter | checked against `MessageCreateParamsNonStreaming`'s type hints |
+| the structured-output request is correctly shaped | checked against `OutputConfigParam` / `JSONOutputFormatParam`: `{"type": "json_schema", "schema": {...}}`, `additionalProperties: false`, all 8 fields required |
+| adaptive thinking is correctly shaped | checked against `ThinkingConfigAdaptiveParam`; `budget_tokens` is absent (current models reject it) |
+| nothing is silently dropped in transit | the real SDK client was pointed at a loopback HTTP server and the serialised body inspected: `POST /v1/messages`, `anthropic-version: 2023-06-01`, carrying `model`, `max_tokens`, `system`, `messages`, `thinking`, `output_config` |
+| the response path handles real SDK objects | recorded payloads parsed by `anthropic.types.Message`, then run through the provider's extraction, the schema validator and the grounding gate |
+| a refusal is handled as a refusal | `stop_reason: "refusal"` fixture → `ReasonerError` naming the category, not a confusing parse error |
+| the served model is reported, not the requested one | `explanation.model` is read from the response body |
+
+```bash
+python scripts/verify_anthropic_provider.py          # loopback: no key, no network
+python scripts/verify_anthropic_provider.py --live   # exactly one real API call
+```
+
+`--live` prints `LIVE_PROVIDER_TEST = NOT_RUN` / `REASON = missing credentials`
+and exits non-zero rather than pretending, when no credential is present.
+Either mode re-runs the deterministic risk engine before and after the call and
+reports whether the result is byte-identical.
+
+**Not verified:** no live API call has been made from this repository. Every
+statement above is about the request Sentinel builds and the responses it can
+parse — none of it is evidence about what a given model actually writes. That
+is what the grounding gate is for.
+
+### Grounding guarantees
+
+The prompt tells the model eight rules. The checker
+(`app/intelligence/grounding.py`) then verifies the output against the evidence
+mechanically, and `GroundedReasoner(..., strict=True)` refuses to pass failing
+output through at all:
+
+| Code | Catches |
+| --- | --- |
+| `invented_number` | any figure not in `numeric_facts()` (sign included; rounding tolerated) |
+| `unit_mismatch` | pixels described as metres/feet/mph, or calibrated metres described as pixels |
+| `coordinate_space_mismatch` | an explanation that mislabels the space it is describing |
+| `probability_language` | `%`, "percent", "probability", "likelihood", "chance", "odds" — unless negated, so the disclaimer itself is allowed |
+| `past_tense_claim` | a predicted conflict written as one that happened |
+| `missing_prediction_framing` | a forward-looking incident never framed as a prediction |
+| `unknown_entity` | an entity ID that is not in the evidence |
+| `entity_count_inflation` | "three entities" when the evidence lists two |
+| `invented_location` | a warehouse, aisle, street or dock that no field mentions |
+| `claimed_intervention` | any suggestion Sentinel stopped, halted, alerted or notified anything |
+| `unacknowledged_limitation` | silence about a prediction the engine declined to make |
+
+`tests/test_incident_grounding.py` pins all eight required adversarial cases as
+permanent regressions, each with a matching negative test so the checks cannot
+be satisfied by refusing everything. The checker is deliberately blunt: it can
+be stricter than a careful reader would be, which costs a rewrite, where a miss
+would cost a fabricated incident report.
+
+### Example output
+
+```
+========================================================================
+  DETERMINISTIC SENTINEL SIGNAL
+  measured and computed by the pipeline — this is the source of truth
+========================================================================
+incident      : INC-1.20-person_1+forklift_2
+type          : PERSON_VEHICLE_COLLISION_RISK
+lifecycle     : imminent (predicted to become unsafe within 2s)
+risk score    : 100.0/100  severity critical   (ordinal engineering signal, NOT a probability)
+space         : ground_plane_meters (distances in m, speeds in m/s)
+timestamp     : 1.20 s
+
+entities:
+  person_1     person       at (11.00, 5.00) m  speed 2.50 m/s  zones: forklift_bay
+  forklift_2   forklift     at (14.90, 5.00) m  speed 3.00 m/s  zones: forklift_bay
+
+measurements:
+  current separation: 3.90 m
+  closing speed: 5.50 m/s
+  predicted minimum separation: 0.00 m
+
+risk factors:
+  proximity       0.52 x   30 =  15.60 pts   person_1 and forklift_2 are 3.90 m apart on the ground plane (critical below 1.50 m)
+  closing_speed   1.00 x   25 =  25.00 pts   separation is shrinking at 5.50 m/s on the ground plane (saturates at 4.00 m/s)
+  trajectory      0.88 x   25 =  22.05 pts   ground-plane trajectories converge to 0.00 m in 0.7s
+  zone            1.00 x   20 =  20.00 pts   person_1 is inside operating zone forklift_bay; forklift_2 is in the same zone
+  persistence     0.33 x   15 =   5.00 pts   person_1 entered forklift_bay once in the last 60s
+
+prediction:
+  outcome     : PREDICTED_TRAJECTORY_CONFLICT
+  horizon     : 6.0 s
+  min. sep.   : 0.00 m
+  time to risk: predicted (0.35 s)
+  recommended : slow/stop the vehicle and redirect the person out of its path
+
+========================================================================
+  AI INCIDENT INTERPRETATION
+  explains the evidence above — it does not decide, score or override it
+  provider: mock / deterministic-template-v0.7 (deterministic template)
+========================================================================
+summary   : [mock reasoner: deterministic template, not a language model] Sentinel's
+            deterministic risk engine raised PERSON_VEHICLE_COLLISION_RISK involving
+            person_1 (person) and forklift_2 (forklift) at 1.20 s, in lifecycle state
+            imminent.
+
+severity  : Severity band critical follows from risk score 100.0 of 100, an ordinal
+            engineering signal and not a probability. Contributions: proximity
+            contributed 15.6 of 30 points; closing_speed contributed 25.0 of 25 points;
+            trajectory contributed 22.0 of 25 points; zone contributed 20.0 of 20
+            points; persistence contributed 5.0 of 15 points.
+
+evidence  :
+  - current separation: 3.90 m
+  - closing speed: 5.50 m/s
+  - predicted minimum separation: 0.00 m
+  - person_1 speed 2.50 m/s
+  - person_1 recorded inside zone forklift_bay
+  - forklift_2 speed 3.00 m/s
+  - forklift_2 recorded inside zone forklift_bay
+
+predicted : Deterministic prediction outcome: PREDICTED_TRAJECTORY_CONFLICT. On the
+            current constant-velocity paths the pair is predicted to cross the unsafe
+            separation threshold in 0.35 s. It has not happened. Predicted closest
+            approach 0.00 m, expected 0.71 s from now. Prediction horizon 6.0 s.
+
+recommend : Recommendation for a human operator (Sentinel takes no action itself):
+            slow/stop the vehicle and redirect the person out of its path.
+urgency   : immediate
+
+uncertain : Distances are on the calibrated ground plane; their accuracy depends on the
+            calibration survey, which this evidence does not quantify. Prediction
+            assumes constant velocity and does not model operator reaction or obstacles.
+
+------------------------------------------------------------------------
+  GROUNDING CHECK (every claim verified against the evidence)
+------------------------------------------------------------------------
+  PASS — grounded: every claim traces to the supplied evidence
+```
+
+Run it yourself:
+
+```bash
+python -m app.incident --scenario D --reasoner mock        # the demo above
+python -m app.incident --scenario D --no-calibration       # same scene, in pixels
+python -m app.incident --scenario G --limit 2 --json       # machine-readable
+python -m app.incident --scenario D --reasoner anthropic   # needs a key
+python -m app.incident --scenario D --strict               # exit 3 if ungrounded
+```
+
+### What the AI layer does not do
+
+* It does **not** decide whether an incident exists, or change any score — a
+  test asserts the deterministic scores are identical with the layer present.
+* It does **not** read the video, the tracks, the memory or the config. It sees
+  one `IncidentEvidence` and nothing else.
+* It does **not** act, and is checked for claiming otherwise.
+* Grounding is **textual and blunt**, not semantic. It catches invented
+  numbers, wrong units, tense errors, extra entities, place names and action
+  claims; it cannot catch a fluent, correctly-numbered sentence that is
+  nonetheless a poor interpretation. It is a floor, not a guarantee of quality.
+* The real provider is exercised against a stub client in CI. Its behaviour
+  with live model output is unverified here — the grounding gate exists
+  precisely because that output cannot be trusted in advance.
+* Explanation quality has not been measured against human writing; there is no
+  eval set for prose, only the grounding suite.
+
+---
+
+## AMD ROCm acceleration (M0.8)
+
+### Why Sentinel benefits from GPU acceleration
+
+Because one stage costs everything. Measured on this repository's own
+benchmark, 120 frames of 640x384 video through the real pipeline on a 4-core
+Xeon:
+
+| stage | mean per frame | share of the frame budget |
+| --- | --- | --- |
+| decode | 0.550 ms | 1.6% |
+| **detection (YOLOv8n)** | **33.449 ms** | **98.1%** |
+| tracking | 0.054 ms | 0.2% |
+| event generation | 0.030 ms | 0.1% |
+
+The deterministic reasoning Sentinel is built around — tracking, events,
+memory, calibration, kinematics, prediction, risk scoring — costs about
+0.1 ms per frame combined. There is nothing there for a GPU to do. Detection is
+the whole problem, and that is the only thing M0.8 moves.
+
+At 29.9 inference FPS this CPU can keep up with a single 25 fps camera and
+nothing more. The reason to want an accelerator is not a bigger number; it is
+the second camera.
+
+### What is accelerated, and what is not
+
+Accelerated: the YOLOv8n forward pass and its pre/post-processing, through the
+existing `ultralytics` backend — the same weights, resolution, confidence, IoU
+and class filter as a normal run.
+
+**Not** accelerated, deliberately: everything downstream. Putting risk scoring
+on a GPU would move 0.1% of the runtime and add a device dependency to code
+that is currently pure Python and testable anywhere. A test asserts that
+`app/memory/`, `app/events/`, `app/calibration/`, `app/reasoning/`,
+`app/intelligence/` and `app/evaluation/` never import the device layer.
+
+### How ROCm is detected
+
+ROCm builds of PyTorch expose the HIP runtime *through the CUDA API surface*:
+`torch.cuda.is_available()` returns `True` on an AMD GPU and the device string
+torch expects is still `"cuda"`. The two are told apart by `torch.version.hip`,
+which is set only on ROCm builds.
+
+`app/accel/device.py` is the single place that knows this. It separates the two
+jobs that get conflated everywhere else:
+
+* `DeviceSpec.torch_device` — what torch is *given* (`"cuda"` for AMD);
+* `DeviceSpec.kind` / `.label` — what Sentinel *says* (`rocm` / `AMD ROCm / HIP`).
+
+An AMD GPU is therefore never reported as NVIDIA CUDA, and a run may not claim
+acceleration unless `verify_execution()` has proved a tensor operation actually
+executed on the device.
+
+Named devices are exact. `--device rocm` on a machine with an NVIDIA GPU raises
+`DeviceUnavailable` — *"refusing to run somewhere other than where you asked"* —
+rather than quietly producing a number from the wrong stack. Only `--device
+auto` falls back, because falling back is what `auto` means.
+
+```bash
+python -m app.benchmark --info
+```
+
+```
+OS              : Linux 6.18.44-fc-v24 (x86_64)
+Python          : 3.11.15
+PyTorch         : 2.14.0+cu130
+Ultralytics     : 8.4.146
+OpenCV          : 5.0.0
+HIP available   : no
+HIP version     : —
+CUDA version    : 13.0
+Accelerators    : none visible
+CPU             : Intel(R) Xeon(R) Processor @ 2.10GHz
+CPU cores       : 4
+RAM             : 15.7 GiB
+
+selectable devices:
+  [ok ] CPU — cpu                                      cpu
+
+selected device   : CPU — cpu
+tensor executes   : yes (cpu)
+model can execute : yes — an image tensor allocates on cpu
+
+AMD_BENCHMARK = NOT_RUN
+REASON = AMD ROCm device unavailable
+```
+
+### CPU fallback
+
+CPU is not a degraded mode, it is the default. Sentinel runs end to end with no
+GPU, no ROCm, and no torch at all (the `blob` and `mock` detector backends need
+neither). Nothing in the test suite requires an accelerator: the AMD code paths
+are tested against a faked torch runtime, so the ROCm behaviour above is
+exercised in full on a machine that has never seen an AMD card.
+
+### Benchmark methodology
+
+```bash
+python -m app.benchmark --video clip.mp4 --device cpu
+python -m app.benchmark --video clip.mp4 --device rocm
+python -m app.benchmark --video clip.mp4 --compare cpu,rocm --parity \
+    --zone bay=0,0,640,384 --operating-zone bay
+```
+
+Three clocks, reported separately so no cost is hidden:
+
+| measurement | what it covers |
+| --- | --- |
+| `model load` | building the detector and placing weights on the device. **Excluded from every throughput figure** and printed on its own line. |
+| `inference` | one `detector.detect(frame)` — the forward pass *plus* letterboxing, tensor transfer, NMS and box decoding. Not separated out, because a user cannot skip them either. |
+| `pipeline` | decode → detect → track → events, per frame. The gap between this and `inference` is exactly what the deterministic layers cost. |
+
+Rules the harness enforces rather than assumes:
+
+* **Warmup frames are run and discarded** (5 by default). The first inference
+  on any device pays for allocator and kernel setup; on a GPU it can be an
+  order of magnitude slower than the steady state.
+* **Model download can never land inside a timing.** Missing weights are a
+  refusal, not a download.
+* **The detector is built through `PipelineConfig`** — the same object the
+  production pipeline uses — so the benchmark measures Sentinel rather than a
+  YOLO call that resembles it.
+* **Percentiles are nearest-rank** on the sorted samples, so every reported
+  latency is one an actual frame had. No interpolation.
+* **FP32 only.** `--half` exists and is off; M0.8 establishes a clean baseline
+  before any precision work.
+* A GPU run that cannot prove it executed on the GPU is **refused**, not
+  reported.
+
+The clip: no video is committed to this repository. The numbers below were
+measured on a 125-frame 640x384 clip built by panning a window across a single
+street photograph (`scripts/make_benchmark_clip.py`), which gives real,
+moving detections — people, a bus, a train — rather than the zero detections a
+synthetic scene of coloured rectangles produces.
+
+### Hardware and software metadata
+
+| | |
+| --- | --- |
+| OS | Linux 6.18.44-fc-v24 (x86_64) |
+| Python | 3.11.15 |
+| PyTorch | 2.14.0+cu130 |
+| Ultralytics | 8.4.146 |
+| OpenCV | 5.0.0 |
+| HIP / ROCm | not present |
+| CUDA runtime | 13.0 (no visible device) |
+| CPU | Intel(R) Xeon(R) Processor @ 2.10GHz, 4 cores |
+| RAM | 15.7 GiB |
+| Model | YOLOv8n, `yolov8n.pt`, sha256 `f59b3d833e2ff32e…` |
+| Input | 640x384, imgsz 640, conf 0.25, IoU 0.45, all classes |
+| Frames | 120 measured, 5 warmup discarded |
+
+### CPU benchmark results
+
+Benchmark measured on the machine above, 2026-09-12:
+
+```
+device            : CPU — cpu
+device verified   : yes (cpu)
+model load        : 0.076 s (excluded from throughput below)
+frames measured   : 120 (+5 warmup, discarded)
+
+inference (detect)        29.90 fps  mean    33.45 ms  p50    33.08  p95    38.20  p99    43.18
+pipeline (end to end)     29.34 fps  mean    34.09 ms  p50    33.73  p95    38.84  p99    43.86
+decode                  1817.19 fps  mean     0.55 ms  p50     0.58  p95     0.73  p99     0.78
+tracking               18369.12 fps  mean     0.05 ms  p50     0.05  p95     0.09  p99     0.12
+event generation       33108.96 fps  mean     0.03 ms  p50     0.02  p95     0.06  p99     0.08
+
+detections 320  tracks 9  events 38  mean conf 0.6245
+```
+
+### AMD benchmark results
+
+```
+AMD_BENCHMARK = NOT_RUN
+REASON = AMD ROCm device unavailable
+```
+
+This machine has no AMD GPU: no `/dev/kfd`, no ROCm installation, and the
+installed PyTorch is a CUDA build (`torch.version.hip` is `None`). **No AMD
+number is published here, and none is estimated.** The harness, the device
+abstraction and the parity check are complete and run unchanged on an AMD host;
+what is missing is the host.
+
+To produce the AMD half, on a ROCm machine:
+
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/rocm6.2
+pip install -r requirements-yolo.txt
+python -m app.benchmark --info                      # must show HIP available: yes
+python -m app.benchmark --video clip.mp4 --compare cpu,rocm --parity
+```
+
+### Speedup
+
+Not measured. A speedup figure requires two measured runs; only one device was
+available. The harness computes and prints it from the two runs when both
+exist, and labels a comparison against an unverified device as a device-to-device
+comparison rather than an acceleration claim.
+
+For reference, the comparison machinery was exercised CPU-against-CPU on the
+same clip: 0.96x–1.09x across runs, which is the honest size of run-to-run
+noise on this box and a useful floor for reading any future AMD number.
+
+### Correctness parity
+
+Acceleration is only worth having if Sentinel means the same thing afterwards.
+`--parity` runs the full deterministic stack on each device and diffs the
+verdict.
+
+Tolerances, and why they are not zero: identical weights on different hardware
+do not produce bit-identical floats — different kernels, different reduction
+orders, different fusion. A box at 0.2500001 versus 0.2499999 confidence flips
+across the threshold and changes a detection count by one with nothing wrong.
+
+| compared | tolerance |
+| --- | --- |
+| detection / track / event counts | 2% relative |
+| mean detection confidence | 0.01 absolute |
+| set of detected class labels | **exact** |
+| risk score | 0.01 |
+| severity, incident type, lifecycle state, coordinate space, involved entities | **exact** |
+
+Tolerated differences are still printed — never silently absorbed. A comparison
+that could not be made reports `NOT COMPARED`, never `YES`.
+
+CPU-against-CPU on the benchmark clip, as a self-consistency check of the
+machinery:
+
+```
+PASS — identical on both devices
+  note: risk compared: score 63.3 vs 63.3, severity medium vs medium
+risk semantics unchanged: YES
+```
+
+No CPU/AMD parity result exists yet, for the same reason as the benchmark.
+
+### What was NOT optimized
+
+Deliberately, and in this order for a reason — a baseline you cannot trust
+makes every later optimisation unmeasurable:
+
+* **FP16 / bf16.** `--half` is wired through and off by default. Never changed
+  silently.
+* **INT8 / quantization.** Not attempted.
+* **ONNX Runtime, MIGraphX, TensorRT.** Not attempted. The `Detector` interface
+  is where such a backend would be added, as a new file.
+* **Batching.** Frames are processed one at a time, as a live camera delivers
+  them.
+* **Larger models.** YOLOv8n throughout; a bigger model would change both the
+  numbers and the detections.
+* **Decode offload.** Decoding is 1.6% of the frame; accelerating it would be
+  measuring effort rather than saving time.
+* **The deterministic layers.** 0.1 ms per frame. Moving them to a GPU would be
+  theatre.
+
+---
+
 ## Setup
 
 Python 3.9+.
@@ -805,6 +1512,17 @@ pip install -r requirements-yolo.txt
 
 `yolov8n.pt` is downloaded automatically on first run.
 
+### With the Anthropic incident reasoner (optional)
+
+```bash
+pip install -r requirements-ai.txt
+```
+
+Only needed for `--reasoner anthropic`. Everything else — the pipeline, the
+benchmark, the evidence contract, the grounding checks and the `mock` reasoner
+— runs without it, and the test suite skips the SDK-specific checks when it is
+absent. See [the real provider](#the-real-provider) for credentials.
+
 ---
 
 ## Usage
@@ -839,6 +1557,17 @@ python -m app.main clip.mp4 --zone forklift_bay=400,200,800,500 \
 python scripts/generate_demo_video.py -o data/demo/demo.mp4
 python -m app.main data/demo/demo.mp4 --detector blob --classes person truck car
 ```
+
+### Incident intelligence demo (no video, no weights, no key, no network)
+
+```bash
+python -m app.incident --scenario D --reasoner mock
+```
+
+Prints the deterministic evidence and risk state, then — behind a banner that
+cannot be missed — an AI interpretation of it, then the grounding verdict. See
+[incident intelligence](#incident-intelligence-m07) for the flags and for the
+Anthropic provider.
 
 ### Risk demo (no video, no weights, no GPU)
 
@@ -1112,6 +1841,10 @@ beyond-`max_age` behaviour are unchanged.
 
 ## AMD / ROCm notes
 
+See [AMD ROCm acceleration (M0.8)](#amd-rocm-acceleration-m08) for the device
+abstraction, the benchmark and the measured numbers. The notes below are the
+install-level detail.
+
 - **`torch.cuda` *is* the ROCm API.** On a ROCm build, `torch.cuda.is_available()`
   returns `True` and the device string is still `"cuda"`. `--device auto`
   therefore resolves correctly on AMD with no branching. Sentinel inspects
@@ -1167,10 +1900,42 @@ space selection, the guarantee that the two spaces are never mixed within one
 assessment, scenarios A-H, and the evaluation harness including the lead-time
 metric's non-circularity.
 
+Eight files cover M0.7. `tests/test_incident_evidence.py` checks the evidence
+contract round-trips and mirrors the assessment exactly;
+`tests/test_incident_lifecycle.py` pins the five states and their independence
+from severity; `tests/test_explanation_schema.py` is mostly about rejection,
+because rejection is the feature; `tests/test_incident_prompt.py` asserts each
+of the eight prompt rules survives; `tests/test_incident_reasoner.py` exercises
+the interface, the registry, the mock and — with a stub client — the Anthropic
+provider; `tests/test_incident_cli.py` covers the demo command and the
+environment/credential handling; `tests/test_incident_grounding.py` holds
+the adversarial suite: all eight required hallucination cases, each with a
+negative control, plus the strict gate; and `tests/test_anthropic_provider.py`
+checks the provider against the *real* SDK — request keys against the SDK's
+parameter types, responses replayed from recorded fixtures through the SDK's
+own response models, and the SDK error hierarchy translated into reasoner
+errors. That last file skips cleanly when `anthropic` is not installed. None of
+them touches the network.
+
+`tests/test_accel_device.py` and `tests/test_perf_benchmark.py` cover M0.8: CPU
+selection with and without torch, ROCm detection through a faked HIP runtime,
+the refusal to substitute a device that was named (`rocm` on an NVIDIA box
+raises rather than running on CUDA), invalid device names, proof-of-execution
+including a runtime that lies about its arithmetic, benchmark configuration and
+result schema, nearest-rank percentiles, warmup discarding, and every parity
+tolerance. No test needs a GPU: the AMD paths run against a fake torch module.
+
 `tests/test_memory_layering.py` parses the source tree and fails the build if
 `app/memory/` or `app/reasoning/` ever imports a model library or the perception
 layer, and spawns a clean interpreter to prove `import app.reasoning` loads no
-model runtime. The architectural boundary is checked, not just documented.
+model runtime. Since M0.7 it also asserts that no deterministic layer imports
+`app.intelligence` or any LLM SDK, that exactly one file imports one, and that
+`import app.intelligence` loads neither a model runtime nor a vendor package.
+Since M0.8 it asserts that torch and Ultralytics appear in exactly four named
+files, that no reasoning layer imports the device layer, that nothing imports
+the benchmark package, and that every file mentioning `cuda` also accounts for
+`hip` — which is how an AMD GPU ends up mislabelled. The architectural boundary
+is checked, not just documented.
 
 The M0.3 scenarios (`tests/scenarios.py`) script detections frame by frame
 through the real tracker, event generator, temporal memory and risk engine —
@@ -1227,9 +1992,15 @@ the calibration, so:
 
 ### Validation
 
-- **Nothing has been evaluated on real footage.** Every benchmark clip is
-  rendered. The pipeline is shown to be internally correct; its accuracy on a
-  real camera is unmeasured.
+- **No real footage has been evaluated against ground truth.** The pipeline
+  has now been *run* on real footage (see the smoke test above) and behaves
+  structurally correctly, but no annotated real clip exists, so no accuracy
+  figure for a real camera exists either.
+- **Identity reuse on real footage cannot be ruled out.** The smoke test shows
+  long-lived tracks and no short-lived-track symptom; it cannot show whether
+  the identities are the right ones.
+- Every benchmark clip is still rendered. The pipeline is shown to be
+  internally correct; its accuracy on a real camera is unmeasured.
 - **All 24 thresholds are engineering assumptions**, none empirically
   validated, and the benchmark prints that count on every run.
 - **Disappearance is reported up to 0.80s late** (measured), because a track
@@ -1307,10 +2078,56 @@ the calibration, so:
 - **Assessment is O(people x vehicles) per moment**, and each moment replays
   entity history. Fine for clips; a busy scene at a fine time step will be slow.
 
+### The AI layer (M0.7)
+
+- **Grounding is textual, not semantic.** The checker catches invented numbers,
+  wrong units, tense errors, extra entities, place names, probability language
+  and claimed interventions. It cannot catch a fluent, correctly-numbered
+  sentence that is nonetheless a bad reading of the situation.
+- **It is deliberately blunt and can over-flag.** A legitimate mention of
+  "pixels" inside a calibrated report, or of a place word that happens to
+  appear in prose, is reported as a violation. That trade is on purpose: a
+  false alarm costs a rewrite, a miss costs a fabricated incident report.
+- **No live API call has ever been made from this repository.** The request is
+  verified against the Anthropic SDK's own parameter types and against a
+  loopback server that shows what goes on the wire; the response path is
+  verified against recorded payloads parsed by the SDK's response models. That
+  establishes the integration is correctly shaped — it establishes nothing
+  about what a given model actually writes. The grounding gate exists because
+  that cannot be assumed. Run `scripts/verify_anthropic_provider.py --live`
+  with a credential to close the gap.
+- **Refusal fallbacks are not enabled.** A policy refusal is detected and
+  reported (`stop_reason: "refusal"`), but no automatic fallback model is
+  configured; adding one would mean shipping a code path this repository has
+  never executed.
+- **Explanation quality is unmeasured.** There is no eval set for prose. The
+  grounding suite establishes that an explanation is not *wrong*, not that it
+  is good.
+- **One incident at a time.** There is no narrative across incidents, no
+  cross-referencing of a scene, and no memory between calls.
+- **The mock is a template.** It reads well on the synthetic scenarios because
+  they are simple; it is not a stand-in for what a model would produce.
+
+### Acceleration (M0.8)
+
+- **No AMD measurement exists.** The device abstraction, the benchmark and the
+  parity check are written and tested, but this repository has never run on an
+  AMD GPU. Every AMD-related number is absent rather than estimated.
+- **The published CPU baseline is one machine, one clip.** A 4-core Xeon at
+  640x384 with YOLOv8n. Another CPU, resolution or model gives different
+  numbers; the harness records enough metadata to tell runs apart.
+- **The benchmark clip is synthetic motion over a real photograph.** It
+  produces genuine detections and genuine tracking work, but it is not footage
+  of a real incident and its scene does not change.
+- **Single-stream only.** Frames are processed one at a time; there is no
+  batching, no multi-camera scheduling, and no measurement of either.
+- **Parity is checked between two runs of the same code**, so it can catch a
+  device-dependent difference but not a bug present on both devices.
+
 ### Not yet built
 
-Frontend, LLM reasoning, audio, autonomous agents, counterfactual simulation,
-database persistence.
+Frontend, audio, autonomous agents, counterfactual simulation, database
+persistence.
 
 ---
 
@@ -1346,15 +2163,27 @@ event precision/recall/F1, corrected lead time, calibration conditioning
 analysis, the perspective regression, the threshold audit, and a clip
 annotation format for real footage.
 
-**Not yet:** frontend, LLM reasoning, audio, agents, counterfactual simulation,
-database.
+**In M0.7:** the incident evidence contract, deterministic incident lifecycle,
+the provider-agnostic reasoner interface, the structured explanation schema,
+evidence-grounded prompting, the deterministic mock provider, the Anthropic
+provider, mechanical grounding checks with eight adversarial regression cases,
+and the `python -m app.incident` demo.
+
+**In M0.8:** the device abstraction (ROCm/HIP distinguished from CUDA, named
+devices never substituted, execution proved before acceleration is claimed),
+the reproducible perception benchmark with separated model-load/inference/
+pipeline timings and nearest-rank percentiles, the CPU baseline, CPU/GPU
+correctness parity with documented tolerances, and the `--info` diagnostic.
+
+**Not yet:** frontend, audio, agents, counterfactual simulation, database.
 
 ---
 
-## What remains for M0.7
+## What remains
 
-M0.6 built the instrument and pointed it at rendered clips. The instrument is
-sound; the subject is not yet real.
+M0.6 built the instrument and pointed it at rendered clips; M0.7 gave it a
+voice and fenced that voice in. The instrument is sound; the subject is not yet
+real.
 
 1. **Run the benchmark on real footage.** Everything is now in place — the
    annotation format, the metrics, the runner. What is missing is a clip of an
@@ -1377,6 +2206,16 @@ sound; the subject is not yet real.
    or a Kalman filter would extend the usable horizon.
 6. **Object extents.** Separation between two points ignores that a lorry is
    not a pedestrian.
-7. **The LLM reasoning layer**, grounded in the deterministic score. The
-   `Explainer` interface is the seam it plugs into.
-8. **The frontend**, once there is something stable to display.
+7. **Run the AI layer against a live model and read the output critically.**
+   M0.7 built the contract, the prompt and the enforcement; what it has not
+   done is accumulate a corpus of real generations to judge. The grounding
+   suite says an explanation is not wrong — not that it is useful.
+8. **An explanation-quality eval.** Grounding is a floor. Whether a human
+   operator acts correctly on the text is a separate, unmeasured question.
+9. **Run the benchmark on AMD hardware.** Everything for it is in place; what
+   is missing is a ROCm host. Until then Sentinel has a CPU baseline and no
+   acceleration claim.
+10. **Then, and only then, precision and backend work** — FP16 first, since it
+    is a flag rather than a code path, each benchmarked separately against this
+    baseline.
+11. **The frontend**, once there is something stable to display.

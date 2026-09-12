@@ -8,6 +8,7 @@ import logging
 import sys
 from typing import List, Optional
 
+from .calibration import GroundPlaneCalibration
 from .config import DEFAULT_CLASSES, PipelineConfig
 from .pipeline import run_pipeline
 from .reasoning import Explainer, RiskConfig, RiskEngine
@@ -44,7 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
     detection.add_argument(
         "--device",
         default="auto",
-        help="auto | cpu | cuda (ROCm also reports as 'cuda') | mps",
+        help="auto | cpu | rocm | cuda | mps (a named device is never substituted)",
     )
     detection.add_argument("--imgsz", type=int, default=640, help="Inference image size")
     detection.add_argument(
@@ -127,6 +128,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="Mark a zone as a vehicle/machine operating zone. Repeatable.",
     )
 
+    calibration = parser.add_argument_group("calibration (M0.4)")
+    calibration.add_argument(
+        "--calibration",
+        default=None,
+        metavar="FILE",
+        help=(
+            "Ground-plane calibration JSON. Supplying one switches risk "
+            "scoring to metres; without it everything stays in image pixels. "
+            "There is no automatic calibration."
+        ),
+    )
+
     risk = parser.add_argument_group("risk (M0.3)")
     risk.add_argument(
         "--risk",
@@ -158,6 +171,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--start-time", type=float, default=0.0, help="Seek to this offset (seconds)"
     )
 
+    parser.add_argument(
+        "--diagnostics",
+        action="store_true",
+        help=(
+            "Print a real-footage smoke-test report: resolution, throughput, "
+            "detections, tracks, events, risk and coordinate space. Diagnostic "
+            "only — it is not an accuracy benchmark."
+        ),
+    )
     parser.add_argument(
         "--timeline",
         nargs="?",
@@ -195,6 +217,35 @@ def zones_from_args(args: argparse.Namespace) -> Optional[ZoneSet]:
     return ZoneSet(collected) if collected else None
 
 
+def load_calibration(path: Optional[str]) -> Optional[GroundPlaneCalibration]:
+    """Load a calibration from disk, or return ``None`` for image-space mode.
+
+    Uses the existing M0.4 loader. Nothing here infers a calibration: without
+    a file the pipeline stays explicitly in ``image_pixels``.
+    """
+    if not path:
+        return None
+    return GroundPlaneCalibration.load_json(path)
+
+
+def build_risk_report(memory, config: PipelineConfig, args: argparse.Namespace,
+                      calibration: Optional[GroundPlaneCalibration] = None):
+    """Assess the worst moment in a completed run, or one explicit moment."""
+    engine = RiskEngine(
+        RiskConfig(
+            operating_zones=list(args.operating_zone or []),
+            zones=config.zones,
+        ),
+        calibration=calibration,
+    )
+    if args.risk_at is not None:
+        return engine.assess(memory, at=args.risk_at)
+    reports = engine.assess_timeline(memory, step=args.risk_step)
+    if not reports:
+        return None
+    return max(reports, key=lambda r: r.max_score)
+
+
 def analyse_risk(memory, config: PipelineConfig, args: argparse.Namespace) -> str:
     """Run the risk engine over a completed run and render the worst moment.
 
@@ -202,21 +253,11 @@ def analyse_risk(memory, config: PipelineConfig, args: argparse.Namespace) -> st
     scoring moment — the question an operator actually asks of a recording is
     "was there a near miss in this footage", not "what was the risk at 12.4s".
     """
-    engine = RiskEngine(
-        RiskConfig(
-            operating_zones=list(args.operating_zone or []),
-            zones=config.zones,
-        )
+    report = build_risk_report(
+        memory, config, args, load_calibration(args.calibration)
     )
-
-    if args.risk_at is not None:
-        report = engine.assess(memory, at=args.risk_at)
-    else:
-        reports = engine.assess_timeline(memory, step=args.risk_step)
-        if not reports:
-            return "RISK ANALYSIS\n-------------\nNo events to assess."
-        report = max(reports, key=lambda r: r.max_score)
-
+    if report is None:
+        return "RISK ANALYSIS\n-------------\nNo events to assess."
     return Explainer().explain_report(report, limit=1)
 
 
@@ -305,6 +346,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     try:
         config = config_from_args(args)
+        calibration = load_calibration(args.calibration)
     except (ValueError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -340,6 +382,25 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.timeline and result.temporal is not None:
         print()
         print(format_timeline(result.temporal, args.timeline))
+
+    if args.diagnostics:
+        from .evaluation.smoke import build_report
+
+        risk_report = None
+        if result.temporal is not None:
+            risk_report = build_risk_report(
+                result.temporal, config, args, calibration
+            )
+        print()
+        print(
+            build_report(
+                result,
+                video_path=config.video_path,
+                risk_report=risk_report,
+                calibration=calibration,
+                zones=config.zones.names if config.zones else [],
+            ).to_text()
+        )
 
     if args.risk and result.temporal is not None:
         print()

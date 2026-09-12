@@ -10,49 +10,37 @@ AMD/ROCm note
 ROCm builds of PyTorch expose the HIP runtime through the *CUDA* API surface:
 ``torch.cuda.is_available()`` returns ``True`` and the device string is still
 ``"cuda"``. So ``device="auto"`` resolves correctly on both NVIDIA and AMD with
-no branching; we only inspect ``torch.version.hip`` to *report* which stack is
-actually live.
+no branching; ``torch.version.hip`` is what says which stack is actually live.
+
+Since M0.8 that logic lives in :mod:`app.accel`, shared with the benchmark, so
+there is exactly one place that decides what a device is and exactly one place
+that decides what to call it — an AMD GPU is never reported as CUDA.
 """
 
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from ...accel import KIND_CPU, KIND_MPS, gpu_kind, mps_available
+from ...accel import resolve_device as accel_resolve
 from ..detector import Detector
 from ..types import Detection, DetectorInfo
 
 
 def resolve_device(requested: str = "auto") -> str:
-    """Map ``auto`` onto the best available torch device.
+    """Map a device request onto the string torch expects.
 
     Returns ``"cuda"`` for both NVIDIA CUDA and AMD ROCm builds, which is what
-    torch itself expects in either case.
+    torch itself wants in either case; :func:`describe_accelerator` is what
+    tells the two apart for reporting. A thin wrapper over
+    :func:`app.accel.resolve_device`, kept for the detector's own callers.
     """
-    if requested and requested != "auto":
-        return requested
-    try:
-        import torch
-    except ImportError:  # pragma: no cover - torch is an optional dependency
-        return "cpu"
-    if torch.cuda.is_available():
-        return "cuda"
-    if getattr(torch.backends, "mps", None) is not None and torch.backends.mps.is_available():
-        return "mps"
-    return "cpu"
+    return accel_resolve(requested).torch_device
 
 
 def describe_accelerator() -> str:
     """Return ``"rocm"``, ``"cuda"``, ``"mps"`` or ``"cpu"`` for reporting."""
-    try:
-        import torch
-    except ImportError:  # pragma: no cover
-        return "cpu"
-    if torch.cuda.is_available():
-        # torch.version.hip is set only on ROCm builds.
-        return "rocm" if getattr(torch.version, "hip", None) else "cuda"
-    if getattr(torch.backends, "mps", None) is not None and torch.backends.mps.is_available():
-        return "mps"
-    return "cpu"
+    return gpu_kind() or (KIND_MPS if mps_available() else KIND_CPU)
 
 
 class UltralyticsYOLODetector(Detector):

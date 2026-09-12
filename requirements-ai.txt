@@ -1,0 +1,12 @@
+# Sentinel M0.7 — AI incident intelligence provider (optional).
+#
+# Only the Anthropic reasoner needs this. Sentinel runs end to end without it:
+# the deterministic pipeline, the evidence contract, the grounding checks and
+# the `mock` reasoner have no vendor dependency, and the test suite skips the
+# SDK-specific checks when this is not installed.
+#
+#   pip install -r requirements-ai.txt
+#
+# Verified against 1.5.0 — see scripts/verify_anthropic_provider.py.
+
+anthropic>=1.5,<2
