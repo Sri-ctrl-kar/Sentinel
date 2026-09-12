@@ -549,6 +549,81 @@ Three findings, none of which were designed for:
    *accepted* by the M0.4 validator; only conditioning separates them.
 3. **The lead-time metric was measuring the wrong thing** (above).
 
+#### Running on your own video (real-footage smoke test)
+
+`app/main.py` is the only video entry point — there is no second
+video-processing implementation. `--diagnostics` adds a structural report:
+
+```bash
+# image-space fallback: no calibration needed
+python -m app.main clip.mp4 --detector yolo --diagnostics
+
+# with the existing calibration path (no calibration is ever inferred)
+python -m app.main clip.mp4 --detector yolo \
+    --calibration my_calibration.json --diagnostics
+
+# limit the work while checking a long clip
+python -m app.main clip.mp4 --detector yolo --max-frames 400 --diagnostics
+```
+
+It reports resolution, frame count and source FPS, processing FPS and
+real-time factor, detector backend/model/accelerator, detection counts, track
+count and persistence, event counts by action, risk assessments, and whether
+world-space reasoning was active.
+
+**It is labelled, in its own output, `REAL-FOOTAGE SMOKE TEST` /
+`NOT A GROUND-TRUTH ACCURACY BENCHMARK`.** There is no ground truth for a
+user-supplied clip, so:
+
+- **ID switches are not reported at all** — they cannot be computed without
+  ground truth. The report prints `not measurable without ground truth` and
+  gives the observable symptom instead: the share of tracks that lived only a
+  frame or two.
+- **Detection counts say the detector fired, not that it fired on the right
+  things.**
+- `frames_present` (persistence) and `events_recorded` are reported separately
+  and never conflated — event emission is governed by sampling and movement
+  thresholds, so the two are different quantities.
+
+For *measured* quality, annotate a clip and use the benchmark instead:
+`python -m app.evaluation --clip your_annotation.json`.
+
+##### What a real run looked like
+
+Run against 40 s of a public-domain pedestrian clip (OpenCV's `vtest.avi`,
+Apache-2.0) — **not committed to this repository**:
+
+```
+VIDEO       768x576 @ 10.00 fps, 795 frames
+PROCESSING  400 frames, 22.01 fps  (2.20x faster than real time, CPU)
+DETECTION   ultralytics-yolo / yolov8n.pt / cpu
+            3265 detections, 8.16 per frame
+TRACKING    13 track IDs, mean 243.4 frames each (26.58 s)
+            short-lived (<=3 frames): 0  (0% of tracks)
+            ID switches: not measurable without ground truth
+RISK        max 59.9/100 medium
+SPATIAL     image_pixels, no calibration supplied
+```
+
+The pipeline ran end to end on real footage at better than real time on CPU,
+found people and vehicles, and produced long-lived tracks with no
+short-lived-track symptom. What this does **not** establish: whether those 13
+identities are the right 13. A busy pedestrian scene plausibly contains more
+than 13 people over 40 s, so identity reuse cannot be ruled out — only
+annotated ground truth would settle it.
+
+A second clip returned **0 detections**. That was correct: it is night-time
+fireworks footage with no people or vehicles in it (mean pixel value 5.6/255),
+and at `--confidence 0.05` with no class filter YOLO produced only spurious
+hits — `donut`, `teddy bear`, `banana` — which the default confidence and class
+filter properly rejected. The report flagged it for the operator:
+
+```
+NOTES
+  - No detections at all. Check the detector backend and its class filter
+    before reading anything else in this report.
+```
+
 #### Clip annotation workflow
 
 No video is committed to this repository. To evaluate your own footage, write a
@@ -1227,9 +1302,15 @@ the calibration, so:
 
 ### Validation
 
-- **Nothing has been evaluated on real footage.** Every benchmark clip is
-  rendered. The pipeline is shown to be internally correct; its accuracy on a
-  real camera is unmeasured.
+- **No real footage has been evaluated against ground truth.** The pipeline
+  has now been *run* on real footage (see the smoke test above) and behaves
+  structurally correctly, but no annotated real clip exists, so no accuracy
+  figure for a real camera exists either.
+- **Identity reuse on real footage cannot be ruled out.** The smoke test shows
+  long-lived tracks and no short-lived-track symptom; it cannot show whether
+  the identities are the right ones.
+- Every benchmark clip is still rendered. The pipeline is shown to be
+  internally correct; its accuracy on a real camera is unmeasured.
 - **All 24 thresholds are engineering assumptions**, none empirically
   validated, and the benchmark prints that count on every run.
 - **Disappearance is reported up to 0.80s late** (measured), because a track

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 from .config import PipelineConfig
@@ -41,6 +41,16 @@ class PipelineResult:
     elapsed_seconds: float
     metadata: Dict[str, Any]
     temporal: Optional[TemporalEventMemory] = None
+    #: Raw detections returned by the backend, summed over every frame.
+    detections_total: int = 0
+    #: Confirmed track reports, summed over every frame. Divided by
+    #: ``frames_processed`` this is the mean number of entities on screen.
+    track_reports_total: int = 0
+    #: Distinct track IDs the tracker created during the run.
+    track_ids_created: int = 0
+    #: Frames each entity was actually reported in. This is track persistence;
+    #: it is not the number of events, which sampling thresholds also control.
+    track_frames: Dict[str, int] = field(default_factory=dict)
 
     @property
     def events(self) -> List[Event]:
@@ -130,6 +140,10 @@ class PerceptionPipeline:
 
         started = time.perf_counter()
         frames_processed = 0
+        detections_total = 0
+        track_reports_total = 0
+        track_ids: set = set()
+        track_frames: Dict[str, int] = {}
         last_timestamp = 0.0
         last_frame_index: Optional[int] = None
         last_tracks: Sequence[Track] = []
@@ -146,6 +160,13 @@ class PerceptionPipeline:
             memory.extend(events)
             temporal.ingest_many(events)
             frames_processed += 1
+            detections_total += len(detections)
+            track_reports_total += len(tracks)
+            track_ids.update(t.track_id for t in tracks)
+            for track in tracks:
+                track_frames[track.entity_id] = (
+                    track_frames.get(track.entity_id, 0) + 1
+                )
             last_timestamp = frame.timestamp
             last_frame_index = frame.index
             last_tracks = tracks
@@ -167,6 +188,8 @@ class PerceptionPipeline:
                 "config": self.config.to_dict(),
                 "zones": self.config.zones.to_dict() if self.config.zones else None,
                 "frames_processed": frames_processed,
+                "detections_total": detections_total,
+                "track_ids_created": len(track_ids),
                 "processing_seconds": round(elapsed, 3),
                 "processing_fps": round(
                     frames_processed / elapsed if elapsed > 0 else 0.0, 2
@@ -182,6 +205,10 @@ class PerceptionPipeline:
             elapsed_seconds=elapsed,
             metadata=run_metadata,
             temporal=temporal,
+            detections_total=detections_total,
+            track_reports_total=track_reports_total,
+            track_ids_created=len(track_ids),
+            track_frames=track_frames,
         )
 
     def run(self, video_path: Optional[str] = None) -> PipelineResult:
