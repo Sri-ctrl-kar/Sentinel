@@ -45,7 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
     detection.add_argument(
         "--device",
         default="auto",
-        help="auto | cpu | cuda (ROCm also reports as 'cuda') | mps",
+        help="auto | cpu | rocm | cuda | mps (a named device is never substituted)",
     )
     detection.add_argument("--imgsz", type=int, default=640, help="Inference image size")
     detection.add_argument(

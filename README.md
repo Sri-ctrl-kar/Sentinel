@@ -4,7 +4,7 @@
 
 Sentinel is a multimodal predictive incident-intelligence system.
 
-## Current milestone: M0.7 — Multimodal Incident Intelligence
+## Current milestone: M0.8 — AMD ROCm Acceleration & Benchmarking
 
 ```
 video → detection → tracking → events → temporal memory → calibration
@@ -50,7 +50,18 @@ then checked back against the evidence by code. The AI layer explains
 Sentinel's structured evidence; it does not replace the deterministic risk
 engine. See [incident intelligence](#incident-intelligence-m07).
 
+**M0.8** makes the hardware question measurable. A device abstraction tells an
+AMD GPU from an NVIDIA one — ROCm answers the *CUDA* API, so they are
+distinguished by `torch.version.hip` and an AMD card is never reported as
+CUDA — and a benchmark harness measures the real pipeline on whichever device
+it is given, separating model load, inference and end-to-end cost, with
+CPU/GPU correctness parity checked rather than assumed. Detection is 98% of the
+frame budget and is the only thing accelerated. See
+[AMD ROCm acceleration](#amd-rocm-acceleration-m08).
+
 ```bash
+python -m app.benchmark --info                        # what hardware is here
+python -m app.benchmark --video clip.mp4 --device cpu # measure it
 python -m app.incident --scenario D --reasoner mock   # no key, no network
 python -m app.evaluation         # the full benchmark
 python -m app.demo --world       # prediction, time-to-risk, escalation
@@ -119,6 +130,16 @@ app/
 │   └── providers/
 │       ├── mock.py                  deterministic template (NOT a model)
 │       └── anthropic_claude.py      Claude  ← the ONLY file importing an LLM SDK
+│
+├── accel/                           ── where the compute goes (M0.8)
+│   ├── device.py                    DeviceSpec, ROCm-vs-CUDA, proof of execution
+│   └── probe.py                     reproducibility metadata (no secrets)
+│
+├── benchmark/                       ── how fast, and is it still correct (M0.8)
+│   ├── timing.py                    nearest-rank p50/p95/p99, Stopwatch
+│   ├── harness.py                   the real pipeline, measured on one device
+│   ├── compare.py                   speedup + CPU/GPU correctness parity
+│   └── __main__.py                  --info / --video / --compare / --parity
 │
 ├── incident.py                      the M0.7 demo command
 ├── storage/memory.py                flat event log + JSON persistence
@@ -1197,6 +1218,264 @@ python -m app.incident --scenario D --strict               # exit 3 if ungrounde
 
 ---
 
+## AMD ROCm acceleration (M0.8)
+
+### Why Sentinel benefits from GPU acceleration
+
+Because one stage costs everything. Measured on this repository's own
+benchmark, 120 frames of 640x384 video through the real pipeline on a 4-core
+Xeon:
+
+| stage | mean per frame | share of the frame budget |
+| --- | --- | --- |
+| decode | 0.550 ms | 1.6% |
+| **detection (YOLOv8n)** | **33.449 ms** | **98.1%** |
+| tracking | 0.054 ms | 0.2% |
+| event generation | 0.030 ms | 0.1% |
+
+The deterministic reasoning Sentinel is built around — tracking, events,
+memory, calibration, kinematics, prediction, risk scoring — costs about
+0.1 ms per frame combined. There is nothing there for a GPU to do. Detection is
+the whole problem, and that is the only thing M0.8 moves.
+
+At 29.9 inference FPS this CPU can keep up with a single 25 fps camera and
+nothing more. The reason to want an accelerator is not a bigger number; it is
+the second camera.
+
+### What is accelerated, and what is not
+
+Accelerated: the YOLOv8n forward pass and its pre/post-processing, through the
+existing `ultralytics` backend — the same weights, resolution, confidence, IoU
+and class filter as a normal run.
+
+**Not** accelerated, deliberately: everything downstream. Putting risk scoring
+on a GPU would move 0.1% of the runtime and add a device dependency to code
+that is currently pure Python and testable anywhere. A test asserts that
+`app/memory/`, `app/events/`, `app/calibration/`, `app/reasoning/`,
+`app/intelligence/` and `app/evaluation/` never import the device layer.
+
+### How ROCm is detected
+
+ROCm builds of PyTorch expose the HIP runtime *through the CUDA API surface*:
+`torch.cuda.is_available()` returns `True` on an AMD GPU and the device string
+torch expects is still `"cuda"`. The two are told apart by `torch.version.hip`,
+which is set only on ROCm builds.
+
+`app/accel/device.py` is the single place that knows this. It separates the two
+jobs that get conflated everywhere else:
+
+* `DeviceSpec.torch_device` — what torch is *given* (`"cuda"` for AMD);
+* `DeviceSpec.kind` / `.label` — what Sentinel *says* (`rocm` / `AMD ROCm / HIP`).
+
+An AMD GPU is therefore never reported as NVIDIA CUDA, and a run may not claim
+acceleration unless `verify_execution()` has proved a tensor operation actually
+executed on the device.
+
+Named devices are exact. `--device rocm` on a machine with an NVIDIA GPU raises
+`DeviceUnavailable` — *"refusing to run somewhere other than where you asked"* —
+rather than quietly producing a number from the wrong stack. Only `--device
+auto` falls back, because falling back is what `auto` means.
+
+```bash
+python -m app.benchmark --info
+```
+
+```
+OS              : Linux 6.18.44-fc-v24 (x86_64)
+Python          : 3.11.15
+PyTorch         : 2.14.0+cu130
+Ultralytics     : 8.4.146
+OpenCV          : 5.0.0
+HIP available   : no
+HIP version     : —
+CUDA version    : 13.0
+Accelerators    : none visible
+CPU             : Intel(R) Xeon(R) Processor @ 2.10GHz
+CPU cores       : 4
+RAM             : 15.7 GiB
+
+selectable devices:
+  [ok ] CPU — cpu                                      cpu
+
+selected device   : CPU — cpu
+tensor executes   : yes (cpu)
+model can execute : yes — an image tensor allocates on cpu
+
+AMD_BENCHMARK = NOT_RUN
+REASON = AMD ROCm device unavailable
+```
+
+### CPU fallback
+
+CPU is not a degraded mode, it is the default. Sentinel runs end to end with no
+GPU, no ROCm, and no torch at all (the `blob` and `mock` detector backends need
+neither). Nothing in the test suite requires an accelerator: the AMD code paths
+are tested against a faked torch runtime, so the ROCm behaviour above is
+exercised in full on a machine that has never seen an AMD card.
+
+### Benchmark methodology
+
+```bash
+python -m app.benchmark --video clip.mp4 --device cpu
+python -m app.benchmark --video clip.mp4 --device rocm
+python -m app.benchmark --video clip.mp4 --compare cpu,rocm --parity \
+    --zone bay=0,0,640,384 --operating-zone bay
+```
+
+Three clocks, reported separately so no cost is hidden:
+
+| measurement | what it covers |
+| --- | --- |
+| `model load` | building the detector and placing weights on the device. **Excluded from every throughput figure** and printed on its own line. |
+| `inference` | one `detector.detect(frame)` — the forward pass *plus* letterboxing, tensor transfer, NMS and box decoding. Not separated out, because a user cannot skip them either. |
+| `pipeline` | decode → detect → track → events, per frame. The gap between this and `inference` is exactly what the deterministic layers cost. |
+
+Rules the harness enforces rather than assumes:
+
+* **Warmup frames are run and discarded** (5 by default). The first inference
+  on any device pays for allocator and kernel setup; on a GPU it can be an
+  order of magnitude slower than the steady state.
+* **Model download can never land inside a timing.** Missing weights are a
+  refusal, not a download.
+* **The detector is built through `PipelineConfig`** — the same object the
+  production pipeline uses — so the benchmark measures Sentinel rather than a
+  YOLO call that resembles it.
+* **Percentiles are nearest-rank** on the sorted samples, so every reported
+  latency is one an actual frame had. No interpolation.
+* **FP32 only.** `--half` exists and is off; M0.8 establishes a clean baseline
+  before any precision work.
+* A GPU run that cannot prove it executed on the GPU is **refused**, not
+  reported.
+
+The clip: no video is committed to this repository. The numbers below were
+measured on a 125-frame 640x384 clip built by panning a window across a single
+street photograph (`scripts/make_benchmark_clip.py`), which gives real,
+moving detections — people, a bus, a train — rather than the zero detections a
+synthetic scene of coloured rectangles produces.
+
+### Hardware and software metadata
+
+| | |
+| --- | --- |
+| OS | Linux 6.18.44-fc-v24 (x86_64) |
+| Python | 3.11.15 |
+| PyTorch | 2.14.0+cu130 |
+| Ultralytics | 8.4.146 |
+| OpenCV | 5.0.0 |
+| HIP / ROCm | not present |
+| CUDA runtime | 13.0 (no visible device) |
+| CPU | Intel(R) Xeon(R) Processor @ 2.10GHz, 4 cores |
+| RAM | 15.7 GiB |
+| Model | YOLOv8n, `yolov8n.pt`, sha256 `f59b3d833e2ff32e…` |
+| Input | 640x384, imgsz 640, conf 0.25, IoU 0.45, all classes |
+| Frames | 120 measured, 5 warmup discarded |
+
+### CPU benchmark results
+
+Benchmark measured on the machine above, 2026-09-12:
+
+```
+device            : CPU — cpu
+device verified   : yes (cpu)
+model load        : 0.076 s (excluded from throughput below)
+frames measured   : 120 (+5 warmup, discarded)
+
+inference (detect)        29.90 fps  mean    33.45 ms  p50    33.08  p95    38.20  p99    43.18
+pipeline (end to end)     29.34 fps  mean    34.09 ms  p50    33.73  p95    38.84  p99    43.86
+decode                  1817.19 fps  mean     0.55 ms  p50     0.58  p95     0.73  p99     0.78
+tracking               18369.12 fps  mean     0.05 ms  p50     0.05  p95     0.09  p99     0.12
+event generation       33108.96 fps  mean     0.03 ms  p50     0.02  p95     0.06  p99     0.08
+
+detections 320  tracks 9  events 38  mean conf 0.6245
+```
+
+### AMD benchmark results
+
+```
+AMD_BENCHMARK = NOT_RUN
+REASON = AMD ROCm device unavailable
+```
+
+This machine has no AMD GPU: no `/dev/kfd`, no ROCm installation, and the
+installed PyTorch is a CUDA build (`torch.version.hip` is `None`). **No AMD
+number is published here, and none is estimated.** The harness, the device
+abstraction and the parity check are complete and run unchanged on an AMD host;
+what is missing is the host.
+
+To produce the AMD half, on a ROCm machine:
+
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/rocm6.2
+pip install -r requirements-yolo.txt
+python -m app.benchmark --info                      # must show HIP available: yes
+python -m app.benchmark --video clip.mp4 --compare cpu,rocm --parity
+```
+
+### Speedup
+
+Not measured. A speedup figure requires two measured runs; only one device was
+available. The harness computes and prints it from the two runs when both
+exist, and labels a comparison against an unverified device as a device-to-device
+comparison rather than an acceleration claim.
+
+For reference, the comparison machinery was exercised CPU-against-CPU on the
+same clip: 0.96x–1.09x across runs, which is the honest size of run-to-run
+noise on this box and a useful floor for reading any future AMD number.
+
+### Correctness parity
+
+Acceleration is only worth having if Sentinel means the same thing afterwards.
+`--parity` runs the full deterministic stack on each device and diffs the
+verdict.
+
+Tolerances, and why they are not zero: identical weights on different hardware
+do not produce bit-identical floats — different kernels, different reduction
+orders, different fusion. A box at 0.2500001 versus 0.2499999 confidence flips
+across the threshold and changes a detection count by one with nothing wrong.
+
+| compared | tolerance |
+| --- | --- |
+| detection / track / event counts | 2% relative |
+| mean detection confidence | 0.01 absolute |
+| set of detected class labels | **exact** |
+| risk score | 0.01 |
+| severity, incident type, lifecycle state, coordinate space, involved entities | **exact** |
+
+Tolerated differences are still printed — never silently absorbed. A comparison
+that could not be made reports `NOT COMPARED`, never `YES`.
+
+CPU-against-CPU on the benchmark clip, as a self-consistency check of the
+machinery:
+
+```
+PASS — identical on both devices
+  note: risk compared: score 63.3 vs 63.3, severity medium vs medium
+risk semantics unchanged: YES
+```
+
+No CPU/AMD parity result exists yet, for the same reason as the benchmark.
+
+### What was NOT optimized
+
+Deliberately, and in this order for a reason — a baseline you cannot trust
+makes every later optimisation unmeasurable:
+
+* **FP16 / bf16.** `--half` is wired through and off by default. Never changed
+  silently.
+* **INT8 / quantization.** Not attempted.
+* **ONNX Runtime, MIGraphX, TensorRT.** Not attempted. The `Detector` interface
+  is where such a backend would be added, as a new file.
+* **Batching.** Frames are processed one at a time, as a live camera delivers
+  them.
+* **Larger models.** YOLOv8n throughout; a bigger model would change both the
+  numbers and the detections.
+* **Decode offload.** Decoding is 1.6% of the frame; accelerating it would be
+  measuring effort rather than saving time.
+* **The deterministic layers.** 0.1 ms per frame. Moving them to a GPU would be
+  theatre.
+
+---
+
 ## Setup
 
 Python 3.9+.
@@ -1562,6 +1841,10 @@ beyond-`max_age` behaviour are unchanged.
 
 ## AMD / ROCm notes
 
+See [AMD ROCm acceleration (M0.8)](#amd-rocm-acceleration-m08) for the device
+abstraction, the benchmark and the measured numbers. The notes below are the
+install-level detail.
+
 - **`torch.cuda` *is* the ROCm API.** On a ROCm build, `torch.cuda.is_available()`
   returns `True` and the device string is still `"cuda"`. `--device auto`
   therefore resolves correctly on AMD with no branching. Sentinel inspects
@@ -1634,13 +1917,25 @@ own response models, and the SDK error hierarchy translated into reasoner
 errors. That last file skips cleanly when `anthropic` is not installed. None of
 them touches the network.
 
+`tests/test_accel_device.py` and `tests/test_perf_benchmark.py` cover M0.8: CPU
+selection with and without torch, ROCm detection through a faked HIP runtime,
+the refusal to substitute a device that was named (`rocm` on an NVIDIA box
+raises rather than running on CUDA), invalid device names, proof-of-execution
+including a runtime that lies about its arithmetic, benchmark configuration and
+result schema, nearest-rank percentiles, warmup discarding, and every parity
+tolerance. No test needs a GPU: the AMD paths run against a fake torch module.
+
 `tests/test_memory_layering.py` parses the source tree and fails the build if
 `app/memory/` or `app/reasoning/` ever imports a model library or the perception
 layer, and spawns a clean interpreter to prove `import app.reasoning` loads no
 model runtime. Since M0.7 it also asserts that no deterministic layer imports
 `app.intelligence` or any LLM SDK, that exactly one file imports one, and that
 `import app.intelligence` loads neither a model runtime nor a vendor package.
-The architectural boundary is checked, not just documented.
+Since M0.8 it asserts that torch and Ultralytics appear in exactly four named
+files, that no reasoning layer imports the device layer, that nothing imports
+the benchmark package, and that every file mentioning `cuda` also accounts for
+`hip` — which is how an AMD GPU ends up mislabelled. The architectural boundary
+is checked, not just documented.
 
 The M0.3 scenarios (`tests/scenarios.py`) script detections frame by frame
 through the real tracker, event generator, temporal memory and risk engine —
@@ -1813,6 +2108,22 @@ the calibration, so:
 - **The mock is a template.** It reads well on the synthetic scenarios because
   they are simple; it is not a stand-in for what a model would produce.
 
+### Acceleration (M0.8)
+
+- **No AMD measurement exists.** The device abstraction, the benchmark and the
+  parity check are written and tested, but this repository has never run on an
+  AMD GPU. Every AMD-related number is absent rather than estimated.
+- **The published CPU baseline is one machine, one clip.** A 4-core Xeon at
+  640x384 with YOLOv8n. Another CPU, resolution or model gives different
+  numbers; the harness records enough metadata to tell runs apart.
+- **The benchmark clip is synthetic motion over a real photograph.** It
+  produces genuine detections and genuine tracking work, but it is not footage
+  of a real incident and its scene does not change.
+- **Single-stream only.** Frames are processed one at a time; there is no
+  batching, no multi-camera scheduling, and no measurement of either.
+- **Parity is checked between two runs of the same code**, so it can catch a
+  device-dependent difference but not a bug present on both devices.
+
 ### Not yet built
 
 Frontend, audio, autonomous agents, counterfactual simulation, database
@@ -1858,6 +2169,12 @@ evidence-grounded prompting, the deterministic mock provider, the Anthropic
 provider, mechanical grounding checks with eight adversarial regression cases,
 and the `python -m app.incident` demo.
 
+**In M0.8:** the device abstraction (ROCm/HIP distinguished from CUDA, named
+devices never substituted, execution proved before acceleration is claimed),
+the reproducible perception benchmark with separated model-load/inference/
+pipeline timings and nearest-rank percentiles, the CPU baseline, CPU/GPU
+correctness parity with documented tolerances, and the `--info` diagnostic.
+
 **Not yet:** frontend, audio, agents, counterfactual simulation, database.
 
 ---
@@ -1895,4 +2212,10 @@ real.
    suite says an explanation is not wrong — not that it is useful.
 8. **An explanation-quality eval.** Grounding is a floor. Whether a human
    operator acts correctly on the text is a separate, unmeasured question.
-9. **The frontend**, once there is something stable to display.
+9. **Run the benchmark on AMD hardware.** Everything for it is in place; what
+   is missing is a ROCm host. Until then Sentinel has a CPU baseline and no
+   acceleration claim.
+10. **Then, and only then, precision and backend work** — FP16 first, since it
+    is a flag rather than a code path, each benchmarked separately against this
+    baseline.
+11. **The frontend**, once there is something stable to display.

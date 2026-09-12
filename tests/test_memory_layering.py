@@ -214,8 +214,19 @@ def test_spatial_module_is_dependency_free():
         assert "perception" not in name
 
 
-def test_only_the_yolo_backend_imports_torch():
-    """Model libraries stay confined to app/perception/backends/."""
+#: The only files allowed to touch torch or Ultralytics. The YOLO backend runs
+#: the model; the accel and benchmark modules exist to ask the runtime what
+#: hardware it has and to time it. Every one imports lazily, inside functions.
+TORCH_AWARE_FILES = [
+    "app/accel/device.py",
+    "app/accel/probe.py",
+    "app/benchmark/__main__.py",
+    "app/perception/backends/yolo_ultralytics.py",
+]
+
+
+def test_only_the_backend_and_the_device_layer_import_torch():
+    """Model libraries stay confined to a named, reviewable set of files."""
     offenders = []
     for dirpath, _dirnames, filenames in os.walk(os.path.join(ROOT, "app")):
         for filename in filenames:
@@ -225,7 +236,7 @@ def test_only_the_yolo_backend_imports_torch():
             roots = {n.lstrip(".").split(".")[0] for n in imported_names(path)}
             if roots & {"torch", "ultralytics"}:
                 offenders.append(os.path.relpath(path, ROOT))
-    assert offenders == ["app/perception/backends/yolo_ultralytics.py"]
+    assert sorted(offenders) == TORCH_AWARE_FILES
 
 
 # ---------------------------------------------------------------------------
@@ -410,3 +421,86 @@ def test_building_the_mock_reasoner_loads_no_model_sdk():
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == ""
+
+
+# ---------------------------------------------------------------------------
+# Acceleration is a property of perception only (M0.8)
+# ---------------------------------------------------------------------------
+#: Layers that are pure Python reasoning. Measured at M0.8: tracking costs
+#: 0.05 ms/frame and event generation 0.03 ms against 35 ms of inference, so
+#: there is nothing here for a GPU to do and no reason for these layers to
+#: know one exists.
+REASONING_PACKAGES = (
+    "memory",
+    "events",
+    "calibration",
+    "reasoning",
+    "intelligence",
+    "evaluation",
+)
+
+
+@pytest.mark.parametrize("package", REASONING_PACKAGES)
+def test_the_reasoning_layers_know_nothing_about_devices(package):
+    for path in module_files(package, recursive=True):
+        for name in imported_names(path):
+            assert "accel" not in name, (
+                f"{os.path.relpath(path, ROOT)} imports '{name}'. Acceleration "
+                f"belongs to perception; risk reasoning is pure Python and is "
+                f"not where the time goes."
+            )
+
+
+@pytest.mark.parametrize("package", REASONING_PACKAGES + ("perception",))
+def test_no_layer_imports_the_benchmark_package(package):
+    """The benchmark measures the pipeline; it is never part of it."""
+    for path in module_files(package, recursive=True):
+        for name in imported_names(path):
+            assert "benchmark" not in name, (
+                f"{os.path.relpath(path, ROOT)} imports '{name}'. Benchmarking "
+                f"is a consumer of the pipeline, never a dependency of it."
+            )
+
+
+@pytest.mark.parametrize("path", list(module_files("accel")))
+def test_the_accel_layer_does_not_reach_into_the_pipeline(path):
+    """Device selection is about hardware; it must not know about Sentinel."""
+    for name in imported_names(path):
+        for forbidden in ("pipeline", "memory", "reasoning", "intelligence", "events"):
+            assert forbidden not in name, (
+                f"{os.path.relpath(path, ROOT)} imports '{name}'."
+            )
+
+
+def test_importing_the_accel_layer_does_not_load_a_model_runtime():
+    """Asking what hardware exists must not cost a torch import."""
+    code = (
+        "import sys; import app.accel; "
+        f"loaded=[m for m in {MODEL_SPECIFIC!r} if m in sys.modules]; "
+        "print(','.join(loaded))"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "", (
+        f"importing app.accel pulled in {result.stdout.strip()}"
+    )
+
+
+def test_device_selection_is_not_cuda_only():
+    """No module may treat 'is there a GPU' as 'is there an NVIDIA GPU'.
+
+    ``torch.cuda.is_available()`` answers true on ROCm too, so the test is not
+    that the string never appears — it is that every file using it also
+    accounts for HIP.
+    """
+    for path in [os.path.join(ROOT, f) for f in TORCH_AWARE_FILES]:
+        with open(path, "r", encoding="utf-8") as handle:
+            source = handle.read()
+        if "cuda" not in source.lower():
+            continue
+        assert "hip" in source.lower(), (
+            f"{os.path.relpath(path, ROOT)} mentions cuda but never hip; that is "
+            f"how an AMD GPU ends up labelled NVIDIA."
+        )
