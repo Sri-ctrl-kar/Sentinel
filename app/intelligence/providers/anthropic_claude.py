@@ -22,7 +22,7 @@ Three deliberate choices:
 from __future__ import annotations
 
 import json
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from ..evidence import IncidentEvidence
 from ..prompt import build_prompt
@@ -35,8 +35,14 @@ from ..schema import (
 from ..settings import ReasonerSettings
 
 #: Adaptive thinking: the model decides how much reasoning a given incident
-#: needs. ``budget_tokens`` is not used — current models reject it.
+#: needs. ``budget_tokens`` is not used — current models reject it. Verified
+#: against ``anthropic.types.ThinkingConfigAdaptiveParam`` in SDK 1.5.0.
 THINKING = {"type": "adaptive"}
+
+#: The structured-output request, verified against
+#: ``anthropic.types.JSONOutputFormatParam`` (``{"type": "json_schema",
+#: "schema": {...}}``) in SDK 1.5.0.
+OUTPUT_FORMAT_TYPE = "json_schema"
 
 
 class AnthropicIncidentReasoner(IncidentReasoner):
@@ -72,35 +78,123 @@ class AnthropicIncidentReasoner(IncidentReasoner):
 
         if not self.settings.has_credentials:
             raise ReasonerUnavailable(
-                "ANTHROPIC_API_KEY is not set; export it (see .env.example) or "
-                "use --reasoner mock"
+                "no Anthropic credential was found: set ANTHROPIC_API_KEY or "
+                "ANTHROPIC_AUTH_TOKEN (see .env.example), sign in with "
+                "'ant auth login', or use --reasoner mock"
             )
+        # The SDK resolves the credential itself, in its own documented order
+        # (API key, auth token, profile, workload identity). Passing one here
+        # would override a user's working setup with our guess at it.
         return anthropic.Anthropic(timeout=self.settings.timeout_seconds)
 
     # ------------------------------------------------------------------
-    def reason(self, evidence: IncidentEvidence) -> IncidentExplanation:
+    def request_payload(self, evidence: IncidentEvidence) -> Dict[str, Any]:
+        """Exactly what goes on the wire, as a dict.
+
+        Separated from :meth:`reason` so the request can be inspected and
+        asserted on without sending it — every key here is checked against the
+        SDK's own parameter types in ``tests/test_anthropic_provider.py``.
+        """
         prompt = build_prompt(evidence)
-        response = self._client.messages.create(
-            model=self.model,
-            max_tokens=self.max_tokens,
-            system=prompt.system,
-            messages=prompt.to_messages(),
-            thinking=self.thinking,
-            output_config={
+        return {
+            "model": self.model,
+            "max_tokens": self.max_tokens,
+            "system": prompt.system,
+            "messages": prompt.to_messages(),
+            "thinking": self.thinking,
+            "output_config": {
                 "format": {
-                    "type": "json_schema",
+                    "type": OUTPUT_FORMAT_TYPE,
                     "schema": explanation_json_schema(),
                 }
             },
-        )
+        }
+
+    def reason(self, evidence: IncidentEvidence) -> IncidentExplanation:
+        response = self._call(self.request_payload(evidence))
+        check_not_refused(response)
         payload = extract_json(response)
         return IncidentExplanation.from_model_output(
             payload,
             incident_id=evidence.incident_id,
             provider=self.provider,
-            model=self.model,
+            # What actually served the request, which is not always what was
+            # asked for. Reporting the request would be reporting an intention.
+            model=served_model(response) or self.model,
             is_language_model=True,
         )
+
+    # ------------------------------------------------------------------
+    def _call(self, payload: Dict[str, Any]) -> Any:
+        """Send one request, turning SDK failures into reasoner failures.
+
+        A caller of :meth:`reason` handles ``ReasonerError``; it should not
+        also have to know the vendor's exception hierarchy. Authentication and
+        connection problems are reported as *unavailable* — those are fixable
+        by the operator — while everything else is a reasoner error.
+        """
+        try:
+            return self._client.messages.create(**payload)
+        except Exception as exc:  # noqa: BLE001 - re-raised, never swallowed
+            raise _translate(exc) from exc
+
+
+def _translate(exc: Exception) -> Exception:
+    """Map an SDK exception onto the reasoner's own error types."""
+    try:
+        import anthropic
+    except ImportError:  # pragma: no cover - only without the SDK installed
+        return ReasonerError(f"model request failed: {exc}")
+
+    if isinstance(exc, (anthropic.AuthenticationError, anthropic.PermissionDeniedError)):
+        return ReasonerUnavailable(
+            f"the Anthropic credential was rejected ({exc}); check it, or use "
+            "--reasoner mock"
+        )
+    if isinstance(exc, anthropic.APIConnectionError):
+        return ReasonerUnavailable(f"could not reach the Anthropic API: {exc}")
+    if isinstance(exc, anthropic.NotFoundError):
+        return ReasonerError(
+            f"model or endpoint not found ({exc}); check SENTINEL_REASONER_MODEL"
+        )
+    if isinstance(exc, anthropic.RateLimitError):
+        return ReasonerError(f"rate limited by the Anthropic API: {exc}")
+    if isinstance(exc, anthropic.APIStatusError):
+        return ReasonerError(f"Anthropic API error {exc.status_code}: {exc}")
+    return ReasonerError(f"model request failed: {exc}")
+
+
+def served_model(response: Any) -> Optional[str]:
+    """The model the API says answered, which may differ from the request."""
+    model = getattr(response, "model", None)
+    if model is None and isinstance(response, dict):
+        model = response.get("model")
+    return model or None
+
+
+def check_not_refused(response: Any) -> None:
+    """Raise if the model declined, rather than reporting 'no text block'.
+
+    A refusal is a valid HTTP 200 with ``stop_reason == "refusal"``; treating
+    it as a parse failure would hide why nothing came back.
+    """
+    stop_reason = getattr(response, "stop_reason", None)
+    if stop_reason is None and isinstance(response, dict):
+        stop_reason = response.get("stop_reason")
+    if stop_reason != "refusal":
+        return
+
+    details = getattr(response, "stop_details", None)
+    if details is None and isinstance(response, dict):
+        details = response.get("stop_details")
+    category = getattr(details, "category", None)
+    if category is None and isinstance(details, dict):
+        category = details.get("category")
+    raise ReasonerError(
+        "the model declined to answer"
+        + (f" (category: {category})" if category else "")
+        + "; the deterministic assessment is unaffected"
+    )
 
 
 def response_text(response: Any) -> str:

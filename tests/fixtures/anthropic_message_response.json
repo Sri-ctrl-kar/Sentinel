@@ -1,0 +1,23 @@
+{
+  "id": "msg_loopback_fixture",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-opus-5",
+  "content": [
+    {
+      "type": "thinking",
+      "thinking": "",
+      "signature": "loopback"
+    },
+    {
+      "type": "text",
+      "text": "{\"summary\": \"Sentinel's deterministic risk engine raised PERSON_VEHICLE_COLLISION_RISK involving person_1 (person) and forklift_2 (forklift) at 1.20 s, in lifecycle state imminent.\", \"severity_explanation\": \"Severity band critical follows from risk score 100.0 of 100, an ordinal engineering signal and not a probability. Contributions: proximity contributed 15.6 of 30 points; closing_speed contributed 25.0 of 25 points; trajectory contributed 22.0 of 25 points; zone contributed 20.0 of 20 points; persistence contributed 5.0 of 15 points.\", \"evidence_points\": [\"current separation: 3.90 m\", \"closing speed: 5.50 m/s\", \"predicted minimum separation: 0.00 m\", \"person_1 speed 2.50 m/s\", \"person_1 recorded inside zone forklift_bay\", \"forklift_2 speed 3.00 m/s\", \"forklift_2 recorded inside zone forklift_bay\"], \"predicted_outcome\": \"Deterministic prediction outcome: PREDICTED_TRAJECTORY_CONFLICT. On the current constant-velocity paths the pair is predicted to cross the unsafe separation threshold in 0.35 s. It has not happened. Predicted closest approach 0.00 m, expected 0.71 s from now. Prediction horizon 6.0 s.\", \"recommended_action\": \"Recommendation for a human operator (Sentinel takes no action itself): slow/stop the vehicle and redirect the person out of its path.\", \"urgency\": \"immediate\", \"uncertainty\": \"Distances are on the calibrated ground plane; their accuracy depends on the calibration survey, which this evidence does not quantify. Prediction assumes constant velocity and does not model operator reaction or obstacles.\", \"coordinate_space\": \"ground_plane_meters\"}"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "usage": {
+    "input_tokens": 2451,
+    "output_tokens": 383
+  }
+}

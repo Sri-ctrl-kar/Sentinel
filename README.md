@@ -1004,8 +1004,8 @@ It never pretends otherwise: `is_language_model=False`, the model identifier is
 repository that imports a model SDK.
 
 ```bash
-pip install anthropic
-cp .env.example .env          # then set ANTHROPIC_API_KEY
+pip install -r requirements-ai.txt   # anthropic>=1.5,<2
+cp .env.example .env                 # then set ANTHROPIC_API_KEY
 python -m app.incident --scenario D --reasoner anthropic
 ```
 
@@ -1013,21 +1013,52 @@ python -m app.incident --scenario D --reasoner anthropic
 | --- | --- | --- |
 | `SENTINEL_REASONER` | `mock` | default provider |
 | `SENTINEL_REASONER_MODEL` | `claude-opus-5` | model for the anthropic provider |
-| `SENTINEL_REASONER_MAX_TOKENS` | `2000` | generation cap |
+| `SENTINEL_REASONER_MAX_TOKENS` | `16000` | generation cap |
 | `SENTINEL_REASONER_TIMEOUT_SECONDS` | `60` | client timeout |
-| `ANTHROPIC_API_KEY` | — | required only by that provider |
+| `ANTHROPIC_API_KEY` | — | one of the credentials that provider accepts |
 
-`.env` is read if present and never overrides an exported variable. The key is
-read in exactly one module; `ReasonerSettings` carries a boolean
-`has_credentials` and never the value, so no key can reach a log, a report or
-an explanation. A missing package or a missing key raises `ReasonerUnavailable`
-with an actionable message, never a stack trace.
+Credentials are resolved by the SDK, in its own order: `ANTHROPIC_API_KEY`,
+then `ANTHROPIC_AUTH_TOKEN`, then a workload-identity setup, then an
+`ant auth login` profile in `~/.config/anthropic`. Sentinel detects whether
+*any* of those exists and passes none of them explicitly — overriding a working
+setup with our guess at it would be worse than useless. `.env` is read if
+present and never overrides an exported variable. `ReasonerSettings` records
+the *name* of the credential source and never its value, so no key can reach a
+log, a report, an explanation or a request payload (a test asserts the last
+one). A missing package, a missing credential, a rejected credential or an
+unreachable API all raise `ReasonerUnavailable` with an actionable message;
+every other SDK failure is translated into `ReasonerError`. No vendor exception
+escapes the provider.
 
-The provider requests structured output using the same JSON Schema the local
-validator enforces, so malformed output is rejected at the API boundary *and*
-again locally. Its prompt construction, response parsing and error handling are
-unit-tested with a stub client — **no test in this repository requires network
-access or credentials**.
+#### What was verified, and how
+
+Verified on 2026-09-12 against **`anthropic` 1.5.0**, without a live call:
+
+| Claim | How it was checked |
+| --- | --- |
+| `claude-opus-5` is a current model ID | present in the SDK's own `anthropic.types.Model` literal; no date suffix |
+| every request key is a real API parameter | checked against `MessageCreateParamsNonStreaming`'s type hints |
+| the structured-output request is correctly shaped | checked against `OutputConfigParam` / `JSONOutputFormatParam`: `{"type": "json_schema", "schema": {...}}`, `additionalProperties: false`, all 8 fields required |
+| adaptive thinking is correctly shaped | checked against `ThinkingConfigAdaptiveParam`; `budget_tokens` is absent (current models reject it) |
+| nothing is silently dropped in transit | the real SDK client was pointed at a loopback HTTP server and the serialised body inspected: `POST /v1/messages`, `anthropic-version: 2023-06-01`, carrying `model`, `max_tokens`, `system`, `messages`, `thinking`, `output_config` |
+| the response path handles real SDK objects | recorded payloads parsed by `anthropic.types.Message`, then run through the provider's extraction, the schema validator and the grounding gate |
+| a refusal is handled as a refusal | `stop_reason: "refusal"` fixture → `ReasonerError` naming the category, not a confusing parse error |
+| the served model is reported, not the requested one | `explanation.model` is read from the response body |
+
+```bash
+python scripts/verify_anthropic_provider.py          # loopback: no key, no network
+python scripts/verify_anthropic_provider.py --live   # exactly one real API call
+```
+
+`--live` prints `LIVE_PROVIDER_TEST = NOT_RUN` / `REASON = missing credentials`
+and exits non-zero rather than pretending, when no credential is present.
+Either mode re-runs the deterministic risk engine before and after the call and
+reports whether the result is byte-identical.
+
+**Not verified:** no live API call has been made from this repository. Every
+statement above is about the request Sentinel builds and the responses it can
+parse — none of it is evidence about what a given model actually writes. That
+is what the grounding gate is for.
 
 ### Grounding guarantees
 
@@ -1201,6 +1232,17 @@ pip install -r requirements-yolo.txt
 ```
 
 `yolov8n.pt` is downloaded automatically on first run.
+
+### With the Anthropic incident reasoner (optional)
+
+```bash
+pip install -r requirements-ai.txt
+```
+
+Only needed for `--reasoner anthropic`. Everything else — the pipeline, the
+benchmark, the evidence contract, the grounding checks and the `mock` reasoner
+— runs without it, and the test suite skips the SDK-specific checks when it is
+absent. See [the real provider](#the-real-provider) for credentials.
 
 ---
 
@@ -1575,7 +1617,7 @@ space selection, the guarantee that the two spaces are never mixed within one
 assessment, scenarios A-H, and the evaluation harness including the lead-time
 metric's non-circularity.
 
-Seven files cover M0.7. `tests/test_incident_evidence.py` checks the evidence
+Eight files cover M0.7. `tests/test_incident_evidence.py` checks the evidence
 contract round-trips and mirrors the assessment exactly;
 `tests/test_incident_lifecycle.py` pins the five states and their independence
 from severity; `tests/test_explanation_schema.py` is mostly about rejection,
@@ -1583,9 +1625,14 @@ because rejection is the feature; `tests/test_incident_prompt.py` asserts each
 of the eight prompt rules survives; `tests/test_incident_reasoner.py` exercises
 the interface, the registry, the mock and — with a stub client — the Anthropic
 provider; `tests/test_incident_cli.py` covers the demo command and the
-environment/credential handling; and `tests/test_incident_grounding.py` holds
+environment/credential handling; `tests/test_incident_grounding.py` holds
 the adversarial suite: all eight required hallucination cases, each with a
-negative control, plus the strict gate. None of them touches the network.
+negative control, plus the strict gate; and `tests/test_anthropic_provider.py`
+checks the provider against the *real* SDK — request keys against the SDK's
+parameter types, responses replayed from recorded fixtures through the SDK's
+own response models, and the SDK error hierarchy translated into reasoner
+errors. That last file skips cleanly when `anthropic` is not installed. None of
+them touches the network.
 
 `tests/test_memory_layering.py` parses the source tree and fails the build if
 `app/memory/` or `app/reasoning/` ever imports a model library or the perception
@@ -1746,10 +1793,18 @@ the calibration, so:
   "pixels" inside a calibrated report, or of a place word that happens to
   appear in prose, is reported as a violation. That trade is on purpose: a
   false alarm costs a rewrite, a miss costs a fabricated incident report.
-- **The real provider is unexercised against a live model here.** Its request
-  construction, response parsing and failure paths are unit-tested with a stub
-  client; no test calls the API, so no claim is made about what a given model
-  actually writes. The gate exists because that cannot be assumed.
+- **No live API call has ever been made from this repository.** The request is
+  verified against the Anthropic SDK's own parameter types and against a
+  loopback server that shows what goes on the wire; the response path is
+  verified against recorded payloads parsed by the SDK's response models. That
+  establishes the integration is correctly shaped — it establishes nothing
+  about what a given model actually writes. The grounding gate exists because
+  that cannot be assumed. Run `scripts/verify_anthropic_provider.py --live`
+  with a credential to close the gap.
+- **Refusal fallbacks are not enabled.** A policy refusal is detected and
+  reported (`stop_reason: "refusal"`), but no automatic fallback model is
+  configured; adding one would mean shipping a code path this repository has
+  never executed.
 - **Explanation quality is unmeasured.** There is no eval set for prose. The
   grounding suite establishes that an explanation is not *wrong*, not that it
   is good.

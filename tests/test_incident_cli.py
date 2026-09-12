@@ -19,8 +19,10 @@ from app.incident import (
 )
 from app.intelligence.settings import (
     DEFAULT_ANTHROPIC_MODEL,
+    DEFAULT_MAX_TOKENS,
     DEFAULT_REASONER,
     ReasonerSettings,
+    detect_credential_source,
     load_dotenv,
 )
 
@@ -171,14 +173,37 @@ def test_a_malformed_numeric_setting_falls_back_to_the_default():
     settings = ReasonerSettings.from_env(
         environ={"SENTINEL_REASONER_MAX_TOKENS": "lots"}
     )
-    assert settings.max_tokens == 2000
+    assert settings.max_tokens == DEFAULT_MAX_TOKENS
 
 
 def test_settings_never_expose_the_key():
+    """The name of the credential source may be printed; the value never is."""
     settings = ReasonerSettings.from_env(environ={"ANTHROPIC_API_KEY": "sk-secret"})
     assert "sk-secret" not in repr(settings)
     assert "sk-secret" not in settings.describe()
-    assert settings.describe().endswith("credentials=present")
+    assert settings.describe().endswith("credentials=ANTHROPIC_API_KEY")
+
+
+def test_a_credential_other_than_the_api_key_is_recognised():
+    """An unset ANTHROPIC_API_KEY does not mean there is nothing to use."""
+    settings = ReasonerSettings.from_env(
+        environ={"ANTHROPIC_AUTH_TOKEN": "sk-oauth-secret"}
+    )
+    assert settings.has_credentials is True
+    assert settings.credential_source == "ANTHROPIC_AUTH_TOKEN"
+    assert "sk-oauth-secret" not in settings.describe()
+    assert "sk-oauth-secret" not in repr(settings)
+
+
+def test_an_ant_auth_profile_counts_as_a_credential(tmp_path):
+    profile = tmp_path / ".config" / "anthropic"
+    profile.mkdir(parents=True)
+    (profile / "profile.json").write_text("{}")
+    assert detect_credential_source({}, home=str(tmp_path)) == "ant auth profile"
+
+
+def test_an_empty_environment_reports_no_credential(tmp_path):
+    assert detect_credential_source({}, home=str(tmp_path)) is None
 
 
 def test_dotenv_does_not_override_the_process_environment(tmp_path):
