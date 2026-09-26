@@ -73,6 +73,29 @@ class BenchmarkError(RuntimeError):
     """The benchmark could not run — missing video, missing weights, no device."""
 
 
+def semantic_device(device: DeviceSpec) -> str:
+    """The device string to hand Sentinel's own resolver.
+
+    This is a boundary between two different vocabularies, and crossing it with
+    the wrong one is how M0.8 broke AMD. :attr:`DeviceSpec.torch_device` is what
+    *torch* wants, and on ROCm that is ``"cuda"`` — but ``PipelineConfig.device``
+    is a *request*, re-resolved downstream by :func:`app.accel.resolve_device`,
+    which reads ``"cuda"`` as "NVIDIA, specifically" and refuses to run on an
+    AMD runtime. So what crosses this boundary is the semantic kind
+    (``"rocm"``), and the translation back to ``"cuda"`` happens once, inside
+    the detector, where torch is actually spoken to.
+
+    An explicit device index is the one thing passed through verbatim: a
+    ``"cuda:1"`` request collapsed to ``"cuda"`` would benchmark GPU 0 while
+    reporting GPU 1 — the same report-versus-execution mismatch in miniature.
+    ``app.accel`` resolves an indexed string without vendor-checking it, so AMD
+    multi-GPU hosts keep both the right card and the right label.
+    """
+    if device.index is not None and ":" in device.torch_device:
+        return device.torch_device
+    return device.kind
+
+
 @dataclass
 class BenchmarkConfig:
     """Everything that must be identical between two comparable runs."""
@@ -130,7 +153,7 @@ class BenchmarkConfig:
             max_frames=self.total_frames,
             detector=self.detector,
             weights=self.weights,
-            device=device.torch_device,
+            device=semantic_device(device),
             imgsz=self.imgsz,
             half=self.half,
             confidence=self.confidence,
