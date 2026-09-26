@@ -437,7 +437,15 @@ def get_video(request: Request, analysis_id: str) -> FileResponse:
     record = require_record(request, analysis_id)
     if not os.path.isfile(record.video_path):
         raise HTTPException(status_code=404, detail="the uploaded video is no longer on disk")
-    return FileResponse(record.video_path, filename=record.original_filename)
+    # `inline`, not the FileResponse default of `attachment`: a browser refuses
+    # to play a media element whose source is served as a download, which is
+    # exactly what the frontend needs this endpoint for. The bytes are
+    # unchanged either way.
+    return FileResponse(
+        record.video_path,
+        filename=record.original_filename,
+        content_disposition_type="inline",
+    )
 
 
 @router.get("/device", response_model=DeviceResponse, tags=["device"])

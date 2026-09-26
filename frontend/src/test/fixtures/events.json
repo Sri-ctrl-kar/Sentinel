@@ -1,0 +1,1732 @@
+{
+  "analysis_id": "demo-analysis",
+  "count": 56,
+  "coordinate_space": "image_pixels",
+  "action_counts": {
+    "appeared": 2,
+    "detected": 33,
+    "moved": 19,
+    "disappeared": 2
+  },
+  "events": [
+    {
+      "event_id": "evt_000001",
+      "timestamp": 0.05,
+      "frame_index": 1,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "appeared",
+      "position": [
+        46.0,
+        198.6
+      ],
+      "bbox": [
+        26.0,
+        153.6,
+        66.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 2,
+        "first_seen": 0.05
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000002",
+      "timestamp": 0.05,
+      "frame_index": 1,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "appeared",
+      "position": [
+        567.0,
+        227.0
+      ],
+      "bbox": [
+        512.0,
+        192.0,
+        622.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 2,
+        "first_seen": 0.05
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000003",
+      "timestamp": 0.2,
+      "frame_index": 4,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "detected",
+      "position": [
+        64.0,
+        198.6
+      ],
+      "bbox": [
+        44.0,
+        153.6,
+        84.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 5,
+        "visible_for_seconds": 0.15
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000004",
+      "timestamp": 0.2,
+      "frame_index": 4,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "detected",
+      "position": [
+        543.0,
+        227.0
+      ],
+      "bbox": [
+        488.0,
+        192.0,
+        598.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 5,
+        "visible_for_seconds": 0.15
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000005",
+      "timestamp": 0.3,
+      "frame_index": 6,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "moved",
+      "position": [
+        527.0,
+        227.0
+      ],
+      "bbox": [
+        472.0,
+        192.0,
+        582.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 7,
+        "displacement_px": 40.0,
+        "from_position": [
+          567.0,
+          227.0
+        ],
+        "speed_px_per_frame": 7.88
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000006",
+      "timestamp": 0.35,
+      "frame_index": 7,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "detected",
+      "position": [
+        82.0,
+        198.6
+      ],
+      "bbox": [
+        62.0,
+        153.6,
+        102.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 8,
+        "visible_for_seconds": 0.3
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000007",
+      "timestamp": 0.4,
+      "frame_index": 8,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "moved",
+      "position": [
+        88.0,
+        198.6
+      ],
+      "bbox": [
+        68.0,
+        153.6,
+        108.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 9,
+        "displacement_px": 42.0,
+        "from_position": [
+          46.0,
+          198.6
+        ],
+        "speed_px_per_frame": 5.98
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000008",
+      "timestamp": 0.4,
+      "frame_index": 8,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "detected",
+      "position": [
+        511.0,
+        227.0
+      ],
+      "bbox": [
+        456.0,
+        192.0,
+        566.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 9,
+        "visible_for_seconds": 0.35
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000009",
+      "timestamp": 0.55,
+      "frame_index": 11,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "detected",
+      "position": [
+        106.0,
+        198.6
+      ],
+      "bbox": [
+        86.0,
+        153.6,
+        126.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 12,
+        "visible_for_seconds": 0.5
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000010",
+      "timestamp": 0.55,
+      "frame_index": 11,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "moved",
+      "position": [
+        487.0,
+        227.0
+      ],
+      "bbox": [
+        432.0,
+        192.0,
+        542.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 12,
+        "displacement_px": 40.0,
+        "from_position": [
+          527.0,
+          227.0
+        ],
+        "speed_px_per_frame": 8.0
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000011",
+      "timestamp": 0.7,
+      "frame_index": 14,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "detected",
+      "position": [
+        124.0,
+        198.6
+      ],
+      "bbox": [
+        104.0,
+        153.6,
+        144.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 15,
+        "visible_for_seconds": 0.65
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000012",
+      "timestamp": 0.7,
+      "frame_index": 14,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "detected",
+      "position": [
+        463.0,
+        227.0
+      ],
+      "bbox": [
+        408.0,
+        192.0,
+        518.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 15,
+        "visible_for_seconds": 0.65
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000013",
+      "timestamp": 0.75,
+      "frame_index": 15,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "moved",
+      "position": [
+        130.0,
+        198.6
+      ],
+      "bbox": [
+        110.0,
+        153.6,
+        150.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 16,
+        "displacement_px": 42.0,
+        "from_position": [
+          88.0,
+          198.6
+        ],
+        "speed_px_per_frame": 6.0
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000014",
+      "timestamp": 0.8,
+      "frame_index": 16,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "moved",
+      "position": [
+        447.0,
+        227.0
+      ],
+      "bbox": [
+        392.0,
+        192.0,
+        502.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 17,
+        "displacement_px": 40.0,
+        "from_position": [
+          487.0,
+          227.0
+        ],
+        "speed_px_per_frame": 8.0
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000015",
+      "timestamp": 0.9,
+      "frame_index": 18,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "detected",
+      "position": [
+        148.0,
+        198.6
+      ],
+      "bbox": [
+        128.0,
+        153.6,
+        168.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 19,
+        "visible_for_seconds": 0.85
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000016",
+      "timestamp": 0.95,
+      "frame_index": 19,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "detected",
+      "position": [
+        423.0,
+        227.0
+      ],
+      "bbox": [
+        368.0,
+        192.0,
+        478.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 20,
+        "visible_for_seconds": 0.9
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000017",
+      "timestamp": 1.05,
+      "frame_index": 21,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "detected",
+      "position": [
+        166.0,
+        198.6
+      ],
+      "bbox": [
+        146.0,
+        153.6,
+        186.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 22,
+        "visible_for_seconds": 1.0
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000018",
+      "timestamp": 1.05,
+      "frame_index": 21,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "moved",
+      "position": [
+        407.0,
+        227.0
+      ],
+      "bbox": [
+        352.0,
+        192.0,
+        462.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 22,
+        "displacement_px": 40.0,
+        "from_position": [
+          447.0,
+          227.0
+        ],
+        "speed_px_per_frame": 8.0
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000019",
+      "timestamp": 1.1,
+      "frame_index": 22,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "moved",
+      "position": [
+        172.0,
+        198.6
+      ],
+      "bbox": [
+        152.0,
+        153.6,
+        192.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 23,
+        "displacement_px": 42.0,
+        "from_position": [
+          130.0,
+          198.6
+        ],
+        "speed_px_per_frame": 6.0
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000020",
+      "timestamp": 1.2,
+      "frame_index": 24,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "detected",
+      "position": [
+        383.0,
+        227.0
+      ],
+      "bbox": [
+        328.0,
+        192.0,
+        438.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 25,
+        "visible_for_seconds": 1.15
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000021",
+      "timestamp": 1.25,
+      "frame_index": 25,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "detected",
+      "position": [
+        190.0,
+        198.6
+      ],
+      "bbox": [
+        170.0,
+        153.6,
+        210.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 26,
+        "visible_for_seconds": 1.2
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000022",
+      "timestamp": 1.3,
+      "frame_index": 26,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "moved",
+      "position": [
+        367.0,
+        227.0
+      ],
+      "bbox": [
+        312.0,
+        192.0,
+        422.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 27,
+        "displacement_px": 40.0,
+        "from_position": [
+          407.0,
+          227.0
+        ],
+        "speed_px_per_frame": 8.0
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000023",
+      "timestamp": 1.35,
+      "frame_index": 27,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "detected",
+      "position": [
+        202.0,
+        198.6
+      ],
+      "bbox": [
+        182.0,
+        153.6,
+        222.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 28,
+        "visible_for_seconds": 1.3
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000024",
+      "timestamp": 1.45,
+      "frame_index": 29,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "moved",
+      "position": [
+        214.0,
+        198.6
+      ],
+      "bbox": [
+        194.0,
+        153.6,
+        234.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 30,
+        "displacement_px": 42.0,
+        "from_position": [
+          172.0,
+          198.6
+        ],
+        "speed_px_per_frame": 6.0
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000025",
+      "timestamp": 1.45,
+      "frame_index": 29,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "detected",
+      "position": [
+        343.0,
+        227.0
+      ],
+      "bbox": [
+        288.0,
+        192.0,
+        398.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 30,
+        "visible_for_seconds": 1.4
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000026",
+      "timestamp": 1.55,
+      "frame_index": 31,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "detected",
+      "position": [
+        226.0,
+        198.6
+      ],
+      "bbox": [
+        206.0,
+        153.6,
+        246.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 32,
+        "visible_for_seconds": 1.5
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000027",
+      "timestamp": 1.55,
+      "frame_index": 31,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "moved",
+      "position": [
+        327.0,
+        227.0
+      ],
+      "bbox": [
+        272.0,
+        192.0,
+        382.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 32,
+        "displacement_px": 40.0,
+        "from_position": [
+          367.0,
+          227.0
+        ],
+        "speed_px_per_frame": 8.0
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000028",
+      "timestamp": 1.7,
+      "frame_index": 34,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "detected",
+      "position": [
+        244.0,
+        198.6
+      ],
+      "bbox": [
+        224.0,
+        153.6,
+        264.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 35,
+        "visible_for_seconds": 1.65
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000029",
+      "timestamp": 1.7,
+      "frame_index": 34,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "detected",
+      "position": [
+        303.0,
+        227.0
+      ],
+      "bbox": [
+        248.0,
+        192.0,
+        358.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 35,
+        "visible_for_seconds": 1.65
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000030",
+      "timestamp": 1.8,
+      "frame_index": 36,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "moved",
+      "position": [
+        256.0,
+        198.6
+      ],
+      "bbox": [
+        236.0,
+        153.6,
+        276.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 37,
+        "displacement_px": 42.0,
+        "from_position": [
+          214.0,
+          198.6
+        ],
+        "speed_px_per_frame": 6.0
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000031",
+      "timestamp": 1.8,
+      "frame_index": 36,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "moved",
+      "position": [
+        287.0,
+        227.0
+      ],
+      "bbox": [
+        232.0,
+        192.0,
+        342.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 37,
+        "displacement_px": 40.0,
+        "from_position": [
+          327.0,
+          227.0
+        ],
+        "speed_px_per_frame": 8.0
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000032",
+      "timestamp": 1.95,
+      "frame_index": 39,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "detected",
+      "position": [
+        274.0,
+        198.6
+      ],
+      "bbox": [
+        254.0,
+        153.6,
+        294.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 40,
+        "visible_for_seconds": 1.9
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000033",
+      "timestamp": 1.95,
+      "frame_index": 39,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "detected",
+      "position": [
+        263.0,
+        227.0
+      ],
+      "bbox": [
+        208.0,
+        192.0,
+        318.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 40,
+        "visible_for_seconds": 1.9
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000034",
+      "timestamp": 2.05,
+      "frame_index": 41,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "moved",
+      "position": [
+        247.0,
+        227.0
+      ],
+      "bbox": [
+        192.0,
+        192.0,
+        302.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 42,
+        "displacement_px": 40.0,
+        "from_position": [
+          287.0,
+          227.0
+        ],
+        "speed_px_per_frame": 8.0
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000035",
+      "timestamp": 2.1,
+      "frame_index": 42,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "detected",
+      "position": [
+        292.0,
+        198.6
+      ],
+      "bbox": [
+        272.0,
+        153.6,
+        312.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 43,
+        "visible_for_seconds": 2.05
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000036",
+      "timestamp": 2.15,
+      "frame_index": 43,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "moved",
+      "position": [
+        298.0,
+        198.6
+      ],
+      "bbox": [
+        278.0,
+        153.6,
+        318.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 44,
+        "displacement_px": 42.0,
+        "from_position": [
+          256.0,
+          198.6
+        ],
+        "speed_px_per_frame": 6.0
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000037",
+      "timestamp": 2.15,
+      "frame_index": 43,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "detected",
+      "position": [
+        231.0,
+        227.0
+      ],
+      "bbox": [
+        176.0,
+        192.0,
+        286.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 44,
+        "visible_for_seconds": 2.1
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000038",
+      "timestamp": 2.25,
+      "frame_index": 45,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "detected",
+      "position": [
+        310.0,
+        198.6
+      ],
+      "bbox": [
+        290.0,
+        153.6,
+        330.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 46,
+        "visible_for_seconds": 2.2
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000039",
+      "timestamp": 2.25,
+      "frame_index": 45,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "detected",
+      "position": [
+        215.0,
+        227.0
+      ],
+      "bbox": [
+        160.0,
+        192.0,
+        270.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 46,
+        "visible_for_seconds": 2.2
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000040",
+      "timestamp": 2.3,
+      "frame_index": 46,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "moved",
+      "position": [
+        207.0,
+        227.0
+      ],
+      "bbox": [
+        152.0,
+        192.0,
+        262.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 47,
+        "displacement_px": 40.0,
+        "from_position": [
+          247.0,
+          227.0
+        ],
+        "speed_px_per_frame": 8.0
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000041",
+      "timestamp": 2.35,
+      "frame_index": 47,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "detected",
+      "position": [
+        322.0,
+        198.6
+      ],
+      "bbox": [
+        302.0,
+        153.6,
+        342.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 48,
+        "visible_for_seconds": 2.3
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000042",
+      "timestamp": 2.4,
+      "frame_index": 48,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "detected",
+      "position": [
+        191.0,
+        227.0
+      ],
+      "bbox": [
+        136.0,
+        192.0,
+        246.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 49,
+        "visible_for_seconds": 2.35
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000043",
+      "timestamp": 2.45,
+      "frame_index": 49,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "detected",
+      "position": [
+        334.0,
+        198.6
+      ],
+      "bbox": [
+        314.0,
+        153.6,
+        354.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 50,
+        "visible_for_seconds": 2.4
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000044",
+      "timestamp": 2.5,
+      "frame_index": 50,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "moved",
+      "position": [
+        340.0,
+        198.6
+      ],
+      "bbox": [
+        320.0,
+        153.6,
+        360.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 51,
+        "displacement_px": 42.0,
+        "from_position": [
+          298.0,
+          198.6
+        ],
+        "speed_px_per_frame": 6.0
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000045",
+      "timestamp": 2.5,
+      "frame_index": 50,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "detected",
+      "position": [
+        175.0,
+        227.0
+      ],
+      "bbox": [
+        120.0,
+        192.0,
+        230.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 51,
+        "visible_for_seconds": 2.45
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000046",
+      "timestamp": 2.55,
+      "frame_index": 51,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "moved",
+      "position": [
+        167.0,
+        227.0
+      ],
+      "bbox": [
+        112.0,
+        192.0,
+        222.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 52,
+        "displacement_px": 40.0,
+        "from_position": [
+          207.0,
+          227.0
+        ],
+        "speed_px_per_frame": 8.0
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000047",
+      "timestamp": 2.6,
+      "frame_index": 52,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "detected",
+      "position": [
+        352.0,
+        198.6
+      ],
+      "bbox": [
+        332.0,
+        153.6,
+        372.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 53,
+        "visible_for_seconds": 2.55
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000048",
+      "timestamp": 2.65,
+      "frame_index": 53,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "detected",
+      "position": [
+        151.0,
+        227.0
+      ],
+      "bbox": [
+        96.0,
+        192.0,
+        206.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 54,
+        "visible_for_seconds": 2.6
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000049",
+      "timestamp": 2.7,
+      "frame_index": 54,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "detected",
+      "position": [
+        364.0,
+        198.6
+      ],
+      "bbox": [
+        344.0,
+        153.6,
+        384.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 55,
+        "visible_for_seconds": 2.65
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000050",
+      "timestamp": 2.75,
+      "frame_index": 55,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "detected",
+      "position": [
+        135.0,
+        227.0
+      ],
+      "bbox": [
+        80.0,
+        192.0,
+        190.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 56,
+        "visible_for_seconds": 2.7
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000051",
+      "timestamp": 2.8,
+      "frame_index": 56,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "moved",
+      "position": [
+        127.0,
+        227.0
+      ],
+      "bbox": [
+        72.0,
+        192.0,
+        182.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 57,
+        "displacement_px": 40.0,
+        "from_position": [
+          167.0,
+          227.0
+        ],
+        "speed_px_per_frame": 8.0
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000052",
+      "timestamp": 2.85,
+      "frame_index": 57,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "moved",
+      "position": [
+        382.0,
+        198.6
+      ],
+      "bbox": [
+        362.0,
+        153.6,
+        402.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 58,
+        "displacement_px": 42.0,
+        "from_position": [
+          340.0,
+          198.6
+        ],
+        "speed_px_per_frame": 6.0
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000053",
+      "timestamp": 2.9,
+      "frame_index": 58,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "detected",
+      "position": [
+        111.0,
+        227.0
+      ],
+      "bbox": [
+        56.0,
+        192.0,
+        166.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 59,
+        "visible_for_seconds": 2.85
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000054",
+      "timestamp": 2.95,
+      "frame_index": 59,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "detected",
+      "position": [
+        394.0,
+        198.6
+      ],
+      "bbox": [
+        374.0,
+        153.6,
+        414.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 60,
+        "visible_for_seconds": 2.9
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000055",
+      "timestamp": 2.95,
+      "frame_index": 59,
+      "entity_id": "person_1",
+      "track_id": 1,
+      "action": "disappeared",
+      "position": [
+        394.0,
+        198.6
+      ],
+      "bbox": [
+        374.0,
+        153.6,
+        414.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "person",
+        "class_id": 0,
+        "confidence": 0.9,
+        "track_age": 60,
+        "first_seen": 0.05,
+        "last_seen": 2.95,
+        "visible_for_seconds": 2.9
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    },
+    {
+      "event_id": "evt_000056",
+      "timestamp": 2.95,
+      "frame_index": 59,
+      "entity_id": "truck_2",
+      "track_id": 2,
+      "action": "disappeared",
+      "position": [
+        103.0,
+        227.0
+      ],
+      "bbox": [
+        48.0,
+        192.0,
+        158.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "attributes": {
+        "class_name": "truck",
+        "class_id": 7,
+        "confidence": 0.82,
+        "track_age": 60,
+        "first_seen": 0.05,
+        "last_seen": 2.95,
+        "visible_for_seconds": 2.9
+      },
+      "zones": [],
+      "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+    }
+  ],
+  "entities": [
+    {
+      "entity_id": "person_1",
+      "class_name": "person",
+      "class_id": 0,
+      "track_id": 1,
+      "confidence": 0.9,
+      "position": [
+        394.0,
+        198.6
+      ],
+      "bbox": [
+        374.0,
+        153.6,
+        414.0,
+        243.6
+      ],
+      "coordinate_space": "image_pixels",
+      "zones": [],
+      "first_seen": 0.05,
+      "last_seen": 2.95,
+      "duration_seconds": 2.9,
+      "last_action": "disappeared",
+      "present": false,
+      "event_count": 28
+    },
+    {
+      "entity_id": "truck_2",
+      "class_name": "truck",
+      "class_id": 7,
+      "track_id": 2,
+      "confidence": 0.82,
+      "position": [
+        103.0,
+        227.0
+      ],
+      "bbox": [
+        48.0,
+        192.0,
+        158.0,
+        262.0
+      ],
+      "coordinate_space": "image_pixels",
+      "zones": [],
+      "first_seen": 0.05,
+      "last_seen": 2.95,
+      "duration_seconds": 2.9,
+      "last_action": "disappeared",
+      "present": false,
+      "event_count": 28
+    }
+  ]
+}

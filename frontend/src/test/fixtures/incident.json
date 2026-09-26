@@ -1,0 +1,174 @@
+{
+  "analysis_id": "demo-analysis",
+  "incident_found": true,
+  "lifecycle_state": "current",
+  "quantities": [
+    {
+      "name": "current separation",
+      "value": 42.042,
+      "unit": "px",
+      "coordinate_space": "image_pixels"
+    },
+    {
+      "name": "closing speed",
+      "value": 206.458,
+      "unit": "px/s",
+      "coordinate_space": "image_pixels"
+    },
+    {
+      "name": "predicted minimum separation",
+      "value": 28.4,
+      "unit": "px",
+      "coordinate_space": "image_pixels"
+    }
+  ],
+  "evidence": {
+    "schema_version": "0.7",
+    "incident_id": "INC-1.85-person_1+truck_2",
+    "timestamp": 1.85,
+    "coordinate_space": "image_pixels",
+    "distance_unit": "px",
+    "speed_unit": "px/s",
+    "calibration_active": false,
+    "space_fallback_reason": null,
+    "entities": [
+      {
+        "entity_id": "person_1",
+        "class_name": "person",
+        "position": [
+          256.0,
+          198.6
+        ],
+        "velocity": [
+          120.0,
+          0.0
+        ],
+        "speed": 120.0,
+        "zones": [],
+        "coordinate_space": "image_pixels"
+      },
+      {
+        "entity_id": "truck_2",
+        "class_name": "truck",
+        "position": [
+          287.0,
+          227.0
+        ],
+        "velocity": [
+          -160.0,
+          0.0
+        ],
+        "speed": 160.0,
+        "zones": [],
+        "coordinate_space": "image_pixels"
+      }
+    ],
+    "risk_score": 95.45,
+    "severity": "critical",
+    "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+    "incident_state": "current",
+    "confidence": 1.0,
+    "current_separation": 42.042,
+    "closing_speed": 206.458,
+    "factors": [
+      {
+        "name": "proximity",
+        "score": 1.0,
+        "weight": 30.0,
+        "contribution": 30.0,
+        "rationale": "person_1 and truck_2 are 42px apart in image space (critical below 70px)",
+        "confidence": 1.0
+      },
+      {
+        "name": "closing_speed",
+        "score": 1.0,
+        "weight": 25.0,
+        "contribution": 25.0,
+        "rationale": "separation is shrinking at 206px/s in image space (saturates at 160px/s)",
+        "confidence": 1.0
+      },
+      {
+        "name": "trajectory",
+        "score": 0.9815,
+        "weight": 25.0,
+        "contribution": 24.5387,
+        "rationale": "image-space trajectories converge to 28px in 0.1s",
+        "confidence": 1.0
+      },
+      {
+        "name": "zone",
+        "score": 0.0,
+        "weight": 20.0,
+        "contribution": 0.0,
+        "rationale": "no operating zones configured",
+        "confidence": 0.0
+      },
+      {
+        "name": "persistence",
+        "score": 0.0,
+        "weight": 15.0,
+        "contribution": 0.0,
+        "rationale": "no operating or restricted zones configured",
+        "confidence": 0.0
+      }
+    ],
+    "prediction": {
+      "outcome": "CURRENTLY_UNSAFE_PROXIMITY",
+      "horizon_seconds": 6.0,
+      "minimum_separation": 28.4,
+      "seconds_to_minimum_separation": 0.111,
+      "unsafe_separation_threshold": 90.0,
+      "unavailable_reason": null,
+      "is_forward_looking": false
+    },
+    "time_to_risk": {
+      "status": "already_unsafe",
+      "seconds": 0.0,
+      "threshold": 90.0,
+      "reason": null
+    },
+    "triggered_event_ids": [
+      "evt_000026",
+      "evt_000028",
+      "evt_000030",
+      "evt_000027",
+      "evt_000029",
+      "evt_000031"
+    ],
+    "triggered_event_actions": [
+      "detected",
+      "moved"
+    ],
+    "recommended_intervention": "slow/stop the vehicle and redirect the person out of its path",
+    "score_interpretation": "ordinal 0-100 engineering signal, NOT a calibrated probability"
+  },
+  "explanation": {
+    "schema_version": "0.7",
+    "incident_id": "INC-1.85-person_1+truck_2",
+    "summary": "[mock reasoner: deterministic template, not a language model] Sentinel's deterministic risk engine raised PERSON_VEHICLE_COLLISION_RISK involving person_1 (person) and truck_2 (truck) at 1.85 s, in lifecycle state current.",
+    "severity_explanation": "Severity band critical follows from risk score 95.5 of 100, an ordinal engineering signal and not a probability. Contributions: proximity contributed 30.0 of 30 points; closing_speed contributed 25.0 of 25 points; trajectory contributed 24.5 of 25 points.",
+    "evidence_points": [
+      "current separation: 42.04 px",
+      "closing speed: 206.46 px/s",
+      "predicted minimum separation: 28.40 px",
+      "person_1 speed 120.00 px/s",
+      "truck_2 speed 160.00 px/s"
+    ],
+    "predicted_outcome": "Deterministic prediction outcome: CURRENTLY_UNSAFE_PROXIMITY. The unsafe separation threshold is crossed now; this is a present condition rather than a prediction. Predicted closest approach 28.40 px, expected 0.11 s from now. Prediction horizon 6.0 s.",
+    "recommended_action": "Recommendation for a human operator (Sentinel takes no action itself): slow/stop the vehicle and redirect the person out of its path.",
+    "urgency": "immediate",
+    "uncertainty": "All distances here are image pixels. No camera calibration was applied, so no value in this report is a physical distance and none can be converted into one. Prediction assumes constant velocity and does not model operator reaction or obstacles.",
+    "coordinate_space": "image_pixels",
+    "provider": "mock",
+    "model": "deterministic-template-v0.7",
+    "is_language_model": false
+  },
+  "grounding": {
+    "incident_id": "INC-1.85-person_1+truck_2",
+    "ok": true,
+    "violations": [],
+    "notes": []
+  },
+  "reasoner": "mock / deterministic-template-v0.7 (deterministic template)",
+  "note": "the unsafe condition exists now"
+}

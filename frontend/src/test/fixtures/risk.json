@@ -1,0 +1,5696 @@
+{
+  "analysis_id": "demo-analysis",
+  "risk_step": 0.2,
+  "coordinate_space": "image_pixels",
+  "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+  "max_risk_score": 95.45,
+  "max_severity": "critical",
+  "report_count": 15,
+  "worst": {
+    "timestamp": 1.85,
+    "coordinate_space": "image_pixels",
+    "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+    "max_risk_score": 95.45,
+    "severity": "critical",
+    "assessment_count": 1,
+    "assessments": [
+      {
+        "risk_score": 95.45,
+        "severity": "critical",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "timestamp": 1.85,
+        "confidence": 1.0,
+        "predicted_time_to_incident_seconds": 0.111,
+        "prediction_outcome": "CURRENTLY_UNSAFE_PROXIMITY",
+        "time_to_risk": {
+          "status": "already_unsafe",
+          "seconds": 0.0,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        },
+        "space_fallback_reason": null,
+        "contributing_factors": [
+          {
+            "name": "proximity",
+            "score": 1.0,
+            "weight": 30.0,
+            "contribution": 30.0,
+            "confidence": 1.0,
+            "rationale": "person_1 and truck_2 are 42px apart in image space (critical below 70px)",
+            "evidence_event_ids": [
+              "evt_000026",
+              "evt_000028",
+              "evt_000030",
+              "evt_000027",
+              "evt_000029",
+              "evt_000031"
+            ],
+            "details": {
+              "separation_px": 42.042,
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0
+            },
+            "coordinate_space": "image_pixels"
+          },
+          {
+            "name": "closing_speed",
+            "score": 1.0,
+            "weight": 25.0,
+            "contribution": 25.0,
+            "confidence": 1.0,
+            "rationale": "separation is shrinking at 206px/s in image space (saturates at 160px/s)",
+            "evidence_event_ids": [
+              "evt_000026",
+              "evt_000028",
+              "evt_000030",
+              "evt_000027",
+              "evt_000029",
+              "evt_000031"
+            ],
+            "details": {
+              "is_converging": true,
+              "closing_speed_px_per_s": 206.458,
+              "separation_px": 42.042,
+              "reference_px_per_s": 160.0
+            },
+            "coordinate_space": "image_pixels"
+          },
+          {
+            "name": "trajectory",
+            "score": 0.9815,
+            "weight": 25.0,
+            "contribution": 24.5387,
+            "confidence": 1.0,
+            "rationale": "image-space trajectories converge to 28px in 0.1s",
+            "evidence_event_ids": [
+              "evt_000026",
+              "evt_000028",
+              "evt_000030",
+              "evt_000027",
+              "evt_000029",
+              "evt_000031"
+            ],
+            "details": {
+              "seconds_to_closest_approach": 0.111,
+              "spatial_term": 1.0,
+              "temporal_term": 0.9815,
+              "prediction_horizon_seconds": 6.0,
+              "closest_approach_distance_px": 28.4,
+              "conflict_radius_px": 90.0,
+              "primary_velocity_px_per_s": [
+                120.0,
+                0.0
+              ],
+              "secondary_velocity_px_per_s": [
+                -160.0,
+                0.0
+              ]
+            },
+            "coordinate_space": "image_pixels"
+          },
+          {
+            "name": "zone",
+            "score": 0.0,
+            "weight": 20.0,
+            "contribution": 0.0,
+            "confidence": 0.0,
+            "rationale": "no operating zones configured",
+            "evidence_event_ids": [],
+            "details": {
+              "zone_occupancy": {
+                "person_1": [],
+                "truck_2": []
+              }
+            },
+            "coordinate_space": "image_pixels"
+          },
+          {
+            "name": "persistence",
+            "score": 0.0,
+            "weight": 15.0,
+            "contribution": 0.0,
+            "confidence": 0.0,
+            "rationale": "no operating or restricted zones configured",
+            "evidence_event_ids": [],
+            "details": {},
+            "coordinate_space": "image_pixels"
+          },
+          {
+            "name": "escalation",
+            "score": 0.75,
+            "weight": 0.0,
+            "contribution": 0.0,
+            "confidence": 1.0,
+            "rationale": "3 independent signals agree (proximity, closing_speed, trajectory); escalating by \u00d71.20",
+            "evidence_event_ids": [
+              "evt_000026",
+              "evt_000028",
+              "evt_000030",
+              "evt_000027",
+              "evt_000029",
+              "evt_000031"
+            ],
+            "details": {
+              "multiplier": 1.2,
+              "signal_count": 3,
+              "signal_names": [
+                "proximity",
+                "closing_speed",
+                "trajectory"
+              ],
+              "signal_threshold": 0.2
+            },
+            "coordinate_space": "image_pixels"
+          }
+        ],
+        "evidence_event_ids": [
+          "evt_000026",
+          "evt_000028",
+          "evt_000030",
+          "evt_000027",
+          "evt_000029",
+          "evt_000031"
+        ],
+        "recommended_intervention": "slow/stop the vehicle and redirect the person out of its path",
+        "escalation_multiplier": 1.2,
+        "coordinate_space": "image_pixels",
+        "details": {
+          "candidate_kind": "person_vehicle_pair",
+          "coordinate_space": "image_pixels",
+          "units": "px",
+          "thresholds": {
+            "coordinate_space": "image_pixels",
+            "interaction_radius_px": 260.0,
+            "critical_radius_px": 70.0,
+            "conflict_radius_px": 90.0,
+            "miss_radius_px": 320.0,
+            "unsafe_separation_px": 90.0,
+            "closing_speed_reference_px_per_s": 160.0,
+            "closing_speed_floor_px_per_s": 10.0
+          },
+          "prediction": {
+            "entity_ids": [
+              "person_1",
+              "truck_2"
+            ],
+            "coordinate_space": "image_pixels",
+            "units": "pixels",
+            "outcome": "CURRENTLY_UNSAFE_PROXIMITY",
+            "horizon_seconds": 6.0,
+            "enters_unsafe_separation": true,
+            "is_converging": true,
+            "in_calibrated_region": true,
+            "current_separation_px": 42.042,
+            "minimum_separation_px": 28.4,
+            "unsafe_separation_threshold_px": 90.0,
+            "conflict_radius_px": 90.0,
+            "closing_speed_px_per_s": 206.458,
+            "seconds_to_minimum_separation": 0.111,
+            "seconds_to_unsafe_separation": 0.0,
+            "separation_curve": [
+              {
+                "seconds_ahead": 0.0,
+                "separation_px": 42.042
+              },
+              {
+                "seconds_ahead": 0.25,
+                "separation_px": 48.245
+              },
+              {
+                "seconds_ahead": 0.5,
+                "separation_px": 112.639
+              },
+              {
+                "seconds_ahead": 0.75,
+                "separation_px": 181.239
+              },
+              {
+                "seconds_ahead": 1.0,
+                "separation_px": 250.614
+              },
+              {
+                "seconds_ahead": 1.25,
+                "separation_px": 320.262
+              },
+              {
+                "seconds_ahead": 1.5,
+                "separation_px": 390.035
+              },
+              {
+                "seconds_ahead": 1.75,
+                "separation_px": 459.878
+              },
+              {
+                "seconds_ahead": 2.0,
+                "separation_px": 529.762
+              },
+              {
+                "seconds_ahead": 2.25,
+                "separation_px": 599.673
+              },
+              {
+                "seconds_ahead": 2.5,
+                "separation_px": 669.603
+              },
+              {
+                "seconds_ahead": 2.75,
+                "separation_px": 739.546
+              },
+              {
+                "seconds_ahead": 3.0,
+                "separation_px": 809.498
+              },
+              {
+                "seconds_ahead": 3.25,
+                "separation_px": 879.459
+              },
+              {
+                "seconds_ahead": 3.5,
+                "separation_px": 949.425
+              },
+              {
+                "seconds_ahead": 3.75,
+                "separation_px": 1019.396
+              },
+              {
+                "seconds_ahead": 4.0,
+                "separation_px": 1089.37
+              },
+              {
+                "seconds_ahead": 4.25,
+                "separation_px": 1159.348
+              },
+              {
+                "seconds_ahead": 4.5,
+                "separation_px": 1229.328
+              },
+              {
+                "seconds_ahead": 4.75,
+                "separation_px": 1299.31
+              },
+              {
+                "seconds_ahead": 5.0,
+                "separation_px": 1369.295
+              },
+              {
+                "seconds_ahead": 5.25,
+                "separation_px": 1439.28
+              },
+              {
+                "seconds_ahead": 5.5,
+                "separation_px": 1509.267
+              },
+              {
+                "seconds_ahead": 5.75,
+                "separation_px": 1579.255
+              },
+              {
+                "seconds_ahead": 6.0,
+                "separation_px": 1649.245
+              }
+            ]
+          },
+          "subtotal_points": 79.5387,
+          "base_points": 79.5387,
+          "persistence_points": 0.0,
+          "motions": {
+            "person_1": {
+              "entity_id": "person_1",
+              "class_name": "person",
+              "timestamp": 1.85,
+              "position_px": [
+                256.0,
+                198.6
+              ],
+              "velocity_px_per_s": [
+                120.0,
+                0.0
+              ],
+              "speed_px_per_s": 120.0,
+              "samples": 16,
+              "time_span_seconds": 1.75,
+              "is_estimable": true,
+              "is_stationary": false,
+              "confidence": 1.0,
+              "coordinate_space": "image_pixels"
+            },
+            "truck_2": {
+              "entity_id": "truck_2",
+              "class_name": "truck",
+              "timestamp": 1.85,
+              "position_px": [
+                287.0,
+                227.0
+              ],
+              "velocity_px_per_s": [
+                -160.0,
+                0.0
+              ],
+              "speed_px_per_s": 160.0,
+              "samples": 15,
+              "time_span_seconds": 1.75,
+              "is_estimable": true,
+              "is_stationary": false,
+              "confidence": 1.0,
+              "coordinate_space": "image_pixels"
+            }
+          }
+        }
+      }
+    ],
+    "metadata": {
+      "config": {
+        "coordinate_space": "image_pixels",
+        "person_classes": [
+          "person"
+        ],
+        "vehicle_classes": [
+          "car",
+          "truck",
+          "bus",
+          "motorcycle",
+          "train",
+          "forklift"
+        ],
+        "operating_zones": [],
+        "restricted_zones": [],
+        "interaction_radius_px": 260.0,
+        "critical_radius_px": 70.0,
+        "closing_speed_reference_px_per_s": 160.0,
+        "conflict_radius_px": 90.0,
+        "trajectory_miss_radius_px": 320.0,
+        "prediction_horizon_seconds": 6.0,
+        "persistence_violation_threshold": 3,
+        "escalation_signal_threshold": 0.2,
+        "weights": {
+          "proximity": 30.0,
+          "closing_speed": 25.0,
+          "trajectory": 25.0,
+          "zone": 20.0,
+          "persistence": 15.0
+        },
+        "thresholds": {
+          "image_pixels": {
+            "coordinate_space": "image_pixels",
+            "interaction_radius_px": 260.0,
+            "critical_radius_px": 70.0,
+            "conflict_radius_px": 90.0,
+            "miss_radius_px": 320.0,
+            "unsafe_separation_px": 90.0,
+            "closing_speed_reference_px_per_s": 160.0,
+            "closing_speed_floor_px_per_s": 10.0
+          },
+          "ground_plane_meters": {
+            "coordinate_space": "ground_plane_meters",
+            "interaction_radius_m": 6.5,
+            "critical_radius_m": 1.5,
+            "conflict_radius_m": 2.0,
+            "miss_radius_m": 8.0,
+            "unsafe_separation_m": 2.0,
+            "closing_speed_reference_m_per_s": 4.0,
+            "closing_speed_floor_m_per_s": 0.25
+          }
+        },
+        "thresholds_note": "pixel and metre thresholds are configured independently; neither is derived from the other"
+      },
+      "entities_considered": [
+        "person_1",
+        "truck_2"
+      ],
+      "candidates_evaluated": 2,
+      "configured_coordinate_space": "image_pixels",
+      "scoring_coordinate_space": "image_pixels",
+      "spaces_used": {
+        "image_pixels": 1
+      },
+      "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+      "calibration": null
+    }
+  },
+  "timeline": [
+    {
+      "timestamp": 0.05,
+      "coordinate_space": "image_pixels",
+      "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+      "max_risk_score": 0.0,
+      "severity": "normal",
+      "assessment_count": 0,
+      "assessments": [],
+      "metadata": {
+        "config": {
+          "coordinate_space": "image_pixels",
+          "person_classes": [
+            "person"
+          ],
+          "vehicle_classes": [
+            "car",
+            "truck",
+            "bus",
+            "motorcycle",
+            "train",
+            "forklift"
+          ],
+          "operating_zones": [],
+          "restricted_zones": [],
+          "interaction_radius_px": 260.0,
+          "critical_radius_px": 70.0,
+          "closing_speed_reference_px_per_s": 160.0,
+          "conflict_radius_px": 90.0,
+          "trajectory_miss_radius_px": 320.0,
+          "prediction_horizon_seconds": 6.0,
+          "persistence_violation_threshold": 3,
+          "escalation_signal_threshold": 0.2,
+          "weights": {
+            "proximity": 30.0,
+            "closing_speed": 25.0,
+            "trajectory": 25.0,
+            "zone": 20.0,
+            "persistence": 15.0
+          },
+          "thresholds": {
+            "image_pixels": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "ground_plane_meters": {
+              "coordinate_space": "ground_plane_meters",
+              "interaction_radius_m": 6.5,
+              "critical_radius_m": 1.5,
+              "conflict_radius_m": 2.0,
+              "miss_radius_m": 8.0,
+              "unsafe_separation_m": 2.0,
+              "closing_speed_reference_m_per_s": 4.0,
+              "closing_speed_floor_m_per_s": 0.25
+            }
+          },
+          "thresholds_note": "pixel and metre thresholds are configured independently; neither is derived from the other"
+        },
+        "entities_considered": [
+          "person_1",
+          "truck_2"
+        ],
+        "candidates_evaluated": 2,
+        "configured_coordinate_space": "image_pixels",
+        "scoring_coordinate_space": "image_pixels",
+        "spaces_used": {},
+        "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+        "calibration": null
+      }
+    },
+    {
+      "timestamp": 0.25,
+      "coordinate_space": "image_pixels",
+      "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+      "max_risk_score": 0.0,
+      "severity": "normal",
+      "assessment_count": 0,
+      "assessments": [],
+      "metadata": {
+        "config": {
+          "coordinate_space": "image_pixels",
+          "person_classes": [
+            "person"
+          ],
+          "vehicle_classes": [
+            "car",
+            "truck",
+            "bus",
+            "motorcycle",
+            "train",
+            "forklift"
+          ],
+          "operating_zones": [],
+          "restricted_zones": [],
+          "interaction_radius_px": 260.0,
+          "critical_radius_px": 70.0,
+          "closing_speed_reference_px_per_s": 160.0,
+          "conflict_radius_px": 90.0,
+          "trajectory_miss_radius_px": 320.0,
+          "prediction_horizon_seconds": 6.0,
+          "persistence_violation_threshold": 3,
+          "escalation_signal_threshold": 0.2,
+          "weights": {
+            "proximity": 30.0,
+            "closing_speed": 25.0,
+            "trajectory": 25.0,
+            "zone": 20.0,
+            "persistence": 15.0
+          },
+          "thresholds": {
+            "image_pixels": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "ground_plane_meters": {
+              "coordinate_space": "ground_plane_meters",
+              "interaction_radius_m": 6.5,
+              "critical_radius_m": 1.5,
+              "conflict_radius_m": 2.0,
+              "miss_radius_m": 8.0,
+              "unsafe_separation_m": 2.0,
+              "closing_speed_reference_m_per_s": 4.0,
+              "closing_speed_floor_m_per_s": 0.25
+            }
+          },
+          "thresholds_note": "pixel and metre thresholds are configured independently; neither is derived from the other"
+        },
+        "entities_considered": [
+          "person_1",
+          "truck_2"
+        ],
+        "candidates_evaluated": 2,
+        "configured_coordinate_space": "image_pixels",
+        "scoring_coordinate_space": "image_pixels",
+        "spaces_used": {},
+        "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+        "calibration": null
+      }
+    },
+    {
+      "timestamp": 0.45,
+      "coordinate_space": "image_pixels",
+      "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+      "max_risk_score": 48.08,
+      "severity": "medium",
+      "assessment_count": 1,
+      "assessments": [
+        {
+          "risk_score": 48.08,
+          "severity": "medium",
+          "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+          "involved_entity_ids": [
+            "person_1",
+            "truck_2"
+          ],
+          "timestamp": 0.45,
+          "confidence": 0.2333,
+          "predicted_time_to_incident_seconds": 1.511,
+          "prediction_outcome": "PREDICTED_TRAJECTORY_CONFLICT",
+          "time_to_risk": {
+            "status": "predicted",
+            "seconds": 1.206,
+            "coordinate_space": "image_pixels",
+            "units": "pixels",
+            "reason": null,
+            "unsafe_separation_threshold_px": 90.0
+          },
+          "space_fallback_reason": null,
+          "contributing_factors": [
+            {
+              "name": "proximity",
+              "score": 0.0,
+              "weight": 30.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "separation 424px is beyond the 260px interaction radius",
+              "evidence_event_ids": [
+                "evt_000003",
+                "evt_000006",
+                "evt_000007",
+                "evt_000004",
+                "evt_000005",
+                "evt_000008"
+              ],
+              "details": {
+                "separation_px": 423.952,
+                "interaction_radius_px": 260.0,
+                "critical_radius_px": 70.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "closing_speed",
+              "score": 1.0,
+              "weight": 25.0,
+              "contribution": 25.0,
+              "confidence": 0.2333,
+              "rationale": "separation is shrinking at 279px/s in image space (saturates at 160px/s)",
+              "evidence_event_ids": [
+                "evt_000003",
+                "evt_000006",
+                "evt_000007",
+                "evt_000004",
+                "evt_000005",
+                "evt_000008"
+              ],
+              "details": {
+                "is_converging": true,
+                "closing_speed_px_per_s": 279.371,
+                "separation_px": 423.952,
+                "reference_px_per_s": 160.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "trajectory",
+              "score": 0.7482,
+              "weight": 25.0,
+              "contribution": 18.7054,
+              "confidence": 0.2333,
+              "rationale": "image-space trajectories converge to 28px in 1.5s",
+              "evidence_event_ids": [
+                "evt_000003",
+                "evt_000006",
+                "evt_000007",
+                "evt_000004",
+                "evt_000005",
+                "evt_000008"
+              ],
+              "details": {
+                "seconds_to_closest_approach": 1.511,
+                "spatial_term": 1.0,
+                "temporal_term": 0.7482,
+                "prediction_horizon_seconds": 6.0,
+                "closest_approach_distance_px": 28.4,
+                "conflict_radius_px": 90.0,
+                "primary_velocity_px_per_s": [
+                  120.0,
+                  0.0
+                ],
+                "secondary_velocity_px_per_s": [
+                  -160.0,
+                  0.0
+                ]
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "zone",
+              "score": 0.0,
+              "weight": 20.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating zones configured",
+              "evidence_event_ids": [],
+              "details": {
+                "zone_occupancy": {
+                  "person_1": [],
+                  "truck_2": []
+                }
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "persistence",
+              "score": 0.0,
+              "weight": 15.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating or restricted zones configured",
+              "evidence_event_ids": [],
+              "details": {},
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "escalation",
+              "score": 0.5,
+              "weight": 0.0,
+              "contribution": 0.0,
+              "confidence": 1.0,
+              "rationale": "2 independent signals agree (closing_speed, trajectory); escalating by \u00d71.10",
+              "evidence_event_ids": [
+                "evt_000003",
+                "evt_000006",
+                "evt_000007",
+                "evt_000004",
+                "evt_000005",
+                "evt_000008"
+              ],
+              "details": {
+                "multiplier": 1.1,
+                "signal_count": 2,
+                "signal_names": [
+                  "closing_speed",
+                  "trajectory"
+                ],
+                "signal_threshold": 0.2
+              },
+              "coordinate_space": "image_pixels"
+            }
+          ],
+          "evidence_event_ids": [
+            "evt_000003",
+            "evt_000006",
+            "evt_000007",
+            "evt_000004",
+            "evt_000005",
+            "evt_000008"
+          ],
+          "recommended_intervention": "slow/stop the vehicle and redirect the person out of its path",
+          "escalation_multiplier": 1.1,
+          "coordinate_space": "image_pixels",
+          "details": {
+            "candidate_kind": "person_vehicle_pair",
+            "coordinate_space": "image_pixels",
+            "units": "px",
+            "thresholds": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "prediction": {
+              "entity_ids": [
+                "person_1",
+                "truck_2"
+              ],
+              "coordinate_space": "image_pixels",
+              "units": "pixels",
+              "outcome": "PREDICTED_TRAJECTORY_CONFLICT",
+              "horizon_seconds": 6.0,
+              "enters_unsafe_separation": true,
+              "is_converging": true,
+              "in_calibrated_region": true,
+              "current_separation_px": 423.952,
+              "minimum_separation_px": 28.4,
+              "unsafe_separation_threshold_px": 90.0,
+              "conflict_radius_px": 90.0,
+              "closing_speed_px_per_s": 279.371,
+              "seconds_to_minimum_separation": 1.511,
+              "seconds_to_unsafe_separation": 1.206,
+              "separation_curve": [
+                {
+                  "seconds_ahead": 0.0,
+                  "separation_px": 423.952
+                },
+                {
+                  "seconds_ahead": 0.25,
+                  "separation_px": 354.141
+                },
+                {
+                  "seconds_ahead": 0.5,
+                  "separation_px": 284.421
+                },
+                {
+                  "seconds_ahead": 0.75,
+                  "separation_px": 214.885
+                },
+                {
+                  "seconds_ahead": 1.0,
+                  "separation_px": 145.793
+                },
+                {
+                  "seconds_ahead": 1.25,
+                  "separation_px": 78.33
+                },
+                {
+                  "seconds_ahead": 1.5,
+                  "separation_px": 28.558
+                },
+                {
+                  "seconds_ahead": 1.75,
+                  "separation_px": 72.771
+                },
+                {
+                  "seconds_ahead": 2.0,
+                  "separation_px": 139.913
+                },
+                {
+                  "seconds_ahead": 2.25,
+                  "separation_px": 208.939
+                },
+                {
+                  "seconds_ahead": 2.5,
+                  "separation_px": 278.452
+                },
+                {
+                  "seconds_ahead": 2.75,
+                  "separation_px": 348.16
+                },
+                {
+                  "seconds_ahead": 3.0,
+                  "separation_px": 417.966
+                },
+                {
+                  "seconds_ahead": 3.25,
+                  "separation_px": 487.827
+                },
+                {
+                  "seconds_ahead": 3.5,
+                  "separation_px": 557.724
+                },
+                {
+                  "seconds_ahead": 3.75,
+                  "separation_px": 627.643
+                },
+                {
+                  "seconds_ahead": 4.0,
+                  "separation_px": 697.578
+                },
+                {
+                  "seconds_ahead": 4.25,
+                  "separation_px": 767.526
+                },
+                {
+                  "seconds_ahead": 4.5,
+                  "separation_px": 837.482
+                },
+                {
+                  "seconds_ahead": 4.75,
+                  "separation_px": 907.445
+                },
+                {
+                  "seconds_ahead": 5.0,
+                  "separation_px": 977.413
+                },
+                {
+                  "seconds_ahead": 5.25,
+                  "separation_px": 1047.385
+                },
+                {
+                  "seconds_ahead": 5.5,
+                  "separation_px": 1117.361
+                },
+                {
+                  "seconds_ahead": 5.75,
+                  "separation_px": 1187.34
+                },
+                {
+                  "seconds_ahead": 6.0,
+                  "separation_px": 1257.321
+                }
+              ]
+            },
+            "subtotal_points": 43.7054,
+            "base_points": 43.7054,
+            "persistence_points": 0.0,
+            "motions": {
+              "person_1": {
+                "entity_id": "person_1",
+                "class_name": "person",
+                "timestamp": 0.45,
+                "position_px": [
+                  88.0,
+                  198.6
+                ],
+                "velocity_px_per_s": [
+                  120.0,
+                  0.0
+                ],
+                "speed_px_per_s": 120.0,
+                "samples": 4,
+                "time_span_seconds": 0.35,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 0.2333,
+                "coordinate_space": "image_pixels"
+              },
+              "truck_2": {
+                "entity_id": "truck_2",
+                "class_name": "truck",
+                "timestamp": 0.45,
+                "position_px": [
+                  511.0,
+                  227.0
+                ],
+                "velocity_px_per_s": [
+                  -160.0,
+                  0.0
+                ],
+                "speed_px_per_s": 160.0,
+                "samples": 4,
+                "time_span_seconds": 0.35,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 0.2333,
+                "coordinate_space": "image_pixels"
+              }
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "config": {
+          "coordinate_space": "image_pixels",
+          "person_classes": [
+            "person"
+          ],
+          "vehicle_classes": [
+            "car",
+            "truck",
+            "bus",
+            "motorcycle",
+            "train",
+            "forklift"
+          ],
+          "operating_zones": [],
+          "restricted_zones": [],
+          "interaction_radius_px": 260.0,
+          "critical_radius_px": 70.0,
+          "closing_speed_reference_px_per_s": 160.0,
+          "conflict_radius_px": 90.0,
+          "trajectory_miss_radius_px": 320.0,
+          "prediction_horizon_seconds": 6.0,
+          "persistence_violation_threshold": 3,
+          "escalation_signal_threshold": 0.2,
+          "weights": {
+            "proximity": 30.0,
+            "closing_speed": 25.0,
+            "trajectory": 25.0,
+            "zone": 20.0,
+            "persistence": 15.0
+          },
+          "thresholds": {
+            "image_pixels": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "ground_plane_meters": {
+              "coordinate_space": "ground_plane_meters",
+              "interaction_radius_m": 6.5,
+              "critical_radius_m": 1.5,
+              "conflict_radius_m": 2.0,
+              "miss_radius_m": 8.0,
+              "unsafe_separation_m": 2.0,
+              "closing_speed_reference_m_per_s": 4.0,
+              "closing_speed_floor_m_per_s": 0.25
+            }
+          },
+          "thresholds_note": "pixel and metre thresholds are configured independently; neither is derived from the other"
+        },
+        "entities_considered": [
+          "person_1",
+          "truck_2"
+        ],
+        "candidates_evaluated": 2,
+        "configured_coordinate_space": "image_pixels",
+        "scoring_coordinate_space": "image_pixels",
+        "spaces_used": {
+          "image_pixels": 1
+        },
+        "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+        "calibration": null
+      }
+    },
+    {
+      "timestamp": 0.65,
+      "coordinate_space": "image_pixels",
+      "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+      "max_risk_score": 48.76,
+      "severity": "medium",
+      "assessment_count": 1,
+      "assessments": [
+        {
+          "risk_score": 48.76,
+          "severity": "medium",
+          "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+          "involved_entity_ids": [
+            "person_1",
+            "truck_2"
+          ],
+          "timestamp": 0.65,
+          "confidence": 0.4167,
+          "predicted_time_to_incident_seconds": 1.361,
+          "prediction_outcome": "PREDICTED_TRAJECTORY_CONFLICT",
+          "time_to_risk": {
+            "status": "predicted",
+            "seconds": 1.056,
+            "coordinate_space": "image_pixels",
+            "units": "pixels",
+            "reason": null,
+            "unsafe_separation_threshold_px": 90.0
+          },
+          "space_fallback_reason": null,
+          "contributing_factors": [
+            {
+              "name": "proximity",
+              "score": 0.0,
+              "weight": 30.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "separation 382px is beyond the 260px interaction radius",
+              "evidence_event_ids": [
+                "evt_000006",
+                "evt_000007",
+                "evt_000009",
+                "evt_000005",
+                "evt_000008",
+                "evt_000010"
+              ],
+              "details": {
+                "separation_px": 382.057,
+                "interaction_radius_px": 260.0,
+                "critical_radius_px": 70.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "closing_speed",
+              "score": 1.0,
+              "weight": 25.0,
+              "contribution": 25.0,
+              "confidence": 0.4167,
+              "rationale": "separation is shrinking at 279px/s in image space (saturates at 160px/s)",
+              "evidence_event_ids": [
+                "evt_000006",
+                "evt_000007",
+                "evt_000009",
+                "evt_000005",
+                "evt_000008",
+                "evt_000010"
+              ],
+              "details": {
+                "is_converging": true,
+                "closing_speed_px_per_s": 279.225,
+                "separation_px": 382.057,
+                "reference_px_per_s": 160.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "trajectory",
+              "score": 0.7732,
+              "weight": 25.0,
+              "contribution": 19.3304,
+              "confidence": 0.4167,
+              "rationale": "image-space trajectories converge to 28px in 1.4s",
+              "evidence_event_ids": [
+                "evt_000006",
+                "evt_000007",
+                "evt_000009",
+                "evt_000005",
+                "evt_000008",
+                "evt_000010"
+              ],
+              "details": {
+                "seconds_to_closest_approach": 1.361,
+                "spatial_term": 1.0,
+                "temporal_term": 0.7732,
+                "prediction_horizon_seconds": 6.0,
+                "closest_approach_distance_px": 28.4,
+                "conflict_radius_px": 90.0,
+                "primary_velocity_px_per_s": [
+                  120.0,
+                  0.0
+                ],
+                "secondary_velocity_px_per_s": [
+                  -160.0,
+                  0.0
+                ]
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "zone",
+              "score": 0.0,
+              "weight": 20.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating zones configured",
+              "evidence_event_ids": [],
+              "details": {
+                "zone_occupancy": {
+                  "person_1": [],
+                  "truck_2": []
+                }
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "persistence",
+              "score": 0.0,
+              "weight": 15.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating or restricted zones configured",
+              "evidence_event_ids": [],
+              "details": {},
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "escalation",
+              "score": 0.5,
+              "weight": 0.0,
+              "contribution": 0.0,
+              "confidence": 1.0,
+              "rationale": "2 independent signals agree (closing_speed, trajectory); escalating by \u00d71.10",
+              "evidence_event_ids": [
+                "evt_000006",
+                "evt_000007",
+                "evt_000009",
+                "evt_000005",
+                "evt_000008",
+                "evt_000010"
+              ],
+              "details": {
+                "multiplier": 1.1,
+                "signal_count": 2,
+                "signal_names": [
+                  "closing_speed",
+                  "trajectory"
+                ],
+                "signal_threshold": 0.2
+              },
+              "coordinate_space": "image_pixels"
+            }
+          ],
+          "evidence_event_ids": [
+            "evt_000006",
+            "evt_000007",
+            "evt_000009",
+            "evt_000005",
+            "evt_000008",
+            "evt_000010"
+          ],
+          "recommended_intervention": "slow/stop the vehicle and redirect the person out of its path",
+          "escalation_multiplier": 1.1,
+          "coordinate_space": "image_pixels",
+          "details": {
+            "candidate_kind": "person_vehicle_pair",
+            "coordinate_space": "image_pixels",
+            "units": "px",
+            "thresholds": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "prediction": {
+              "entity_ids": [
+                "person_1",
+                "truck_2"
+              ],
+              "coordinate_space": "image_pixels",
+              "units": "pixels",
+              "outcome": "PREDICTED_TRAJECTORY_CONFLICT",
+              "horizon_seconds": 6.0,
+              "enters_unsafe_separation": true,
+              "is_converging": true,
+              "in_calibrated_region": true,
+              "current_separation_px": 382.057,
+              "minimum_separation_px": 28.4,
+              "unsafe_separation_threshold_px": 90.0,
+              "conflict_radius_px": 90.0,
+              "closing_speed_px_per_s": 279.225,
+              "seconds_to_minimum_separation": 1.361,
+              "seconds_to_unsafe_separation": 1.056,
+              "separation_curve": [
+                {
+                  "seconds_ahead": 0.0,
+                  "separation_px": 382.057
+                },
+                {
+                  "seconds_ahead": 0.25,
+                  "separation_px": 312.294
+                },
+                {
+                  "seconds_ahead": 0.5,
+                  "separation_px": 242.668
+                },
+                {
+                  "seconds_ahead": 0.75,
+                  "separation_px": 173.342
+                },
+                {
+                  "seconds_ahead": 1.0,
+                  "separation_px": 104.917
+                },
+                {
+                  "seconds_ahead": 1.25,
+                  "separation_px": 42.042
+                },
+                {
+                  "seconds_ahead": 1.5,
+                  "separation_px": 48.245
+                },
+                {
+                  "seconds_ahead": 1.75,
+                  "separation_px": 112.639
+                },
+                {
+                  "seconds_ahead": 2.0,
+                  "separation_px": 181.239
+                },
+                {
+                  "seconds_ahead": 2.25,
+                  "separation_px": 250.614
+                },
+                {
+                  "seconds_ahead": 2.5,
+                  "separation_px": 320.262
+                },
+                {
+                  "seconds_ahead": 2.75,
+                  "separation_px": 390.035
+                },
+                {
+                  "seconds_ahead": 3.0,
+                  "separation_px": 459.878
+                },
+                {
+                  "seconds_ahead": 3.25,
+                  "separation_px": 529.762
+                },
+                {
+                  "seconds_ahead": 3.5,
+                  "separation_px": 599.673
+                },
+                {
+                  "seconds_ahead": 3.75,
+                  "separation_px": 669.603
+                },
+                {
+                  "seconds_ahead": 4.0,
+                  "separation_px": 739.546
+                },
+                {
+                  "seconds_ahead": 4.25,
+                  "separation_px": 809.498
+                },
+                {
+                  "seconds_ahead": 4.5,
+                  "separation_px": 879.459
+                },
+                {
+                  "seconds_ahead": 4.75,
+                  "separation_px": 949.425
+                },
+                {
+                  "seconds_ahead": 5.0,
+                  "separation_px": 1019.396
+                },
+                {
+                  "seconds_ahead": 5.25,
+                  "separation_px": 1089.37
+                },
+                {
+                  "seconds_ahead": 5.5,
+                  "separation_px": 1159.348
+                },
+                {
+                  "seconds_ahead": 5.75,
+                  "separation_px": 1229.328
+                },
+                {
+                  "seconds_ahead": 6.0,
+                  "separation_px": 1299.31
+                }
+              ]
+            },
+            "subtotal_points": 44.3304,
+            "base_points": 44.3304,
+            "persistence_points": 0.0,
+            "motions": {
+              "person_1": {
+                "entity_id": "person_1",
+                "class_name": "person",
+                "timestamp": 0.65,
+                "position_px": [
+                  106.0,
+                  198.6
+                ],
+                "velocity_px_per_s": [
+                  120.0,
+                  0.0
+                ],
+                "speed_px_per_s": 120.0,
+                "samples": 5,
+                "time_span_seconds": 0.5,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 0.4167,
+                "coordinate_space": "image_pixels"
+              },
+              "truck_2": {
+                "entity_id": "truck_2",
+                "class_name": "truck",
+                "timestamp": 0.65,
+                "position_px": [
+                  487.0,
+                  227.0
+                ],
+                "velocity_px_per_s": [
+                  -160.0,
+                  0.0
+                ],
+                "speed_px_per_s": 160.0,
+                "samples": 5,
+                "time_span_seconds": 0.5,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 0.4167,
+                "coordinate_space": "image_pixels"
+              }
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "config": {
+          "coordinate_space": "image_pixels",
+          "person_classes": [
+            "person"
+          ],
+          "vehicle_classes": [
+            "car",
+            "truck",
+            "bus",
+            "motorcycle",
+            "train",
+            "forklift"
+          ],
+          "operating_zones": [],
+          "restricted_zones": [],
+          "interaction_radius_px": 260.0,
+          "critical_radius_px": 70.0,
+          "closing_speed_reference_px_per_s": 160.0,
+          "conflict_radius_px": 90.0,
+          "trajectory_miss_radius_px": 320.0,
+          "prediction_horizon_seconds": 6.0,
+          "persistence_violation_threshold": 3,
+          "escalation_signal_threshold": 0.2,
+          "weights": {
+            "proximity": 30.0,
+            "closing_speed": 25.0,
+            "trajectory": 25.0,
+            "zone": 20.0,
+            "persistence": 15.0
+          },
+          "thresholds": {
+            "image_pixels": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "ground_plane_meters": {
+              "coordinate_space": "ground_plane_meters",
+              "interaction_radius_m": 6.5,
+              "critical_radius_m": 1.5,
+              "conflict_radius_m": 2.0,
+              "miss_radius_m": 8.0,
+              "unsafe_separation_m": 2.0,
+              "closing_speed_reference_m_per_s": 4.0,
+              "closing_speed_floor_m_per_s": 0.25
+            }
+          },
+          "thresholds_note": "pixel and metre thresholds are configured independently; neither is derived from the other"
+        },
+        "entities_considered": [
+          "person_1",
+          "truck_2"
+        ],
+        "candidates_evaluated": 2,
+        "configured_coordinate_space": "image_pixels",
+        "scoring_coordinate_space": "image_pixels",
+        "spaces_used": {
+          "image_pixels": 1
+        },
+        "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+        "calibration": null
+      }
+    },
+    {
+      "timestamp": 0.85,
+      "coordinate_space": "image_pixels",
+      "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+      "max_risk_score": 49.81,
+      "severity": "medium",
+      "assessment_count": 1,
+      "assessments": [
+        {
+          "risk_score": 49.81,
+          "severity": "medium",
+          "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+          "involved_entity_ids": [
+            "person_1",
+            "truck_2"
+          ],
+          "timestamp": 0.85,
+          "confidence": 0.7,
+          "predicted_time_to_incident_seconds": 1.132,
+          "prediction_outcome": "PREDICTED_TRAJECTORY_CONFLICT",
+          "time_to_risk": {
+            "status": "predicted",
+            "seconds": 0.827,
+            "coordinate_space": "image_pixels",
+            "units": "pixels",
+            "reason": null,
+            "unsafe_separation_threshold_px": 90.0
+          },
+          "space_fallback_reason": null,
+          "contributing_factors": [
+            {
+              "name": "proximity",
+              "score": 0.0,
+              "weight": 30.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "separation 318px is beyond the 260px interaction radius",
+              "evidence_event_ids": [
+                "evt_000009",
+                "evt_000011",
+                "evt_000013",
+                "evt_000010",
+                "evt_000012",
+                "evt_000014"
+              ],
+              "details": {
+                "separation_px": 318.27,
+                "interaction_radius_px": 260.0,
+                "critical_radius_px": 70.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "closing_speed",
+              "score": 1.0,
+              "weight": 25.0,
+              "contribution": 25.0,
+              "confidence": 0.7,
+              "rationale": "separation is shrinking at 279px/s in image space (saturates at 160px/s)",
+              "evidence_event_ids": [
+                "evt_000009",
+                "evt_000011",
+                "evt_000013",
+                "evt_000010",
+                "evt_000012",
+                "evt_000014"
+              ],
+              "details": {
+                "is_converging": true,
+                "closing_speed_px_per_s": 278.883,
+                "separation_px": 318.27,
+                "reference_px_per_s": 160.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "trajectory",
+              "score": 0.8113,
+              "weight": 25.0,
+              "contribution": 20.2827,
+              "confidence": 0.7,
+              "rationale": "image-space trajectories converge to 28px in 1.1s",
+              "evidence_event_ids": [
+                "evt_000009",
+                "evt_000011",
+                "evt_000013",
+                "evt_000010",
+                "evt_000012",
+                "evt_000014"
+              ],
+              "details": {
+                "seconds_to_closest_approach": 1.132,
+                "spatial_term": 1.0,
+                "temporal_term": 0.8113,
+                "prediction_horizon_seconds": 6.0,
+                "closest_approach_distance_px": 28.4,
+                "conflict_radius_px": 90.0,
+                "primary_velocity_px_per_s": [
+                  120.0,
+                  0.0
+                ],
+                "secondary_velocity_px_per_s": [
+                  -160.0,
+                  0.0
+                ]
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "zone",
+              "score": 0.0,
+              "weight": 20.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating zones configured",
+              "evidence_event_ids": [],
+              "details": {
+                "zone_occupancy": {
+                  "person_1": [],
+                  "truck_2": []
+                }
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "persistence",
+              "score": 0.0,
+              "weight": 15.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating or restricted zones configured",
+              "evidence_event_ids": [],
+              "details": {},
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "escalation",
+              "score": 0.5,
+              "weight": 0.0,
+              "contribution": 0.0,
+              "confidence": 1.0,
+              "rationale": "2 independent signals agree (closing_speed, trajectory); escalating by \u00d71.10",
+              "evidence_event_ids": [
+                "evt_000009",
+                "evt_000011",
+                "evt_000013",
+                "evt_000010",
+                "evt_000012",
+                "evt_000014"
+              ],
+              "details": {
+                "multiplier": 1.1,
+                "signal_count": 2,
+                "signal_names": [
+                  "closing_speed",
+                  "trajectory"
+                ],
+                "signal_threshold": 0.2
+              },
+              "coordinate_space": "image_pixels"
+            }
+          ],
+          "evidence_event_ids": [
+            "evt_000009",
+            "evt_000011",
+            "evt_000013",
+            "evt_000010",
+            "evt_000012",
+            "evt_000014"
+          ],
+          "recommended_intervention": "slow/stop the vehicle and redirect the person out of its path",
+          "escalation_multiplier": 1.1,
+          "coordinate_space": "image_pixels",
+          "details": {
+            "candidate_kind": "person_vehicle_pair",
+            "coordinate_space": "image_pixels",
+            "units": "px",
+            "thresholds": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "prediction": {
+              "entity_ids": [
+                "person_1",
+                "truck_2"
+              ],
+              "coordinate_space": "image_pixels",
+              "units": "pixels",
+              "outcome": "PREDICTED_TRAJECTORY_CONFLICT",
+              "horizon_seconds": 6.0,
+              "enters_unsafe_separation": true,
+              "is_converging": true,
+              "in_calibrated_region": true,
+              "current_separation_px": 318.27,
+              "minimum_separation_px": 28.4,
+              "unsafe_separation_threshold_px": 90.0,
+              "conflict_radius_px": 90.0,
+              "closing_speed_px_per_s": 278.883,
+              "seconds_to_minimum_separation": 1.132,
+              "seconds_to_unsafe_separation": 0.827,
+              "separation_curve": [
+                {
+                  "seconds_ahead": 0.0,
+                  "separation_px": 318.27
+                },
+                {
+                  "seconds_ahead": 0.25,
+                  "separation_px": 248.627
+                },
+                {
+                  "seconds_ahead": 0.5,
+                  "separation_px": 179.264
+                },
+                {
+                  "seconds_ahead": 0.75,
+                  "separation_px": 110.705
+                },
+                {
+                  "seconds_ahead": 1.0,
+                  "separation_px": 46.643
+                },
+                {
+                  "seconds_ahead": 1.25,
+                  "separation_px": 43.538
+                },
+                {
+                  "seconds_ahead": 1.5,
+                  "separation_px": 106.844
+                },
+                {
+                  "seconds_ahead": 1.75,
+                  "separation_px": 175.316
+                },
+                {
+                  "seconds_ahead": 2.0,
+                  "separation_px": 244.654
+                },
+                {
+                  "seconds_ahead": 2.25,
+                  "separation_px": 314.286
+                },
+                {
+                  "seconds_ahead": 2.5,
+                  "separation_px": 384.052
+                },
+                {
+                  "seconds_ahead": 2.75,
+                  "separation_px": 453.889
+                },
+                {
+                  "seconds_ahead": 3.0,
+                  "separation_px": 523.771
+                },
+                {
+                  "seconds_ahead": 3.25,
+                  "separation_px": 593.68
+                },
+                {
+                  "seconds_ahead": 3.5,
+                  "separation_px": 663.608
+                },
+                {
+                  "seconds_ahead": 3.75,
+                  "separation_px": 733.55
+                },
+                {
+                  "seconds_ahead": 4.0,
+                  "separation_px": 803.502
+                },
+                {
+                  "seconds_ahead": 4.25,
+                  "separation_px": 873.462
+                },
+                {
+                  "seconds_ahead": 4.5,
+                  "separation_px": 943.428
+                },
+                {
+                  "seconds_ahead": 4.75,
+                  "separation_px": 1013.398
+                },
+                {
+                  "seconds_ahead": 5.0,
+                  "separation_px": 1083.372
+                },
+                {
+                  "seconds_ahead": 5.25,
+                  "separation_px": 1153.35
+                },
+                {
+                  "seconds_ahead": 5.5,
+                  "separation_px": 1223.33
+                },
+                {
+                  "seconds_ahead": 5.75,
+                  "separation_px": 1293.312
+                },
+                {
+                  "seconds_ahead": 6.0,
+                  "separation_px": 1363.296
+                }
+              ]
+            },
+            "subtotal_points": 45.2827,
+            "base_points": 45.2827,
+            "persistence_points": 0.0,
+            "motions": {
+              "person_1": {
+                "entity_id": "person_1",
+                "class_name": "person",
+                "timestamp": 0.85,
+                "position_px": [
+                  130.0,
+                  198.6
+                ],
+                "velocity_px_per_s": [
+                  120.0,
+                  0.0
+                ],
+                "speed_px_per_s": 120.0,
+                "samples": 7,
+                "time_span_seconds": 0.7,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 0.7,
+                "coordinate_space": "image_pixels"
+              },
+              "truck_2": {
+                "entity_id": "truck_2",
+                "class_name": "truck",
+                "timestamp": 0.85,
+                "position_px": [
+                  447.0,
+                  227.0
+                ],
+                "velocity_px_per_s": [
+                  -160.0,
+                  0.0
+                ],
+                "speed_px_per_s": 160.0,
+                "samples": 7,
+                "time_span_seconds": 0.75,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 0.75,
+                "coordinate_space": "image_pixels"
+              }
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "config": {
+          "coordinate_space": "image_pixels",
+          "person_classes": [
+            "person"
+          ],
+          "vehicle_classes": [
+            "car",
+            "truck",
+            "bus",
+            "motorcycle",
+            "train",
+            "forklift"
+          ],
+          "operating_zones": [],
+          "restricted_zones": [],
+          "interaction_radius_px": 260.0,
+          "critical_radius_px": 70.0,
+          "closing_speed_reference_px_per_s": 160.0,
+          "conflict_radius_px": 90.0,
+          "trajectory_miss_radius_px": 320.0,
+          "prediction_horizon_seconds": 6.0,
+          "persistence_violation_threshold": 3,
+          "escalation_signal_threshold": 0.2,
+          "weights": {
+            "proximity": 30.0,
+            "closing_speed": 25.0,
+            "trajectory": 25.0,
+            "zone": 20.0,
+            "persistence": 15.0
+          },
+          "thresholds": {
+            "image_pixels": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "ground_plane_meters": {
+              "coordinate_space": "ground_plane_meters",
+              "interaction_radius_m": 6.5,
+              "critical_radius_m": 1.5,
+              "conflict_radius_m": 2.0,
+              "miss_radius_m": 8.0,
+              "unsafe_separation_m": 2.0,
+              "closing_speed_reference_m_per_s": 4.0,
+              "closing_speed_floor_m_per_s": 0.25
+            }
+          },
+          "thresholds_note": "pixel and metre thresholds are configured independently; neither is derived from the other"
+        },
+        "entities_considered": [
+          "person_1",
+          "truck_2"
+        ],
+        "candidates_evaluated": 2,
+        "configured_coordinate_space": "image_pixels",
+        "scoring_coordinate_space": "image_pixels",
+        "spaces_used": {
+          "image_pixels": 1
+        },
+        "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+        "calibration": null
+      }
+    },
+    {
+      "timestamp": 1.05,
+      "coordinate_space": "image_pixels",
+      "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+      "max_risk_score": 54.07,
+      "severity": "medium",
+      "assessment_count": 1,
+      "assessments": [
+        {
+          "risk_score": 54.07,
+          "severity": "medium",
+          "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+          "involved_entity_ids": [
+            "person_1",
+            "truck_2"
+          ],
+          "timestamp": 1.05,
+          "confidence": 1.0,
+          "predicted_time_to_incident_seconds": 0.861,
+          "prediction_outcome": "PREDICTED_TRAJECTORY_CONFLICT",
+          "time_to_risk": {
+            "status": "predicted",
+            "seconds": 0.556,
+            "coordinate_space": "image_pixels",
+            "units": "pixels",
+            "reason": null,
+            "unsafe_separation_threshold_px": 90.0
+          },
+          "space_fallback_reason": null,
+          "contributing_factors": [
+            {
+              "name": "proximity",
+              "score": 0.0912,
+              "weight": 30.0,
+              "contribution": 2.7367,
+              "confidence": 1.0,
+              "rationale": "person_1 and truck_2 are 243px apart in image space (critical below 70px)",
+              "evidence_event_ids": [
+                "evt_000013",
+                "evt_000015",
+                "evt_000017",
+                "evt_000014",
+                "evt_000016",
+                "evt_000018"
+              ],
+              "details": {
+                "separation_px": 242.668,
+                "interaction_radius_px": 260.0,
+                "critical_radius_px": 70.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "closing_speed",
+              "score": 1.0,
+              "weight": 25.0,
+              "contribution": 25.0,
+              "confidence": 1.0,
+              "rationale": "separation is shrinking at 278px/s in image space (saturates at 160px/s)",
+              "evidence_event_ids": [
+                "evt_000013",
+                "evt_000015",
+                "evt_000017",
+                "evt_000014",
+                "evt_000016",
+                "evt_000018"
+              ],
+              "details": {
+                "is_converging": true,
+                "closing_speed_px_per_s": 278.076,
+                "separation_px": 242.668,
+                "reference_px_per_s": 160.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "trajectory",
+              "score": 0.8565,
+              "weight": 25.0,
+              "contribution": 21.4137,
+              "confidence": 1.0,
+              "rationale": "image-space trajectories converge to 28px in 0.9s",
+              "evidence_event_ids": [
+                "evt_000013",
+                "evt_000015",
+                "evt_000017",
+                "evt_000014",
+                "evt_000016",
+                "evt_000018"
+              ],
+              "details": {
+                "seconds_to_closest_approach": 0.861,
+                "spatial_term": 1.0,
+                "temporal_term": 0.8565,
+                "prediction_horizon_seconds": 6.0,
+                "closest_approach_distance_px": 28.4,
+                "conflict_radius_px": 90.0,
+                "primary_velocity_px_per_s": [
+                  120.0,
+                  -0.0
+                ],
+                "secondary_velocity_px_per_s": [
+                  -160.0,
+                  0.0
+                ]
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "zone",
+              "score": 0.0,
+              "weight": 20.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating zones configured",
+              "evidence_event_ids": [],
+              "details": {
+                "zone_occupancy": {
+                  "person_1": [],
+                  "truck_2": []
+                }
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "persistence",
+              "score": 0.0,
+              "weight": 15.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating or restricted zones configured",
+              "evidence_event_ids": [],
+              "details": {},
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "escalation",
+              "score": 0.5,
+              "weight": 0.0,
+              "contribution": 0.0,
+              "confidence": 1.0,
+              "rationale": "2 independent signals agree (closing_speed, trajectory); escalating by \u00d71.10",
+              "evidence_event_ids": [
+                "evt_000013",
+                "evt_000015",
+                "evt_000017",
+                "evt_000014",
+                "evt_000016",
+                "evt_000018"
+              ],
+              "details": {
+                "multiplier": 1.1,
+                "signal_count": 2,
+                "signal_names": [
+                  "closing_speed",
+                  "trajectory"
+                ],
+                "signal_threshold": 0.2
+              },
+              "coordinate_space": "image_pixels"
+            }
+          ],
+          "evidence_event_ids": [
+            "evt_000013",
+            "evt_000015",
+            "evt_000017",
+            "evt_000014",
+            "evt_000016",
+            "evt_000018"
+          ],
+          "recommended_intervention": "slow/stop the vehicle and redirect the person out of its path",
+          "escalation_multiplier": 1.1,
+          "coordinate_space": "image_pixels",
+          "details": {
+            "candidate_kind": "person_vehicle_pair",
+            "coordinate_space": "image_pixels",
+            "units": "px",
+            "thresholds": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "prediction": {
+              "entity_ids": [
+                "person_1",
+                "truck_2"
+              ],
+              "coordinate_space": "image_pixels",
+              "units": "pixels",
+              "outcome": "PREDICTED_TRAJECTORY_CONFLICT",
+              "horizon_seconds": 6.0,
+              "enters_unsafe_separation": true,
+              "is_converging": true,
+              "in_calibrated_region": true,
+              "current_separation_px": 242.668,
+              "minimum_separation_px": 28.4,
+              "unsafe_separation_threshold_px": 90.0,
+              "conflict_radius_px": 90.0,
+              "closing_speed_px_per_s": 278.076,
+              "seconds_to_minimum_separation": 0.861,
+              "seconds_to_unsafe_separation": 0.556,
+              "separation_curve": [
+                {
+                  "seconds_ahead": 0.0,
+                  "separation_px": 242.668
+                },
+                {
+                  "seconds_ahead": 0.25,
+                  "separation_px": 173.342
+                },
+                {
+                  "seconds_ahead": 0.5,
+                  "separation_px": 104.917
+                },
+                {
+                  "seconds_ahead": 0.75,
+                  "separation_px": 42.042
+                },
+                {
+                  "seconds_ahead": 1.0,
+                  "separation_px": 48.245
+                },
+                {
+                  "seconds_ahead": 1.25,
+                  "separation_px": 112.639
+                },
+                {
+                  "seconds_ahead": 1.5,
+                  "separation_px": 181.239
+                },
+                {
+                  "seconds_ahead": 1.75,
+                  "separation_px": 250.614
+                },
+                {
+                  "seconds_ahead": 2.0,
+                  "separation_px": 320.262
+                },
+                {
+                  "seconds_ahead": 2.25,
+                  "separation_px": 390.035
+                },
+                {
+                  "seconds_ahead": 2.5,
+                  "separation_px": 459.878
+                },
+                {
+                  "seconds_ahead": 2.75,
+                  "separation_px": 529.762
+                },
+                {
+                  "seconds_ahead": 3.0,
+                  "separation_px": 599.673
+                },
+                {
+                  "seconds_ahead": 3.25,
+                  "separation_px": 669.603
+                },
+                {
+                  "seconds_ahead": 3.5,
+                  "separation_px": 739.546
+                },
+                {
+                  "seconds_ahead": 3.75,
+                  "separation_px": 809.498
+                },
+                {
+                  "seconds_ahead": 4.0,
+                  "separation_px": 879.459
+                },
+                {
+                  "seconds_ahead": 4.25,
+                  "separation_px": 949.425
+                },
+                {
+                  "seconds_ahead": 4.5,
+                  "separation_px": 1019.396
+                },
+                {
+                  "seconds_ahead": 4.75,
+                  "separation_px": 1089.37
+                },
+                {
+                  "seconds_ahead": 5.0,
+                  "separation_px": 1159.348
+                },
+                {
+                  "seconds_ahead": 5.25,
+                  "separation_px": 1229.328
+                },
+                {
+                  "seconds_ahead": 5.5,
+                  "separation_px": 1299.31
+                },
+                {
+                  "seconds_ahead": 5.75,
+                  "separation_px": 1369.295
+                },
+                {
+                  "seconds_ahead": 6.0,
+                  "separation_px": 1439.28
+                }
+              ]
+            },
+            "subtotal_points": 49.1504,
+            "base_points": 49.1504,
+            "persistence_points": 0.0,
+            "motions": {
+              "person_1": {
+                "entity_id": "person_1",
+                "class_name": "person",
+                "timestamp": 1.05,
+                "position_px": [
+                  166.0,
+                  198.6
+                ],
+                "velocity_px_per_s": [
+                  120.0,
+                  -0.0
+                ],
+                "speed_px_per_s": 120.0,
+                "samples": 9,
+                "time_span_seconds": 1.0,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 1.0,
+                "coordinate_space": "image_pixels"
+              },
+              "truck_2": {
+                "entity_id": "truck_2",
+                "class_name": "truck",
+                "timestamp": 1.05,
+                "position_px": [
+                  407.0,
+                  227.0
+                ],
+                "velocity_px_per_s": [
+                  -160.0,
+                  0.0
+                ],
+                "speed_px_per_s": 160.0,
+                "samples": 9,
+                "time_span_seconds": 1.0,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 1.0,
+                "coordinate_space": "image_pixels"
+              }
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "config": {
+          "coordinate_space": "image_pixels",
+          "person_classes": [
+            "person"
+          ],
+          "vehicle_classes": [
+            "car",
+            "truck",
+            "bus",
+            "motorcycle",
+            "train",
+            "forklift"
+          ],
+          "operating_zones": [],
+          "restricted_zones": [],
+          "interaction_radius_px": 260.0,
+          "critical_radius_px": 70.0,
+          "closing_speed_reference_px_per_s": 160.0,
+          "conflict_radius_px": 90.0,
+          "trajectory_miss_radius_px": 320.0,
+          "prediction_horizon_seconds": 6.0,
+          "persistence_violation_threshold": 3,
+          "escalation_signal_threshold": 0.2,
+          "weights": {
+            "proximity": 30.0,
+            "closing_speed": 25.0,
+            "trajectory": 25.0,
+            "zone": 20.0,
+            "persistence": 15.0
+          },
+          "thresholds": {
+            "image_pixels": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "ground_plane_meters": {
+              "coordinate_space": "ground_plane_meters",
+              "interaction_radius_m": 6.5,
+              "critical_radius_m": 1.5,
+              "conflict_radius_m": 2.0,
+              "miss_radius_m": 8.0,
+              "unsafe_separation_m": 2.0,
+              "closing_speed_reference_m_per_s": 4.0,
+              "closing_speed_floor_m_per_s": 0.25
+            }
+          },
+          "thresholds_note": "pixel and metre thresholds are configured independently; neither is derived from the other"
+        },
+        "entities_considered": [
+          "person_1",
+          "truck_2"
+        ],
+        "candidates_evaluated": 2,
+        "configured_coordinate_space": "image_pixels",
+        "scoring_coordinate_space": "image_pixels",
+        "spaces_used": {
+          "image_pixels": 1
+        },
+        "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+        "calibration": null
+      }
+    },
+    {
+      "timestamp": 1.25,
+      "coordinate_space": "image_pixels",
+      "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+      "max_risk_score": 68.85,
+      "severity": "high",
+      "assessment_count": 1,
+      "assessments": [
+        {
+          "risk_score": 68.85,
+          "severity": "high",
+          "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+          "involved_entity_ids": [
+            "person_1",
+            "truck_2"
+          ],
+          "timestamp": 1.25,
+          "confidence": 1.0,
+          "predicted_time_to_incident_seconds": 0.689,
+          "prediction_outcome": "PREDICTED_TRAJECTORY_CONFLICT",
+          "time_to_risk": {
+            "status": "predicted",
+            "seconds": 0.384,
+            "coordinate_space": "image_pixels",
+            "units": "pixels",
+            "reason": null,
+            "unsafe_separation_threshold_px": 90.0
+          },
+          "space_fallback_reason": null,
+          "contributing_factors": [
+            {
+              "name": "proximity",
+              "score": 0.3417,
+              "weight": 30.0,
+              "contribution": 10.2508,
+              "confidence": 1.0,
+              "rationale": "person_1 and truck_2 are 195px apart in image space (critical below 70px)",
+              "evidence_event_ids": [
+                "evt_000017",
+                "evt_000019",
+                "evt_000021",
+                "evt_000016",
+                "evt_000018",
+                "evt_000020"
+              ],
+              "details": {
+                "separation_px": 195.078,
+                "interaction_radius_px": 260.0,
+                "critical_radius_px": 70.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "closing_speed",
+              "score": 1.0,
+              "weight": 25.0,
+              "contribution": 25.0,
+              "confidence": 1.0,
+              "rationale": "separation is shrinking at 277px/s in image space (saturates at 160px/s)",
+              "evidence_event_ids": [
+                "evt_000017",
+                "evt_000019",
+                "evt_000021",
+                "evt_000016",
+                "evt_000018",
+                "evt_000020"
+              ],
+              "details": {
+                "is_converging": true,
+                "closing_speed_px_per_s": 277.017,
+                "separation_px": 195.078,
+                "reference_px_per_s": 160.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "trajectory",
+              "score": 0.8851,
+              "weight": 25.0,
+              "contribution": 22.128,
+              "confidence": 1.0,
+              "rationale": "image-space trajectories converge to 28px in 0.7s",
+              "evidence_event_ids": [
+                "evt_000017",
+                "evt_000019",
+                "evt_000021",
+                "evt_000016",
+                "evt_000018",
+                "evt_000020"
+              ],
+              "details": {
+                "seconds_to_closest_approach": 0.689,
+                "spatial_term": 1.0,
+                "temporal_term": 0.8851,
+                "prediction_horizon_seconds": 6.0,
+                "closest_approach_distance_px": 28.4,
+                "conflict_radius_px": 90.0,
+                "primary_velocity_px_per_s": [
+                  120.0,
+                  -0.0
+                ],
+                "secondary_velocity_px_per_s": [
+                  -160.0,
+                  0.0
+                ]
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "zone",
+              "score": 0.0,
+              "weight": 20.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating zones configured",
+              "evidence_event_ids": [],
+              "details": {
+                "zone_occupancy": {
+                  "person_1": [],
+                  "truck_2": []
+                }
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "persistence",
+              "score": 0.0,
+              "weight": 15.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating or restricted zones configured",
+              "evidence_event_ids": [],
+              "details": {},
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "escalation",
+              "score": 0.75,
+              "weight": 0.0,
+              "contribution": 0.0,
+              "confidence": 1.0,
+              "rationale": "3 independent signals agree (proximity, closing_speed, trajectory); escalating by \u00d71.20",
+              "evidence_event_ids": [
+                "evt_000017",
+                "evt_000019",
+                "evt_000021",
+                "evt_000016",
+                "evt_000018",
+                "evt_000020"
+              ],
+              "details": {
+                "multiplier": 1.2,
+                "signal_count": 3,
+                "signal_names": [
+                  "proximity",
+                  "closing_speed",
+                  "trajectory"
+                ],
+                "signal_threshold": 0.2
+              },
+              "coordinate_space": "image_pixels"
+            }
+          ],
+          "evidence_event_ids": [
+            "evt_000017",
+            "evt_000019",
+            "evt_000021",
+            "evt_000016",
+            "evt_000018",
+            "evt_000020"
+          ],
+          "recommended_intervention": "slow/stop the vehicle and redirect the person out of its path",
+          "escalation_multiplier": 1.2,
+          "coordinate_space": "image_pixels",
+          "details": {
+            "candidate_kind": "person_vehicle_pair",
+            "coordinate_space": "image_pixels",
+            "units": "px",
+            "thresholds": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "prediction": {
+              "entity_ids": [
+                "person_1",
+                "truck_2"
+              ],
+              "coordinate_space": "image_pixels",
+              "units": "pixels",
+              "outcome": "PREDICTED_TRAJECTORY_CONFLICT",
+              "horizon_seconds": 6.0,
+              "enters_unsafe_separation": true,
+              "is_converging": true,
+              "in_calibrated_region": true,
+              "current_separation_px": 195.078,
+              "minimum_separation_px": 28.4,
+              "unsafe_separation_threshold_px": 90.0,
+              "conflict_radius_px": 90.0,
+              "closing_speed_px_per_s": 277.017,
+              "seconds_to_minimum_separation": 0.689,
+              "seconds_to_unsafe_separation": 0.384,
+              "separation_curve": [
+                {
+                  "seconds_ahead": 0.0,
+                  "separation_px": 195.078
+                },
+                {
+                  "seconds_ahead": 0.25,
+                  "separation_px": 126.236
+                },
+                {
+                  "seconds_ahead": 0.5,
+                  "separation_px": 60.13
+                },
+                {
+                  "seconds_ahead": 0.75,
+                  "separation_px": 33.099
+                },
+                {
+                  "seconds_ahead": 1.0,
+                  "separation_px": 91.518
+                },
+                {
+                  "seconds_ahead": 1.25,
+                  "separation_px": 159.548
+                },
+                {
+                  "seconds_ahead": 1.5,
+                  "separation_px": 228.77
+                },
+                {
+                  "seconds_ahead": 1.75,
+                  "separation_px": 298.355
+                },
+                {
+                  "seconds_ahead": 2.0,
+                  "separation_px": 368.097
+                },
+                {
+                  "seconds_ahead": 2.25,
+                  "separation_px": 437.922
+                },
+                {
+                  "seconds_ahead": 2.5,
+                  "separation_px": 507.795
+                },
+                {
+                  "seconds_ahead": 2.75,
+                  "separation_px": 577.699
+                },
+                {
+                  "seconds_ahead": 3.0,
+                  "separation_px": 647.623
+                },
+                {
+                  "seconds_ahead": 3.25,
+                  "separation_px": 717.562
+                },
+                {
+                  "seconds_ahead": 3.5,
+                  "separation_px": 787.512
+                },
+                {
+                  "seconds_ahead": 3.75,
+                  "separation_px": 857.47
+                },
+                {
+                  "seconds_ahead": 4.0,
+                  "separation_px": 927.435
+                },
+                {
+                  "seconds_ahead": 4.25,
+                  "separation_px": 997.404
+                },
+                {
+                  "seconds_ahead": 4.5,
+                  "separation_px": 1067.378
+                },
+                {
+                  "seconds_ahead": 4.75,
+                  "separation_px": 1137.355
+                },
+                {
+                  "seconds_ahead": 5.0,
+                  "separation_px": 1207.334
+                },
+                {
+                  "seconds_ahead": 5.25,
+                  "separation_px": 1277.316
+                },
+                {
+                  "seconds_ahead": 5.5,
+                  "separation_px": 1347.299
+                },
+                {
+                  "seconds_ahead": 5.75,
+                  "separation_px": 1417.285
+                },
+                {
+                  "seconds_ahead": 6.0,
+                  "separation_px": 1487.271
+                }
+              ]
+            },
+            "subtotal_points": 57.3788,
+            "base_points": 57.3788,
+            "persistence_points": 0.0,
+            "motions": {
+              "person_1": {
+                "entity_id": "person_1",
+                "class_name": "person",
+                "timestamp": 1.25,
+                "position_px": [
+                  190.0,
+                  198.6
+                ],
+                "velocity_px_per_s": [
+                  120.0,
+                  -0.0
+                ],
+                "speed_px_per_s": 120.0,
+                "samples": 11,
+                "time_span_seconds": 1.2,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 1.0,
+                "coordinate_space": "image_pixels"
+              },
+              "truck_2": {
+                "entity_id": "truck_2",
+                "class_name": "truck",
+                "timestamp": 1.25,
+                "position_px": [
+                  383.0,
+                  227.0
+                ],
+                "velocity_px_per_s": [
+                  -160.0,
+                  0.0
+                ],
+                "speed_px_per_s": 160.0,
+                "samples": 10,
+                "time_span_seconds": 1.15,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 1.0,
+                "coordinate_space": "image_pixels"
+              }
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "config": {
+          "coordinate_space": "image_pixels",
+          "person_classes": [
+            "person"
+          ],
+          "vehicle_classes": [
+            "car",
+            "truck",
+            "bus",
+            "motorcycle",
+            "train",
+            "forklift"
+          ],
+          "operating_zones": [],
+          "restricted_zones": [],
+          "interaction_radius_px": 260.0,
+          "critical_radius_px": 70.0,
+          "closing_speed_reference_px_per_s": 160.0,
+          "conflict_radius_px": 90.0,
+          "trajectory_miss_radius_px": 320.0,
+          "prediction_horizon_seconds": 6.0,
+          "persistence_violation_threshold": 3,
+          "escalation_signal_threshold": 0.2,
+          "weights": {
+            "proximity": 30.0,
+            "closing_speed": 25.0,
+            "trajectory": 25.0,
+            "zone": 20.0,
+            "persistence": 15.0
+          },
+          "thresholds": {
+            "image_pixels": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "ground_plane_meters": {
+              "coordinate_space": "ground_plane_meters",
+              "interaction_radius_m": 6.5,
+              "critical_radius_m": 1.5,
+              "conflict_radius_m": 2.0,
+              "miss_radius_m": 8.0,
+              "unsafe_separation_m": 2.0,
+              "closing_speed_reference_m_per_s": 4.0,
+              "closing_speed_floor_m_per_s": 0.25
+            }
+          },
+          "thresholds_note": "pixel and metre thresholds are configured independently; neither is derived from the other"
+        },
+        "entities_considered": [
+          "person_1",
+          "truck_2"
+        ],
+        "candidates_evaluated": 2,
+        "configured_coordinate_space": "image_pixels",
+        "scoring_coordinate_space": "image_pixels",
+        "spaces_used": {
+          "image_pixels": 1
+        },
+        "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+        "calibration": null
+      }
+    },
+    {
+      "timestamp": 1.45,
+      "coordinate_space": "image_pixels",
+      "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+      "max_risk_score": 81.93,
+      "severity": "high",
+      "assessment_count": 1,
+      "assessments": [
+        {
+          "risk_score": 81.93,
+          "severity": "high",
+          "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+          "involved_entity_ids": [
+            "person_1",
+            "truck_2"
+          ],
+          "timestamp": 1.45,
+          "confidence": 1.0,
+          "predicted_time_to_incident_seconds": 0.461,
+          "prediction_outcome": "PREDICTED_TRAJECTORY_CONFLICT",
+          "time_to_risk": {
+            "status": "predicted",
+            "seconds": 0.156,
+            "coordinate_space": "image_pixels",
+            "units": "pixels",
+            "reason": null,
+            "unsafe_separation_threshold_px": 90.0
+          },
+          "space_fallback_reason": null,
+          "contributing_factors": [
+            {
+              "name": "proximity",
+              "score": 0.6732,
+              "weight": 30.0,
+              "contribution": 20.1964,
+              "confidence": 1.0,
+              "rationale": "person_1 and truck_2 are 132px apart in image space (critical below 70px)",
+              "evidence_event_ids": [
+                "evt_000021",
+                "evt_000023",
+                "evt_000024",
+                "evt_000020",
+                "evt_000022",
+                "evt_000025"
+              ],
+              "details": {
+                "separation_px": 132.089,
+                "interaction_radius_px": 260.0,
+                "critical_radius_px": 70.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "closing_speed",
+              "score": 1.0,
+              "weight": 25.0,
+              "contribution": 25.0,
+              "confidence": 1.0,
+              "rationale": "separation is shrinking at 273px/s in image space (saturates at 160px/s)",
+              "evidence_event_ids": [
+                "evt_000021",
+                "evt_000023",
+                "evt_000024",
+                "evt_000020",
+                "evt_000022",
+                "evt_000025"
+              ],
+              "details": {
+                "is_converging": true,
+                "closing_speed_px_per_s": 273.452,
+                "separation_px": 132.089,
+                "reference_px_per_s": 160.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "trajectory",
+              "score": 0.9232,
+              "weight": 25.0,
+              "contribution": 23.0804,
+              "confidence": 1.0,
+              "rationale": "image-space trajectories converge to 28px in 0.5s",
+              "evidence_event_ids": [
+                "evt_000021",
+                "evt_000023",
+                "evt_000024",
+                "evt_000020",
+                "evt_000022",
+                "evt_000025"
+              ],
+              "details": {
+                "seconds_to_closest_approach": 0.461,
+                "spatial_term": 1.0,
+                "temporal_term": 0.9232,
+                "prediction_horizon_seconds": 6.0,
+                "closest_approach_distance_px": 28.4,
+                "conflict_radius_px": 90.0,
+                "primary_velocity_px_per_s": [
+                  120.0,
+                  0.0
+                ],
+                "secondary_velocity_px_per_s": [
+                  -160.0,
+                  0.0
+                ]
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "zone",
+              "score": 0.0,
+              "weight": 20.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating zones configured",
+              "evidence_event_ids": [],
+              "details": {
+                "zone_occupancy": {
+                  "person_1": [],
+                  "truck_2": []
+                }
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "persistence",
+              "score": 0.0,
+              "weight": 15.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating or restricted zones configured",
+              "evidence_event_ids": [],
+              "details": {},
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "escalation",
+              "score": 0.75,
+              "weight": 0.0,
+              "contribution": 0.0,
+              "confidence": 1.0,
+              "rationale": "3 independent signals agree (proximity, closing_speed, trajectory); escalating by \u00d71.20",
+              "evidence_event_ids": [
+                "evt_000021",
+                "evt_000023",
+                "evt_000024",
+                "evt_000020",
+                "evt_000022",
+                "evt_000025"
+              ],
+              "details": {
+                "multiplier": 1.2,
+                "signal_count": 3,
+                "signal_names": [
+                  "proximity",
+                  "closing_speed",
+                  "trajectory"
+                ],
+                "signal_threshold": 0.2
+              },
+              "coordinate_space": "image_pixels"
+            }
+          ],
+          "evidence_event_ids": [
+            "evt_000021",
+            "evt_000023",
+            "evt_000024",
+            "evt_000020",
+            "evt_000022",
+            "evt_000025"
+          ],
+          "recommended_intervention": "slow/stop the vehicle and redirect the person out of its path",
+          "escalation_multiplier": 1.2,
+          "coordinate_space": "image_pixels",
+          "details": {
+            "candidate_kind": "person_vehicle_pair",
+            "coordinate_space": "image_pixels",
+            "units": "px",
+            "thresholds": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "prediction": {
+              "entity_ids": [
+                "person_1",
+                "truck_2"
+              ],
+              "coordinate_space": "image_pixels",
+              "units": "pixels",
+              "outcome": "PREDICTED_TRAJECTORY_CONFLICT",
+              "horizon_seconds": 6.0,
+              "enters_unsafe_separation": true,
+              "is_converging": true,
+              "in_calibrated_region": true,
+              "current_separation_px": 132.089,
+              "minimum_separation_px": 28.4,
+              "unsafe_separation_threshold_px": 90.0,
+              "conflict_radius_px": 90.0,
+              "closing_speed_px_per_s": 273.452,
+              "seconds_to_minimum_separation": 0.461,
+              "seconds_to_unsafe_separation": 0.156,
+              "separation_curve": [
+                {
+                  "seconds_ahead": 0.0,
+                  "separation_px": 132.089
+                },
+                {
+                  "seconds_ahead": 0.25,
+                  "separation_px": 65.479
+                },
+                {
+                  "seconds_ahead": 0.5,
+                  "separation_px": 30.456
+                },
+                {
+                  "seconds_ahead": 0.75,
+                  "separation_px": 85.834
+                },
+                {
+                  "seconds_ahead": 1.0,
+                  "separation_px": 153.648
+                },
+                {
+                  "seconds_ahead": 1.25,
+                  "separation_px": 222.817
+                },
+                {
+                  "seconds_ahead": 1.5,
+                  "separation_px": 292.383
+                },
+                {
+                  "seconds_ahead": 1.75,
+                  "separation_px": 362.115
+                },
+                {
+                  "seconds_ahead": 2.0,
+                  "separation_px": 431.935
+                },
+                {
+                  "seconds_ahead": 2.25,
+                  "separation_px": 501.804
+                },
+                {
+                  "seconds_ahead": 2.5,
+                  "separation_px": 571.706
+                },
+                {
+                  "seconds_ahead": 2.75,
+                  "separation_px": 641.629
+                },
+                {
+                  "seconds_ahead": 3.0,
+                  "separation_px": 711.567
+                },
+                {
+                  "seconds_ahead": 3.25,
+                  "separation_px": 781.516
+                },
+                {
+                  "seconds_ahead": 3.5,
+                  "separation_px": 851.474
+                },
+                {
+                  "seconds_ahead": 3.75,
+                  "separation_px": 921.438
+                },
+                {
+                  "seconds_ahead": 4.0,
+                  "separation_px": 991.407
+                },
+                {
+                  "seconds_ahead": 4.25,
+                  "separation_px": 1061.38
+                },
+                {
+                  "seconds_ahead": 4.5,
+                  "separation_px": 1131.357
+                },
+                {
+                  "seconds_ahead": 4.75,
+                  "separation_px": 1201.336
+                },
+                {
+                  "seconds_ahead": 5.0,
+                  "separation_px": 1271.317
+                },
+                {
+                  "seconds_ahead": 5.25,
+                  "separation_px": 1341.301
+                },
+                {
+                  "seconds_ahead": 5.5,
+                  "separation_px": 1411.286
+                },
+                {
+                  "seconds_ahead": 5.75,
+                  "separation_px": 1481.272
+                },
+                {
+                  "seconds_ahead": 6.0,
+                  "separation_px": 1551.26
+                }
+              ]
+            },
+            "subtotal_points": 68.2768,
+            "base_points": 68.2768,
+            "persistence_points": 0.0,
+            "motions": {
+              "person_1": {
+                "entity_id": "person_1",
+                "class_name": "person",
+                "timestamp": 1.45,
+                "position_px": [
+                  214.0,
+                  198.6
+                ],
+                "velocity_px_per_s": [
+                  120.0,
+                  0.0
+                ],
+                "speed_px_per_s": 120.0,
+                "samples": 13,
+                "time_span_seconds": 1.4,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 1.0,
+                "coordinate_space": "image_pixels"
+              },
+              "truck_2": {
+                "entity_id": "truck_2",
+                "class_name": "truck",
+                "timestamp": 1.45,
+                "position_px": [
+                  343.0,
+                  227.0
+                ],
+                "velocity_px_per_s": [
+                  -160.0,
+                  0.0
+                ],
+                "speed_px_per_s": 160.0,
+                "samples": 12,
+                "time_span_seconds": 1.4,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 1.0,
+                "coordinate_space": "image_pixels"
+              }
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "config": {
+          "coordinate_space": "image_pixels",
+          "person_classes": [
+            "person"
+          ],
+          "vehicle_classes": [
+            "car",
+            "truck",
+            "bus",
+            "motorcycle",
+            "train",
+            "forklift"
+          ],
+          "operating_zones": [],
+          "restricted_zones": [],
+          "interaction_radius_px": 260.0,
+          "critical_radius_px": 70.0,
+          "closing_speed_reference_px_per_s": 160.0,
+          "conflict_radius_px": 90.0,
+          "trajectory_miss_radius_px": 320.0,
+          "prediction_horizon_seconds": 6.0,
+          "persistence_violation_threshold": 3,
+          "escalation_signal_threshold": 0.2,
+          "weights": {
+            "proximity": 30.0,
+            "closing_speed": 25.0,
+            "trajectory": 25.0,
+            "zone": 20.0,
+            "persistence": 15.0
+          },
+          "thresholds": {
+            "image_pixels": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "ground_plane_meters": {
+              "coordinate_space": "ground_plane_meters",
+              "interaction_radius_m": 6.5,
+              "critical_radius_m": 1.5,
+              "conflict_radius_m": 2.0,
+              "miss_radius_m": 8.0,
+              "unsafe_separation_m": 2.0,
+              "closing_speed_reference_m_per_s": 4.0,
+              "closing_speed_floor_m_per_s": 0.25
+            }
+          },
+          "thresholds_note": "pixel and metre thresholds are configured independently; neither is derived from the other"
+        },
+        "entities_considered": [
+          "person_1",
+          "truck_2"
+        ],
+        "candidates_evaluated": 2,
+        "configured_coordinate_space": "image_pixels",
+        "scoring_coordinate_space": "image_pixels",
+        "spaces_used": {
+          "image_pixels": 1
+        },
+        "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+        "calibration": null
+      }
+    },
+    {
+      "timestamp": 1.65,
+      "coordinate_space": "image_pixels",
+      "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+      "max_risk_score": 87.58,
+      "severity": "high",
+      "assessment_count": 1,
+      "assessments": [
+        {
+          "risk_score": 87.58,
+          "severity": "high",
+          "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+          "involved_entity_ids": [
+            "person_1",
+            "truck_2"
+          ],
+          "timestamp": 1.65,
+          "confidence": 1.0,
+          "predicted_time_to_incident_seconds": 0.361,
+          "prediction_outcome": "PREDICTED_TRAJECTORY_CONFLICT",
+          "time_to_risk": {
+            "status": "predicted",
+            "seconds": 0.056,
+            "coordinate_space": "image_pixels",
+            "units": "pixels",
+            "reason": null,
+            "unsafe_separation_threshold_px": 90.0
+          },
+          "space_fallback_reason": null,
+          "contributing_factors": [
+            {
+              "name": "proximity",
+              "score": 0.8162,
+              "weight": 30.0,
+              "contribution": 24.4868,
+              "confidence": 1.0,
+              "rationale": "person_1 and truck_2 are 105px apart in image space (critical below 70px)",
+              "evidence_event_ids": [
+                "evt_000023",
+                "evt_000024",
+                "evt_000026",
+                "evt_000022",
+                "evt_000025",
+                "evt_000027"
+              ],
+              "details": {
+                "separation_px": 104.917,
+                "interaction_radius_px": 260.0,
+                "critical_radius_px": 70.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "closing_speed",
+              "score": 1.0,
+              "weight": 25.0,
+              "contribution": 25.0,
+              "confidence": 1.0,
+              "rationale": "separation is shrinking at 270px/s in image space (saturates at 160px/s)",
+              "evidence_event_ids": [
+                "evt_000023",
+                "evt_000024",
+                "evt_000026",
+                "evt_000022",
+                "evt_000025",
+                "evt_000027"
+              ],
+              "details": {
+                "is_converging": true,
+                "closing_speed_px_per_s": 269.547,
+                "separation_px": 104.917,
+                "reference_px_per_s": 160.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "trajectory",
+              "score": 0.9399,
+              "weight": 25.0,
+              "contribution": 23.497,
+              "confidence": 1.0,
+              "rationale": "image-space trajectories converge to 28px in 0.4s",
+              "evidence_event_ids": [
+                "evt_000023",
+                "evt_000024",
+                "evt_000026",
+                "evt_000022",
+                "evt_000025",
+                "evt_000027"
+              ],
+              "details": {
+                "seconds_to_closest_approach": 0.361,
+                "spatial_term": 1.0,
+                "temporal_term": 0.9399,
+                "prediction_horizon_seconds": 6.0,
+                "closest_approach_distance_px": 28.4,
+                "conflict_radius_px": 90.0,
+                "primary_velocity_px_per_s": [
+                  120.0,
+                  -0.0
+                ],
+                "secondary_velocity_px_per_s": [
+                  -160.0,
+                  0.0
+                ]
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "zone",
+              "score": 0.0,
+              "weight": 20.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating zones configured",
+              "evidence_event_ids": [],
+              "details": {
+                "zone_occupancy": {
+                  "person_1": [],
+                  "truck_2": []
+                }
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "persistence",
+              "score": 0.0,
+              "weight": 15.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating or restricted zones configured",
+              "evidence_event_ids": [],
+              "details": {},
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "escalation",
+              "score": 0.75,
+              "weight": 0.0,
+              "contribution": 0.0,
+              "confidence": 1.0,
+              "rationale": "3 independent signals agree (proximity, closing_speed, trajectory); escalating by \u00d71.20",
+              "evidence_event_ids": [
+                "evt_000023",
+                "evt_000024",
+                "evt_000026",
+                "evt_000022",
+                "evt_000025",
+                "evt_000027"
+              ],
+              "details": {
+                "multiplier": 1.2,
+                "signal_count": 3,
+                "signal_names": [
+                  "proximity",
+                  "closing_speed",
+                  "trajectory"
+                ],
+                "signal_threshold": 0.2
+              },
+              "coordinate_space": "image_pixels"
+            }
+          ],
+          "evidence_event_ids": [
+            "evt_000023",
+            "evt_000024",
+            "evt_000026",
+            "evt_000022",
+            "evt_000025",
+            "evt_000027"
+          ],
+          "recommended_intervention": "slow/stop the vehicle and redirect the person out of its path",
+          "escalation_multiplier": 1.2,
+          "coordinate_space": "image_pixels",
+          "details": {
+            "candidate_kind": "person_vehicle_pair",
+            "coordinate_space": "image_pixels",
+            "units": "px",
+            "thresholds": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "prediction": {
+              "entity_ids": [
+                "person_1",
+                "truck_2"
+              ],
+              "coordinate_space": "image_pixels",
+              "units": "pixels",
+              "outcome": "PREDICTED_TRAJECTORY_CONFLICT",
+              "horizon_seconds": 6.0,
+              "enters_unsafe_separation": true,
+              "is_converging": true,
+              "in_calibrated_region": true,
+              "current_separation_px": 104.917,
+              "minimum_separation_px": 28.4,
+              "unsafe_separation_threshold_px": 90.0,
+              "conflict_radius_px": 90.0,
+              "closing_speed_px_per_s": 269.547,
+              "seconds_to_minimum_separation": 0.361,
+              "seconds_to_unsafe_separation": 0.056,
+              "separation_curve": [
+                {
+                  "seconds_ahead": 0.0,
+                  "separation_px": 104.917
+                },
+                {
+                  "seconds_ahead": 0.25,
+                  "separation_px": 42.042
+                },
+                {
+                  "seconds_ahead": 0.5,
+                  "separation_px": 48.245
+                },
+                {
+                  "seconds_ahead": 0.75,
+                  "separation_px": 112.639
+                },
+                {
+                  "seconds_ahead": 1.0,
+                  "separation_px": 181.239
+                },
+                {
+                  "seconds_ahead": 1.25,
+                  "separation_px": 250.614
+                },
+                {
+                  "seconds_ahead": 1.5,
+                  "separation_px": 320.262
+                },
+                {
+                  "seconds_ahead": 1.75,
+                  "separation_px": 390.035
+                },
+                {
+                  "seconds_ahead": 2.0,
+                  "separation_px": 459.878
+                },
+                {
+                  "seconds_ahead": 2.25,
+                  "separation_px": 529.762
+                },
+                {
+                  "seconds_ahead": 2.5,
+                  "separation_px": 599.673
+                },
+                {
+                  "seconds_ahead": 2.75,
+                  "separation_px": 669.603
+                },
+                {
+                  "seconds_ahead": 3.0,
+                  "separation_px": 739.546
+                },
+                {
+                  "seconds_ahead": 3.25,
+                  "separation_px": 809.498
+                },
+                {
+                  "seconds_ahead": 3.5,
+                  "separation_px": 879.459
+                },
+                {
+                  "seconds_ahead": 3.75,
+                  "separation_px": 949.425
+                },
+                {
+                  "seconds_ahead": 4.0,
+                  "separation_px": 1019.396
+                },
+                {
+                  "seconds_ahead": 4.25,
+                  "separation_px": 1089.37
+                },
+                {
+                  "seconds_ahead": 4.5,
+                  "separation_px": 1159.348
+                },
+                {
+                  "seconds_ahead": 4.75,
+                  "separation_px": 1229.328
+                },
+                {
+                  "seconds_ahead": 5.0,
+                  "separation_px": 1299.31
+                },
+                {
+                  "seconds_ahead": 5.25,
+                  "separation_px": 1369.295
+                },
+                {
+                  "seconds_ahead": 5.5,
+                  "separation_px": 1439.28
+                },
+                {
+                  "seconds_ahead": 5.75,
+                  "separation_px": 1509.267
+                },
+                {
+                  "seconds_ahead": 6.0,
+                  "separation_px": 1579.255
+                }
+              ]
+            },
+            "subtotal_points": 72.9838,
+            "base_points": 72.9838,
+            "persistence_points": 0.0,
+            "motions": {
+              "person_1": {
+                "entity_id": "person_1",
+                "class_name": "person",
+                "timestamp": 1.65,
+                "position_px": [
+                  226.0,
+                  198.6
+                ],
+                "velocity_px_per_s": [
+                  120.0,
+                  -0.0
+                ],
+                "speed_px_per_s": 120.0,
+                "samples": 14,
+                "time_span_seconds": 1.5,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 1.0,
+                "coordinate_space": "image_pixels"
+              },
+              "truck_2": {
+                "entity_id": "truck_2",
+                "class_name": "truck",
+                "timestamp": 1.65,
+                "position_px": [
+                  327.0,
+                  227.0
+                ],
+                "velocity_px_per_s": [
+                  -160.0,
+                  0.0
+                ],
+                "speed_px_per_s": 160.0,
+                "samples": 13,
+                "time_span_seconds": 1.5,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 1.0,
+                "coordinate_space": "image_pixels"
+              }
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "config": {
+          "coordinate_space": "image_pixels",
+          "person_classes": [
+            "person"
+          ],
+          "vehicle_classes": [
+            "car",
+            "truck",
+            "bus",
+            "motorcycle",
+            "train",
+            "forklift"
+          ],
+          "operating_zones": [],
+          "restricted_zones": [],
+          "interaction_radius_px": 260.0,
+          "critical_radius_px": 70.0,
+          "closing_speed_reference_px_per_s": 160.0,
+          "conflict_radius_px": 90.0,
+          "trajectory_miss_radius_px": 320.0,
+          "prediction_horizon_seconds": 6.0,
+          "persistence_violation_threshold": 3,
+          "escalation_signal_threshold": 0.2,
+          "weights": {
+            "proximity": 30.0,
+            "closing_speed": 25.0,
+            "trajectory": 25.0,
+            "zone": 20.0,
+            "persistence": 15.0
+          },
+          "thresholds": {
+            "image_pixels": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "ground_plane_meters": {
+              "coordinate_space": "ground_plane_meters",
+              "interaction_radius_m": 6.5,
+              "critical_radius_m": 1.5,
+              "conflict_radius_m": 2.0,
+              "miss_radius_m": 8.0,
+              "unsafe_separation_m": 2.0,
+              "closing_speed_reference_m_per_s": 4.0,
+              "closing_speed_floor_m_per_s": 0.25
+            }
+          },
+          "thresholds_note": "pixel and metre thresholds are configured independently; neither is derived from the other"
+        },
+        "entities_considered": [
+          "person_1",
+          "truck_2"
+        ],
+        "candidates_evaluated": 2,
+        "configured_coordinate_space": "image_pixels",
+        "scoring_coordinate_space": "image_pixels",
+        "spaces_used": {
+          "image_pixels": 1
+        },
+        "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+        "calibration": null
+      }
+    },
+    {
+      "timestamp": 1.85,
+      "coordinate_space": "image_pixels",
+      "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+      "max_risk_score": 95.45,
+      "severity": "critical",
+      "assessment_count": 1,
+      "assessments": [
+        {
+          "risk_score": 95.45,
+          "severity": "critical",
+          "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+          "involved_entity_ids": [
+            "person_1",
+            "truck_2"
+          ],
+          "timestamp": 1.85,
+          "confidence": 1.0,
+          "predicted_time_to_incident_seconds": 0.111,
+          "prediction_outcome": "CURRENTLY_UNSAFE_PROXIMITY",
+          "time_to_risk": {
+            "status": "already_unsafe",
+            "seconds": 0.0,
+            "coordinate_space": "image_pixels",
+            "units": "pixels",
+            "reason": null,
+            "unsafe_separation_threshold_px": 90.0
+          },
+          "space_fallback_reason": null,
+          "contributing_factors": [
+            {
+              "name": "proximity",
+              "score": 1.0,
+              "weight": 30.0,
+              "contribution": 30.0,
+              "confidence": 1.0,
+              "rationale": "person_1 and truck_2 are 42px apart in image space (critical below 70px)",
+              "evidence_event_ids": [
+                "evt_000026",
+                "evt_000028",
+                "evt_000030",
+                "evt_000027",
+                "evt_000029",
+                "evt_000031"
+              ],
+              "details": {
+                "separation_px": 42.042,
+                "interaction_radius_px": 260.0,
+                "critical_radius_px": 70.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "closing_speed",
+              "score": 1.0,
+              "weight": 25.0,
+              "contribution": 25.0,
+              "confidence": 1.0,
+              "rationale": "separation is shrinking at 206px/s in image space (saturates at 160px/s)",
+              "evidence_event_ids": [
+                "evt_000026",
+                "evt_000028",
+                "evt_000030",
+                "evt_000027",
+                "evt_000029",
+                "evt_000031"
+              ],
+              "details": {
+                "is_converging": true,
+                "closing_speed_px_per_s": 206.458,
+                "separation_px": 42.042,
+                "reference_px_per_s": 160.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "trajectory",
+              "score": 0.9815,
+              "weight": 25.0,
+              "contribution": 24.5387,
+              "confidence": 1.0,
+              "rationale": "image-space trajectories converge to 28px in 0.1s",
+              "evidence_event_ids": [
+                "evt_000026",
+                "evt_000028",
+                "evt_000030",
+                "evt_000027",
+                "evt_000029",
+                "evt_000031"
+              ],
+              "details": {
+                "seconds_to_closest_approach": 0.111,
+                "spatial_term": 1.0,
+                "temporal_term": 0.9815,
+                "prediction_horizon_seconds": 6.0,
+                "closest_approach_distance_px": 28.4,
+                "conflict_radius_px": 90.0,
+                "primary_velocity_px_per_s": [
+                  120.0,
+                  0.0
+                ],
+                "secondary_velocity_px_per_s": [
+                  -160.0,
+                  0.0
+                ]
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "zone",
+              "score": 0.0,
+              "weight": 20.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating zones configured",
+              "evidence_event_ids": [],
+              "details": {
+                "zone_occupancy": {
+                  "person_1": [],
+                  "truck_2": []
+                }
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "persistence",
+              "score": 0.0,
+              "weight": 15.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating or restricted zones configured",
+              "evidence_event_ids": [],
+              "details": {},
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "escalation",
+              "score": 0.75,
+              "weight": 0.0,
+              "contribution": 0.0,
+              "confidence": 1.0,
+              "rationale": "3 independent signals agree (proximity, closing_speed, trajectory); escalating by \u00d71.20",
+              "evidence_event_ids": [
+                "evt_000026",
+                "evt_000028",
+                "evt_000030",
+                "evt_000027",
+                "evt_000029",
+                "evt_000031"
+              ],
+              "details": {
+                "multiplier": 1.2,
+                "signal_count": 3,
+                "signal_names": [
+                  "proximity",
+                  "closing_speed",
+                  "trajectory"
+                ],
+                "signal_threshold": 0.2
+              },
+              "coordinate_space": "image_pixels"
+            }
+          ],
+          "evidence_event_ids": [
+            "evt_000026",
+            "evt_000028",
+            "evt_000030",
+            "evt_000027",
+            "evt_000029",
+            "evt_000031"
+          ],
+          "recommended_intervention": "slow/stop the vehicle and redirect the person out of its path",
+          "escalation_multiplier": 1.2,
+          "coordinate_space": "image_pixels",
+          "details": {
+            "candidate_kind": "person_vehicle_pair",
+            "coordinate_space": "image_pixels",
+            "units": "px",
+            "thresholds": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "prediction": {
+              "entity_ids": [
+                "person_1",
+                "truck_2"
+              ],
+              "coordinate_space": "image_pixels",
+              "units": "pixels",
+              "outcome": "CURRENTLY_UNSAFE_PROXIMITY",
+              "horizon_seconds": 6.0,
+              "enters_unsafe_separation": true,
+              "is_converging": true,
+              "in_calibrated_region": true,
+              "current_separation_px": 42.042,
+              "minimum_separation_px": 28.4,
+              "unsafe_separation_threshold_px": 90.0,
+              "conflict_radius_px": 90.0,
+              "closing_speed_px_per_s": 206.458,
+              "seconds_to_minimum_separation": 0.111,
+              "seconds_to_unsafe_separation": 0.0,
+              "separation_curve": [
+                {
+                  "seconds_ahead": 0.0,
+                  "separation_px": 42.042
+                },
+                {
+                  "seconds_ahead": 0.25,
+                  "separation_px": 48.245
+                },
+                {
+                  "seconds_ahead": 0.5,
+                  "separation_px": 112.639
+                },
+                {
+                  "seconds_ahead": 0.75,
+                  "separation_px": 181.239
+                },
+                {
+                  "seconds_ahead": 1.0,
+                  "separation_px": 250.614
+                },
+                {
+                  "seconds_ahead": 1.25,
+                  "separation_px": 320.262
+                },
+                {
+                  "seconds_ahead": 1.5,
+                  "separation_px": 390.035
+                },
+                {
+                  "seconds_ahead": 1.75,
+                  "separation_px": 459.878
+                },
+                {
+                  "seconds_ahead": 2.0,
+                  "separation_px": 529.762
+                },
+                {
+                  "seconds_ahead": 2.25,
+                  "separation_px": 599.673
+                },
+                {
+                  "seconds_ahead": 2.5,
+                  "separation_px": 669.603
+                },
+                {
+                  "seconds_ahead": 2.75,
+                  "separation_px": 739.546
+                },
+                {
+                  "seconds_ahead": 3.0,
+                  "separation_px": 809.498
+                },
+                {
+                  "seconds_ahead": 3.25,
+                  "separation_px": 879.459
+                },
+                {
+                  "seconds_ahead": 3.5,
+                  "separation_px": 949.425
+                },
+                {
+                  "seconds_ahead": 3.75,
+                  "separation_px": 1019.396
+                },
+                {
+                  "seconds_ahead": 4.0,
+                  "separation_px": 1089.37
+                },
+                {
+                  "seconds_ahead": 4.25,
+                  "separation_px": 1159.348
+                },
+                {
+                  "seconds_ahead": 4.5,
+                  "separation_px": 1229.328
+                },
+                {
+                  "seconds_ahead": 4.75,
+                  "separation_px": 1299.31
+                },
+                {
+                  "seconds_ahead": 5.0,
+                  "separation_px": 1369.295
+                },
+                {
+                  "seconds_ahead": 5.25,
+                  "separation_px": 1439.28
+                },
+                {
+                  "seconds_ahead": 5.5,
+                  "separation_px": 1509.267
+                },
+                {
+                  "seconds_ahead": 5.75,
+                  "separation_px": 1579.255
+                },
+                {
+                  "seconds_ahead": 6.0,
+                  "separation_px": 1649.245
+                }
+              ]
+            },
+            "subtotal_points": 79.5387,
+            "base_points": 79.5387,
+            "persistence_points": 0.0,
+            "motions": {
+              "person_1": {
+                "entity_id": "person_1",
+                "class_name": "person",
+                "timestamp": 1.85,
+                "position_px": [
+                  256.0,
+                  198.6
+                ],
+                "velocity_px_per_s": [
+                  120.0,
+                  0.0
+                ],
+                "speed_px_per_s": 120.0,
+                "samples": 16,
+                "time_span_seconds": 1.75,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 1.0,
+                "coordinate_space": "image_pixels"
+              },
+              "truck_2": {
+                "entity_id": "truck_2",
+                "class_name": "truck",
+                "timestamp": 1.85,
+                "position_px": [
+                  287.0,
+                  227.0
+                ],
+                "velocity_px_per_s": [
+                  -160.0,
+                  0.0
+                ],
+                "speed_px_per_s": 160.0,
+                "samples": 15,
+                "time_span_seconds": 1.75,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 1.0,
+                "coordinate_space": "image_pixels"
+              }
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "config": {
+          "coordinate_space": "image_pixels",
+          "person_classes": [
+            "person"
+          ],
+          "vehicle_classes": [
+            "car",
+            "truck",
+            "bus",
+            "motorcycle",
+            "train",
+            "forklift"
+          ],
+          "operating_zones": [],
+          "restricted_zones": [],
+          "interaction_radius_px": 260.0,
+          "critical_radius_px": 70.0,
+          "closing_speed_reference_px_per_s": 160.0,
+          "conflict_radius_px": 90.0,
+          "trajectory_miss_radius_px": 320.0,
+          "prediction_horizon_seconds": 6.0,
+          "persistence_violation_threshold": 3,
+          "escalation_signal_threshold": 0.2,
+          "weights": {
+            "proximity": 30.0,
+            "closing_speed": 25.0,
+            "trajectory": 25.0,
+            "zone": 20.0,
+            "persistence": 15.0
+          },
+          "thresholds": {
+            "image_pixels": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "ground_plane_meters": {
+              "coordinate_space": "ground_plane_meters",
+              "interaction_radius_m": 6.5,
+              "critical_radius_m": 1.5,
+              "conflict_radius_m": 2.0,
+              "miss_radius_m": 8.0,
+              "unsafe_separation_m": 2.0,
+              "closing_speed_reference_m_per_s": 4.0,
+              "closing_speed_floor_m_per_s": 0.25
+            }
+          },
+          "thresholds_note": "pixel and metre thresholds are configured independently; neither is derived from the other"
+        },
+        "entities_considered": [
+          "person_1",
+          "truck_2"
+        ],
+        "candidates_evaluated": 2,
+        "configured_coordinate_space": "image_pixels",
+        "scoring_coordinate_space": "image_pixels",
+        "spaces_used": {
+          "image_pixels": 1
+        },
+        "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+        "calibration": null
+      }
+    },
+    {
+      "timestamp": 2.05,
+      "coordinate_space": "image_pixels",
+      "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+      "max_risk_score": 30.0,
+      "severity": "low",
+      "assessment_count": 1,
+      "assessments": [
+        {
+          "risk_score": 30.0,
+          "severity": "low",
+          "incident_type": "CLOSE_PROXIMITY",
+          "involved_entity_ids": [
+            "person_1",
+            "truck_2"
+          ],
+          "timestamp": 2.05,
+          "confidence": 1.0,
+          "predicted_time_to_incident_seconds": null,
+          "prediction_outcome": "CURRENTLY_UNSAFE_PROXIMITY",
+          "time_to_risk": {
+            "status": "already_unsafe",
+            "seconds": 0.0,
+            "coordinate_space": "image_pixels",
+            "units": "pixels",
+            "reason": null,
+            "unsafe_separation_threshold_px": 90.0
+          },
+          "space_fallback_reason": null,
+          "contributing_factors": [
+            {
+              "name": "proximity",
+              "score": 1.0,
+              "weight": 30.0,
+              "contribution": 30.0,
+              "confidence": 1.0,
+              "rationale": "person_1 and truck_2 are 39px apart in image space (critical below 70px)",
+              "evidence_event_ids": [
+                "evt_000028",
+                "evt_000030",
+                "evt_000032",
+                "evt_000031",
+                "evt_000033",
+                "evt_000034"
+              ],
+              "details": {
+                "separation_px": 39.186,
+                "interaction_radius_px": 260.0,
+                "critical_radius_px": 70.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "closing_speed",
+              "score": 0.0,
+              "weight": 25.0,
+              "contribution": 0.0,
+              "confidence": 1.0,
+              "rationale": "gap is separating (-193px/s closing speed in image space)",
+              "evidence_event_ids": [
+                "evt_000028",
+                "evt_000030",
+                "evt_000032",
+                "evt_000031",
+                "evt_000033",
+                "evt_000034"
+              ],
+              "details": {
+                "is_converging": false,
+                "closing_speed_px_per_s": -192.925,
+                "separation_px": 39.186,
+                "reference_px_per_s": 160.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "trajectory",
+              "score": 0.0,
+              "weight": 25.0,
+              "contribution": 0.0,
+              "confidence": 1.0,
+              "rationale": "closest approach is in the past; person_1 and truck_2 are moving apart",
+              "evidence_event_ids": [],
+              "details": {
+                "is_converging": false,
+                "closing_speed_px_per_s": -192.925
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "zone",
+              "score": 0.0,
+              "weight": 20.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating zones configured",
+              "evidence_event_ids": [],
+              "details": {
+                "zone_occupancy": {
+                  "person_1": [],
+                  "truck_2": []
+                }
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "persistence",
+              "score": 0.0,
+              "weight": 15.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating or restricted zones configured",
+              "evidence_event_ids": [],
+              "details": {},
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "escalation",
+              "score": 0.25,
+              "weight": 0.0,
+              "contribution": 0.0,
+              "confidence": 1.0,
+              "rationale": "1 corroborating signal(s); no escalation applied",
+              "evidence_event_ids": [
+                "evt_000028",
+                "evt_000030",
+                "evt_000032",
+                "evt_000031",
+                "evt_000033",
+                "evt_000034"
+              ],
+              "details": {
+                "multiplier": 1.0,
+                "signal_count": 1,
+                "signal_names": [
+                  "proximity"
+                ],
+                "signal_threshold": 0.2
+              },
+              "coordinate_space": "image_pixels"
+            }
+          ],
+          "evidence_event_ids": [
+            "evt_000028",
+            "evt_000030",
+            "evt_000032",
+            "evt_000031",
+            "evt_000033",
+            "evt_000034"
+          ],
+          "recommended_intervention": "monitor only: entities are near each other but nothing is developing",
+          "escalation_multiplier": 1.0,
+          "coordinate_space": "image_pixels",
+          "details": {
+            "candidate_kind": "person_vehicle_pair",
+            "coordinate_space": "image_pixels",
+            "units": "px",
+            "thresholds": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "prediction": {
+              "entity_ids": [
+                "person_1",
+                "truck_2"
+              ],
+              "coordinate_space": "image_pixels",
+              "units": "pixels",
+              "outcome": "CURRENTLY_UNSAFE_PROXIMITY",
+              "horizon_seconds": 6.0,
+              "enters_unsafe_separation": true,
+              "is_converging": false,
+              "in_calibrated_region": true,
+              "current_separation_px": 39.186,
+              "minimum_separation_px": 39.186,
+              "unsafe_separation_threshold_px": 90.0,
+              "conflict_radius_px": 90.0,
+              "closing_speed_px_per_s": -192.925,
+              "seconds_to_minimum_separation": 0.0,
+              "seconds_to_unsafe_separation": 0.0,
+              "separation_curve": [
+                {
+                  "seconds_ahead": 0.0,
+                  "separation_px": 39.186
+                },
+                {
+                  "seconds_ahead": 0.25,
+                  "separation_px": 101.072
+                },
+                {
+                  "seconds_ahead": 0.5,
+                  "separation_px": 169.398
+                },
+                {
+                  "seconds_ahead": 0.75,
+                  "separation_px": 238.696
+                },
+                {
+                  "seconds_ahead": 1.0,
+                  "separation_px": 308.311
+                },
+                {
+                  "seconds_ahead": 1.25,
+                  "separation_px": 378.068
+                },
+                {
+                  "seconds_ahead": 1.5,
+                  "separation_px": 447.901
+                },
+                {
+                  "seconds_ahead": 1.75,
+                  "separation_px": 517.779
+                },
+                {
+                  "seconds_ahead": 2.0,
+                  "separation_px": 587.687
+                },
+                {
+                  "seconds_ahead": 2.25,
+                  "separation_px": 657.614
+                },
+                {
+                  "seconds_ahead": 2.5,
+                  "separation_px": 727.555
+                },
+                {
+                  "seconds_ahead": 2.75,
+                  "separation_px": 797.506
+                },
+                {
+                  "seconds_ahead": 3.0,
+                  "separation_px": 867.465
+                },
+                {
+                  "seconds_ahead": 3.25,
+                  "separation_px": 937.43
+                },
+                {
+                  "seconds_ahead": 3.5,
+                  "separation_px": 1007.4
+                },
+                {
+                  "seconds_ahead": 3.75,
+                  "separation_px": 1077.374
+                },
+                {
+                  "seconds_ahead": 4.0,
+                  "separation_px": 1147.352
+                },
+                {
+                  "seconds_ahead": 4.25,
+                  "separation_px": 1217.331
+                },
+                {
+                  "seconds_ahead": 4.5,
+                  "separation_px": 1287.313
+                },
+                {
+                  "seconds_ahead": 4.75,
+                  "separation_px": 1357.297
+                },
+                {
+                  "seconds_ahead": 5.0,
+                  "separation_px": 1427.283
+                },
+                {
+                  "seconds_ahead": 5.25,
+                  "separation_px": 1497.269
+                },
+                {
+                  "seconds_ahead": 5.5,
+                  "separation_px": 1567.257
+                },
+                {
+                  "seconds_ahead": 5.75,
+                  "separation_px": 1637.246
+                },
+                {
+                  "seconds_ahead": 6.0,
+                  "separation_px": 1707.236
+                }
+              ]
+            },
+            "subtotal_points": 30.0,
+            "base_points": 30.0,
+            "persistence_points": 0.0,
+            "motions": {
+              "person_1": {
+                "entity_id": "person_1",
+                "class_name": "person",
+                "timestamp": 2.05,
+                "position_px": [
+                  274.0,
+                  198.6
+                ],
+                "velocity_px_per_s": [
+                  120.0,
+                  0.0
+                ],
+                "speed_px_per_s": 120.0,
+                "samples": 17,
+                "time_span_seconds": 1.9,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 1.0,
+                "coordinate_space": "image_pixels"
+              },
+              "truck_2": {
+                "entity_id": "truck_2",
+                "class_name": "truck",
+                "timestamp": 2.05,
+                "position_px": [
+                  247.0,
+                  227.0
+                ],
+                "velocity_px_per_s": [
+                  -160.0,
+                  0.0
+                ],
+                "speed_px_per_s": 160.0,
+                "samples": 17,
+                "time_span_seconds": 2.0,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 1.0,
+                "coordinate_space": "image_pixels"
+              }
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "config": {
+          "coordinate_space": "image_pixels",
+          "person_classes": [
+            "person"
+          ],
+          "vehicle_classes": [
+            "car",
+            "truck",
+            "bus",
+            "motorcycle",
+            "train",
+            "forklift"
+          ],
+          "operating_zones": [],
+          "restricted_zones": [],
+          "interaction_radius_px": 260.0,
+          "critical_radius_px": 70.0,
+          "closing_speed_reference_px_per_s": 160.0,
+          "conflict_radius_px": 90.0,
+          "trajectory_miss_radius_px": 320.0,
+          "prediction_horizon_seconds": 6.0,
+          "persistence_violation_threshold": 3,
+          "escalation_signal_threshold": 0.2,
+          "weights": {
+            "proximity": 30.0,
+            "closing_speed": 25.0,
+            "trajectory": 25.0,
+            "zone": 20.0,
+            "persistence": 15.0
+          },
+          "thresholds": {
+            "image_pixels": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "ground_plane_meters": {
+              "coordinate_space": "ground_plane_meters",
+              "interaction_radius_m": 6.5,
+              "critical_radius_m": 1.5,
+              "conflict_radius_m": 2.0,
+              "miss_radius_m": 8.0,
+              "unsafe_separation_m": 2.0,
+              "closing_speed_reference_m_per_s": 4.0,
+              "closing_speed_floor_m_per_s": 0.25
+            }
+          },
+          "thresholds_note": "pixel and metre thresholds are configured independently; neither is derived from the other"
+        },
+        "entities_considered": [
+          "person_1",
+          "truck_2"
+        ],
+        "candidates_evaluated": 2,
+        "configured_coordinate_space": "image_pixels",
+        "scoring_coordinate_space": "image_pixels",
+        "spaces_used": {
+          "image_pixels": 1
+        },
+        "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+        "calibration": null
+      }
+    },
+    {
+      "timestamp": 2.25,
+      "coordinate_space": "image_pixels",
+      "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+      "max_risk_score": 25.4,
+      "severity": "low",
+      "assessment_count": 1,
+      "assessments": [
+        {
+          "risk_score": 25.4,
+          "severity": "low",
+          "incident_type": "CLOSE_PROXIMITY",
+          "involved_entity_ids": [
+            "person_1",
+            "truck_2"
+          ],
+          "timestamp": 2.25,
+          "confidence": 1.0,
+          "predicted_time_to_incident_seconds": null,
+          "prediction_outcome": "NO_PREDICTED_CONFLICT",
+          "time_to_risk": {
+            "status": "not_predicted",
+            "seconds": null,
+            "coordinate_space": "image_pixels",
+            "units": "pixels",
+            "reason": "threshold not reached within the prediction horizon",
+            "unsafe_separation_threshold_px": 90.0
+          },
+          "space_fallback_reason": null,
+          "contributing_factors": [
+            {
+              "name": "proximity",
+              "score": 0.8466,
+              "weight": 30.0,
+              "contribution": 25.3967,
+              "confidence": 1.0,
+              "rationale": "person_1 and truck_2 are 99px apart in image space (critical below 70px)",
+              "evidence_event_ids": [
+                "evt_000035",
+                "evt_000036",
+                "evt_000038",
+                "evt_000034",
+                "evt_000037",
+                "evt_000039"
+              ],
+              "details": {
+                "separation_px": 99.154,
+                "interaction_radius_px": 260.0,
+                "critical_radius_px": 70.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "closing_speed",
+              "score": 0.0,
+              "weight": 25.0,
+              "contribution": 0.0,
+              "confidence": 1.0,
+              "rationale": "gap is separating (-268px/s closing speed in image space)",
+              "evidence_event_ids": [
+                "evt_000035",
+                "evt_000036",
+                "evt_000038",
+                "evt_000034",
+                "evt_000037",
+                "evt_000039"
+              ],
+              "details": {
+                "is_converging": false,
+                "closing_speed_px_per_s": -268.269,
+                "separation_px": 99.154,
+                "reference_px_per_s": 160.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "trajectory",
+              "score": 0.0,
+              "weight": 25.0,
+              "contribution": 0.0,
+              "confidence": 1.0,
+              "rationale": "closest approach is in the past; person_1 and truck_2 are moving apart",
+              "evidence_event_ids": [],
+              "details": {
+                "is_converging": false,
+                "closing_speed_px_per_s": -268.269
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "zone",
+              "score": 0.0,
+              "weight": 20.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating zones configured",
+              "evidence_event_ids": [],
+              "details": {
+                "zone_occupancy": {
+                  "person_1": [],
+                  "truck_2": []
+                }
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "persistence",
+              "score": 0.0,
+              "weight": 15.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating or restricted zones configured",
+              "evidence_event_ids": [],
+              "details": {},
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "escalation",
+              "score": 0.25,
+              "weight": 0.0,
+              "contribution": 0.0,
+              "confidence": 1.0,
+              "rationale": "1 corroborating signal(s); no escalation applied",
+              "evidence_event_ids": [
+                "evt_000035",
+                "evt_000036",
+                "evt_000038",
+                "evt_000034",
+                "evt_000037",
+                "evt_000039"
+              ],
+              "details": {
+                "multiplier": 1.0,
+                "signal_count": 1,
+                "signal_names": [
+                  "proximity"
+                ],
+                "signal_threshold": 0.2
+              },
+              "coordinate_space": "image_pixels"
+            }
+          ],
+          "evidence_event_ids": [
+            "evt_000035",
+            "evt_000036",
+            "evt_000038",
+            "evt_000034",
+            "evt_000037",
+            "evt_000039"
+          ],
+          "recommended_intervention": "monitor only: entities are near each other but nothing is developing",
+          "escalation_multiplier": 1.0,
+          "coordinate_space": "image_pixels",
+          "details": {
+            "candidate_kind": "person_vehicle_pair",
+            "coordinate_space": "image_pixels",
+            "units": "px",
+            "thresholds": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "prediction": {
+              "entity_ids": [
+                "person_1",
+                "truck_2"
+              ],
+              "coordinate_space": "image_pixels",
+              "units": "pixels",
+              "outcome": "NO_PREDICTED_CONFLICT",
+              "horizon_seconds": 6.0,
+              "enters_unsafe_separation": false,
+              "is_converging": false,
+              "in_calibrated_region": true,
+              "current_separation_px": 99.154,
+              "minimum_separation_px": 99.154,
+              "unsafe_separation_threshold_px": 90.0,
+              "conflict_radius_px": 90.0,
+              "closing_speed_px_per_s": -268.269,
+              "seconds_to_minimum_separation": 0.0,
+              "separation_curve": [
+                {
+                  "seconds_ahead": 0.0,
+                  "separation_px": 99.154
+                },
+                {
+                  "seconds_ahead": 0.25,
+                  "separation_px": 167.426
+                },
+                {
+                  "seconds_ahead": 0.5,
+                  "separation_px": 236.71
+                },
+                {
+                  "seconds_ahead": 0.75,
+                  "separation_px": 306.319
+                },
+                {
+                  "seconds_ahead": 1.0,
+                  "separation_px": 376.074
+                },
+                {
+                  "seconds_ahead": 1.25,
+                  "separation_px": 445.905
+                },
+                {
+                  "seconds_ahead": 1.5,
+                  "separation_px": 515.782
+                },
+                {
+                  "seconds_ahead": 1.75,
+                  "separation_px": 585.689
+                },
+                {
+                  "seconds_ahead": 2.0,
+                  "separation_px": 655.615
+                },
+                {
+                  "seconds_ahead": 2.25,
+                  "separation_px": 725.556
+                },
+                {
+                  "seconds_ahead": 2.5,
+                  "separation_px": 795.507
+                },
+                {
+                  "seconds_ahead": 2.75,
+                  "separation_px": 865.466
+                },
+                {
+                  "seconds_ahead": 3.0,
+                  "separation_px": 935.431
+                },
+                {
+                  "seconds_ahead": 3.25,
+                  "separation_px": 1005.401
+                },
+                {
+                  "seconds_ahead": 3.5,
+                  "separation_px": 1075.375
+                },
+                {
+                  "seconds_ahead": 3.75,
+                  "separation_px": 1145.352
+                },
+                {
+                  "seconds_ahead": 4.0,
+                  "separation_px": 1215.332
+                },
+                {
+                  "seconds_ahead": 4.25,
+                  "separation_px": 1285.314
+                },
+                {
+                  "seconds_ahead": 4.5,
+                  "separation_px": 1355.298
+                },
+                {
+                  "seconds_ahead": 4.75,
+                  "separation_px": 1425.283
+                },
+                {
+                  "seconds_ahead": 5.0,
+                  "separation_px": 1495.27
+                },
+                {
+                  "seconds_ahead": 5.25,
+                  "separation_px": 1565.258
+                },
+                {
+                  "seconds_ahead": 5.5,
+                  "separation_px": 1635.247
+                },
+                {
+                  "seconds_ahead": 5.75,
+                  "separation_px": 1705.237
+                },
+                {
+                  "seconds_ahead": 6.0,
+                  "separation_px": 1775.227
+                }
+              ]
+            },
+            "subtotal_points": 25.3967,
+            "base_points": 25.3967,
+            "persistence_points": 0.0,
+            "motions": {
+              "person_1": {
+                "entity_id": "person_1",
+                "class_name": "person",
+                "timestamp": 2.25,
+                "position_px": [
+                  310.0,
+                  198.6
+                ],
+                "velocity_px_per_s": [
+                  120.0,
+                  -0.0
+                ],
+                "speed_px_per_s": 120.0,
+                "samples": 18,
+                "time_span_seconds": 1.9,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 1.0,
+                "coordinate_space": "image_pixels"
+              },
+              "truck_2": {
+                "entity_id": "truck_2",
+                "class_name": "truck",
+                "timestamp": 2.25,
+                "position_px": [
+                  215.0,
+                  227.0
+                ],
+                "velocity_px_per_s": [
+                  -160.0,
+                  0.0
+                ],
+                "speed_px_per_s": 160.0,
+                "samples": 17,
+                "time_span_seconds": 1.95,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 1.0,
+                "coordinate_space": "image_pixels"
+              }
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "config": {
+          "coordinate_space": "image_pixels",
+          "person_classes": [
+            "person"
+          ],
+          "vehicle_classes": [
+            "car",
+            "truck",
+            "bus",
+            "motorcycle",
+            "train",
+            "forklift"
+          ],
+          "operating_zones": [],
+          "restricted_zones": [],
+          "interaction_radius_px": 260.0,
+          "critical_radius_px": 70.0,
+          "closing_speed_reference_px_per_s": 160.0,
+          "conflict_radius_px": 90.0,
+          "trajectory_miss_radius_px": 320.0,
+          "prediction_horizon_seconds": 6.0,
+          "persistence_violation_threshold": 3,
+          "escalation_signal_threshold": 0.2,
+          "weights": {
+            "proximity": 30.0,
+            "closing_speed": 25.0,
+            "trajectory": 25.0,
+            "zone": 20.0,
+            "persistence": 15.0
+          },
+          "thresholds": {
+            "image_pixels": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "ground_plane_meters": {
+              "coordinate_space": "ground_plane_meters",
+              "interaction_radius_m": 6.5,
+              "critical_radius_m": 1.5,
+              "conflict_radius_m": 2.0,
+              "miss_radius_m": 8.0,
+              "unsafe_separation_m": 2.0,
+              "closing_speed_reference_m_per_s": 4.0,
+              "closing_speed_floor_m_per_s": 0.25
+            }
+          },
+          "thresholds_note": "pixel and metre thresholds are configured independently; neither is derived from the other"
+        },
+        "entities_considered": [
+          "person_1",
+          "truck_2"
+        ],
+        "candidates_evaluated": 2,
+        "configured_coordinate_space": "image_pixels",
+        "scoring_coordinate_space": "image_pixels",
+        "spaces_used": {
+          "image_pixels": 1
+        },
+        "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+        "calibration": null
+      }
+    },
+    {
+      "timestamp": 2.45,
+      "coordinate_space": "image_pixels",
+      "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+      "max_risk_score": 18.03,
+      "severity": "normal",
+      "assessment_count": 1,
+      "assessments": [
+        {
+          "risk_score": 18.03,
+          "severity": "normal",
+          "incident_type": "CLOSE_PROXIMITY",
+          "involved_entity_ids": [
+            "person_1",
+            "truck_2"
+          ],
+          "timestamp": 2.45,
+          "confidence": 1.0,
+          "predicted_time_to_incident_seconds": null,
+          "prediction_outcome": "NO_PREDICTED_CONFLICT",
+          "time_to_risk": {
+            "status": "not_predicted",
+            "seconds": null,
+            "coordinate_space": "image_pixels",
+            "units": "pixels",
+            "reason": "threshold not reached within the prediction horizon",
+            "unsafe_separation_threshold_px": 90.0
+          },
+          "space_fallback_reason": null,
+          "contributing_factors": [
+            {
+              "name": "proximity",
+              "score": 0.6011,
+              "weight": 30.0,
+              "contribution": 18.0327,
+              "confidence": 1.0,
+              "rationale": "person_1 and truck_2 are 146px apart in image space (critical below 70px)",
+              "evidence_event_ids": [
+                "evt_000038",
+                "evt_000041",
+                "evt_000043",
+                "evt_000039",
+                "evt_000040",
+                "evt_000042"
+              ],
+              "details": {
+                "separation_px": 145.793,
+                "interaction_radius_px": 260.0,
+                "critical_radius_px": 70.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "closing_speed",
+              "score": 0.0,
+              "weight": 25.0,
+              "contribution": 0.0,
+              "confidence": 1.0,
+              "rationale": "gap is separating (-275px/s closing speed in image space)",
+              "evidence_event_ids": [
+                "evt_000038",
+                "evt_000041",
+                "evt_000043",
+                "evt_000039",
+                "evt_000040",
+                "evt_000042"
+              ],
+              "details": {
+                "is_converging": false,
+                "closing_speed_px_per_s": -274.636,
+                "separation_px": 145.793,
+                "reference_px_per_s": 160.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "trajectory",
+              "score": 0.0,
+              "weight": 25.0,
+              "contribution": 0.0,
+              "confidence": 1.0,
+              "rationale": "closest approach is in the past; person_1 and truck_2 are moving apart",
+              "evidence_event_ids": [],
+              "details": {
+                "is_converging": false,
+                "closing_speed_px_per_s": -274.636
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "zone",
+              "score": 0.0,
+              "weight": 20.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating zones configured",
+              "evidence_event_ids": [],
+              "details": {
+                "zone_occupancy": {
+                  "person_1": [],
+                  "truck_2": []
+                }
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "persistence",
+              "score": 0.0,
+              "weight": 15.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating or restricted zones configured",
+              "evidence_event_ids": [],
+              "details": {},
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "escalation",
+              "score": 0.25,
+              "weight": 0.0,
+              "contribution": 0.0,
+              "confidence": 1.0,
+              "rationale": "1 corroborating signal(s); no escalation applied",
+              "evidence_event_ids": [
+                "evt_000038",
+                "evt_000041",
+                "evt_000043",
+                "evt_000039",
+                "evt_000040",
+                "evt_000042"
+              ],
+              "details": {
+                "multiplier": 1.0,
+                "signal_count": 1,
+                "signal_names": [
+                  "proximity"
+                ],
+                "signal_threshold": 0.2
+              },
+              "coordinate_space": "image_pixels"
+            }
+          ],
+          "evidence_event_ids": [
+            "evt_000038",
+            "evt_000041",
+            "evt_000043",
+            "evt_000039",
+            "evt_000040",
+            "evt_000042"
+          ],
+          "recommended_intervention": "monitor only: entities are near each other but nothing is developing",
+          "escalation_multiplier": 1.0,
+          "coordinate_space": "image_pixels",
+          "details": {
+            "candidate_kind": "person_vehicle_pair",
+            "coordinate_space": "image_pixels",
+            "units": "px",
+            "thresholds": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "prediction": {
+              "entity_ids": [
+                "person_1",
+                "truck_2"
+              ],
+              "coordinate_space": "image_pixels",
+              "units": "pixels",
+              "outcome": "NO_PREDICTED_CONFLICT",
+              "horizon_seconds": 6.0,
+              "enters_unsafe_separation": false,
+              "is_converging": false,
+              "in_calibrated_region": true,
+              "current_separation_px": 145.793,
+              "minimum_separation_px": 145.793,
+              "unsafe_separation_threshold_px": 90.0,
+              "conflict_radius_px": 90.0,
+              "closing_speed_px_per_s": -274.636,
+              "seconds_to_minimum_separation": 0.0,
+              "separation_curve": [
+                {
+                  "seconds_ahead": 0.0,
+                  "separation_px": 145.793
+                },
+                {
+                  "seconds_ahead": 0.25,
+                  "separation_px": 214.885
+                },
+                {
+                  "seconds_ahead": 0.5,
+                  "separation_px": 284.421
+                },
+                {
+                  "seconds_ahead": 0.75,
+                  "separation_px": 354.141
+                },
+                {
+                  "seconds_ahead": 1.0,
+                  "separation_px": 423.952
+                },
+                {
+                  "seconds_ahead": 1.25,
+                  "separation_px": 493.817
+                },
+                {
+                  "seconds_ahead": 1.5,
+                  "separation_px": 563.716
+                },
+                {
+                  "seconds_ahead": 1.75,
+                  "separation_px": 633.637
+                },
+                {
+                  "seconds_ahead": 2.0,
+                  "separation_px": 703.573
+                },
+                {
+                  "seconds_ahead": 2.25,
+                  "separation_px": 773.522
+                },
+                {
+                  "seconds_ahead": 2.5,
+                  "separation_px": 843.478
+                },
+                {
+                  "seconds_ahead": 2.75,
+                  "separation_px": 913.442
+                },
+                {
+                  "seconds_ahead": 3.0,
+                  "separation_px": 983.41
+                },
+                {
+                  "seconds_ahead": 3.25,
+                  "separation_px": 1053.383
+                },
+                {
+                  "seconds_ahead": 3.5,
+                  "separation_px": 1123.359
+                },
+                {
+                  "seconds_ahead": 3.75,
+                  "separation_px": 1193.338
+                },
+                {
+                  "seconds_ahead": 4.0,
+                  "separation_px": 1263.319
+                },
+                {
+                  "seconds_ahead": 4.25,
+                  "separation_px": 1333.303
+                },
+                {
+                  "seconds_ahead": 4.5,
+                  "separation_px": 1403.287
+                },
+                {
+                  "seconds_ahead": 4.75,
+                  "separation_px": 1473.274
+                },
+                {
+                  "seconds_ahead": 5.0,
+                  "separation_px": 1543.261
+                },
+                {
+                  "seconds_ahead": 5.25,
+                  "separation_px": 1613.25
+                },
+                {
+                  "seconds_ahead": 5.5,
+                  "separation_px": 1683.24
+                },
+                {
+                  "seconds_ahead": 5.75,
+                  "separation_px": 1753.23
+                },
+                {
+                  "seconds_ahead": 6.0,
+                  "separation_px": 1823.221
+                }
+              ]
+            },
+            "subtotal_points": 18.0327,
+            "base_points": 18.0327,
+            "persistence_points": 0.0,
+            "motions": {
+              "person_1": {
+                "entity_id": "person_1",
+                "class_name": "person",
+                "timestamp": 2.45,
+                "position_px": [
+                  334.0,
+                  198.6
+                ],
+                "velocity_px_per_s": [
+                  120.0,
+                  -0.0
+                ],
+                "speed_px_per_s": 120.0,
+                "samples": 18,
+                "time_span_seconds": 1.9,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 1.0,
+                "coordinate_space": "image_pixels"
+              },
+              "truck_2": {
+                "entity_id": "truck_2",
+                "class_name": "truck",
+                "timestamp": 2.45,
+                "position_px": [
+                  191.0,
+                  227.0
+                ],
+                "velocity_px_per_s": [
+                  -160.0,
+                  0.0
+                ],
+                "speed_px_per_s": 160.0,
+                "samples": 18,
+                "time_span_seconds": 2.0,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 1.0,
+                "coordinate_space": "image_pixels"
+              }
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "config": {
+          "coordinate_space": "image_pixels",
+          "person_classes": [
+            "person"
+          ],
+          "vehicle_classes": [
+            "car",
+            "truck",
+            "bus",
+            "motorcycle",
+            "train",
+            "forklift"
+          ],
+          "operating_zones": [],
+          "restricted_zones": [],
+          "interaction_radius_px": 260.0,
+          "critical_radius_px": 70.0,
+          "closing_speed_reference_px_per_s": 160.0,
+          "conflict_radius_px": 90.0,
+          "trajectory_miss_radius_px": 320.0,
+          "prediction_horizon_seconds": 6.0,
+          "persistence_violation_threshold": 3,
+          "escalation_signal_threshold": 0.2,
+          "weights": {
+            "proximity": 30.0,
+            "closing_speed": 25.0,
+            "trajectory": 25.0,
+            "zone": 20.0,
+            "persistence": 15.0
+          },
+          "thresholds": {
+            "image_pixels": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "ground_plane_meters": {
+              "coordinate_space": "ground_plane_meters",
+              "interaction_radius_m": 6.5,
+              "critical_radius_m": 1.5,
+              "conflict_radius_m": 2.0,
+              "miss_radius_m": 8.0,
+              "unsafe_separation_m": 2.0,
+              "closing_speed_reference_m_per_s": 4.0,
+              "closing_speed_floor_m_per_s": 0.25
+            }
+          },
+          "thresholds_note": "pixel and metre thresholds are configured independently; neither is derived from the other"
+        },
+        "entities_considered": [
+          "person_1",
+          "truck_2"
+        ],
+        "candidates_evaluated": 2,
+        "configured_coordinate_space": "image_pixels",
+        "scoring_coordinate_space": "image_pixels",
+        "spaces_used": {
+          "image_pixels": 1
+        },
+        "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+        "calibration": null
+      }
+    },
+    {
+      "timestamp": 2.65,
+      "coordinate_space": "image_pixels",
+      "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+      "max_risk_score": 9.0,
+      "severity": "normal",
+      "assessment_count": 1,
+      "assessments": [
+        {
+          "risk_score": 9.0,
+          "severity": "normal",
+          "incident_type": "CLOSE_PROXIMITY",
+          "involved_entity_ids": [
+            "person_1",
+            "truck_2"
+          ],
+          "timestamp": 2.65,
+          "confidence": 1.0,
+          "predicted_time_to_incident_seconds": null,
+          "prediction_outcome": "NO_PREDICTED_CONFLICT",
+          "time_to_risk": {
+            "status": "not_predicted",
+            "seconds": null,
+            "coordinate_space": "image_pixels",
+            "units": "pixels",
+            "reason": "threshold not reached within the prediction horizon",
+            "unsafe_separation_threshold_px": 90.0
+          },
+          "space_fallback_reason": null,
+          "contributing_factors": [
+            {
+              "name": "proximity",
+              "score": 0.3,
+              "weight": 30.0,
+              "contribution": 9.0006,
+              "confidence": 1.0,
+              "rationale": "person_1 and truck_2 are 203px apart in image space (critical below 70px)",
+              "evidence_event_ids": [
+                "evt_000043",
+                "evt_000044",
+                "evt_000047",
+                "evt_000045",
+                "evt_000046",
+                "evt_000048"
+              ],
+              "details": {
+                "separation_px": 202.996,
+                "interaction_radius_px": 260.0,
+                "critical_radius_px": 70.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "closing_speed",
+              "score": 0.0,
+              "weight": 25.0,
+              "contribution": 0.0,
+              "confidence": 1.0,
+              "rationale": "gap is separating (-277px/s closing speed in image space)",
+              "evidence_event_ids": [
+                "evt_000043",
+                "evt_000044",
+                "evt_000047",
+                "evt_000045",
+                "evt_000046",
+                "evt_000048"
+              ],
+              "details": {
+                "is_converging": false,
+                "closing_speed_px_per_s": -277.246,
+                "separation_px": 202.996,
+                "reference_px_per_s": 160.0
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "trajectory",
+              "score": 0.0,
+              "weight": 25.0,
+              "contribution": 0.0,
+              "confidence": 1.0,
+              "rationale": "closest approach is in the past; person_1 and truck_2 are moving apart",
+              "evidence_event_ids": [],
+              "details": {
+                "is_converging": false,
+                "closing_speed_px_per_s": -277.246
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "zone",
+              "score": 0.0,
+              "weight": 20.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating zones configured",
+              "evidence_event_ids": [],
+              "details": {
+                "zone_occupancy": {
+                  "person_1": [],
+                  "truck_2": []
+                }
+              },
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "persistence",
+              "score": 0.0,
+              "weight": 15.0,
+              "contribution": 0.0,
+              "confidence": 0.0,
+              "rationale": "no operating or restricted zones configured",
+              "evidence_event_ids": [],
+              "details": {},
+              "coordinate_space": "image_pixels"
+            },
+            {
+              "name": "escalation",
+              "score": 0.25,
+              "weight": 0.0,
+              "contribution": 0.0,
+              "confidence": 1.0,
+              "rationale": "1 corroborating signal(s); no escalation applied",
+              "evidence_event_ids": [
+                "evt_000043",
+                "evt_000044",
+                "evt_000047",
+                "evt_000045",
+                "evt_000046",
+                "evt_000048"
+              ],
+              "details": {
+                "multiplier": 1.0,
+                "signal_count": 1,
+                "signal_names": [
+                  "proximity"
+                ],
+                "signal_threshold": 0.2
+              },
+              "coordinate_space": "image_pixels"
+            }
+          ],
+          "evidence_event_ids": [
+            "evt_000043",
+            "evt_000044",
+            "evt_000047",
+            "evt_000045",
+            "evt_000046",
+            "evt_000048"
+          ],
+          "recommended_intervention": "monitor only: entities are near each other but nothing is developing",
+          "escalation_multiplier": 1.0,
+          "coordinate_space": "image_pixels",
+          "details": {
+            "candidate_kind": "person_vehicle_pair",
+            "coordinate_space": "image_pixels",
+            "units": "px",
+            "thresholds": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "prediction": {
+              "entity_ids": [
+                "person_1",
+                "truck_2"
+              ],
+              "coordinate_space": "image_pixels",
+              "units": "pixels",
+              "outcome": "NO_PREDICTED_CONFLICT",
+              "horizon_seconds": 6.0,
+              "enters_unsafe_separation": false,
+              "is_converging": false,
+              "in_calibrated_region": true,
+              "current_separation_px": 202.996,
+              "minimum_separation_px": 202.996,
+              "unsafe_separation_threshold_px": 90.0,
+              "conflict_radius_px": 90.0,
+              "closing_speed_px_per_s": -277.246,
+              "seconds_to_minimum_separation": 0.0,
+              "separation_curve": [
+                {
+                  "seconds_ahead": 0.0,
+                  "separation_px": 202.996
+                },
+                {
+                  "seconds_ahead": 0.25,
+                  "separation_px": 272.484
+                },
+                {
+                  "seconds_ahead": 0.5,
+                  "separation_px": 342.181
+                },
+                {
+                  "seconds_ahead": 0.75,
+                  "separation_px": 411.98
+                },
+                {
+                  "seconds_ahead": 1.0,
+                  "separation_px": 481.838
+                },
+                {
+                  "seconds_ahead": 1.25,
+                  "separation_px": 551.731
+                },
+                {
+                  "seconds_ahead": 1.5,
+                  "separation_px": 621.649
+                },
+                {
+                  "seconds_ahead": 1.75,
+                  "separation_px": 691.583
+                },
+                {
+                  "seconds_ahead": 2.0,
+                  "separation_px": 761.53
+                },
+                {
+                  "seconds_ahead": 2.25,
+                  "separation_px": 831.485
+                },
+                {
+                  "seconds_ahead": 2.5,
+                  "separation_px": 901.447
+                },
+                {
+                  "seconds_ahead": 2.75,
+                  "separation_px": 971.415
+                },
+                {
+                  "seconds_ahead": 3.0,
+                  "separation_px": 1041.387
+                },
+                {
+                  "seconds_ahead": 3.25,
+                  "separation_px": 1111.363
+                },
+                {
+                  "seconds_ahead": 3.5,
+                  "separation_px": 1181.341
+                },
+                {
+                  "seconds_ahead": 3.75,
+                  "separation_px": 1251.322
+                },
+                {
+                  "seconds_ahead": 4.0,
+                  "separation_px": 1321.305
+                },
+                {
+                  "seconds_ahead": 4.25,
+                  "separation_px": 1391.29
+                },
+                {
+                  "seconds_ahead": 4.5,
+                  "separation_px": 1461.276
+                },
+                {
+                  "seconds_ahead": 4.75,
+                  "separation_px": 1531.263
+                },
+                {
+                  "seconds_ahead": 5.0,
+                  "separation_px": 1601.252
+                },
+                {
+                  "seconds_ahead": 5.25,
+                  "separation_px": 1671.241
+                },
+                {
+                  "seconds_ahead": 5.5,
+                  "separation_px": 1741.232
+                },
+                {
+                  "seconds_ahead": 5.75,
+                  "separation_px": 1811.223
+                },
+                {
+                  "seconds_ahead": 6.0,
+                  "separation_px": 1881.214
+                }
+              ]
+            },
+            "subtotal_points": 9.0006,
+            "base_points": 9.0006,
+            "persistence_points": 0.0,
+            "motions": {
+              "person_1": {
+                "entity_id": "person_1",
+                "class_name": "person",
+                "timestamp": 2.65,
+                "position_px": [
+                  352.0,
+                  198.6
+                ],
+                "velocity_px_per_s": [
+                  120.0,
+                  0.0
+                ],
+                "speed_px_per_s": 120.0,
+                "samples": 19,
+                "time_span_seconds": 1.9,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 1.0,
+                "coordinate_space": "image_pixels"
+              },
+              "truck_2": {
+                "entity_id": "truck_2",
+                "class_name": "truck",
+                "timestamp": 2.65,
+                "position_px": [
+                  151.0,
+                  227.0
+                ],
+                "velocity_px_per_s": [
+                  -160.0,
+                  0.0
+                ],
+                "speed_px_per_s": 160.0,
+                "samples": 19,
+                "time_span_seconds": 1.95,
+                "is_estimable": true,
+                "is_stationary": false,
+                "confidence": 1.0,
+                "coordinate_space": "image_pixels"
+              }
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "config": {
+          "coordinate_space": "image_pixels",
+          "person_classes": [
+            "person"
+          ],
+          "vehicle_classes": [
+            "car",
+            "truck",
+            "bus",
+            "motorcycle",
+            "train",
+            "forklift"
+          ],
+          "operating_zones": [],
+          "restricted_zones": [],
+          "interaction_radius_px": 260.0,
+          "critical_radius_px": 70.0,
+          "closing_speed_reference_px_per_s": 160.0,
+          "conflict_radius_px": 90.0,
+          "trajectory_miss_radius_px": 320.0,
+          "prediction_horizon_seconds": 6.0,
+          "persistence_violation_threshold": 3,
+          "escalation_signal_threshold": 0.2,
+          "weights": {
+            "proximity": 30.0,
+            "closing_speed": 25.0,
+            "trajectory": 25.0,
+            "zone": 20.0,
+            "persistence": 15.0
+          },
+          "thresholds": {
+            "image_pixels": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "ground_plane_meters": {
+              "coordinate_space": "ground_plane_meters",
+              "interaction_radius_m": 6.5,
+              "critical_radius_m": 1.5,
+              "conflict_radius_m": 2.0,
+              "miss_radius_m": 8.0,
+              "unsafe_separation_m": 2.0,
+              "closing_speed_reference_m_per_s": 4.0,
+              "closing_speed_floor_m_per_s": 0.25
+            }
+          },
+          "thresholds_note": "pixel and metre thresholds are configured independently; neither is derived from the other"
+        },
+        "entities_considered": [
+          "person_1",
+          "truck_2"
+        ],
+        "candidates_evaluated": 2,
+        "configured_coordinate_space": "image_pixels",
+        "scoring_coordinate_space": "image_pixels",
+        "spaces_used": {
+          "image_pixels": 1
+        },
+        "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+        "calibration": null
+      }
+    },
+    {
+      "timestamp": 2.85,
+      "coordinate_space": "image_pixels",
+      "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+      "max_risk_score": 0.0,
+      "severity": "normal",
+      "assessment_count": 0,
+      "assessments": [],
+      "metadata": {
+        "config": {
+          "coordinate_space": "image_pixels",
+          "person_classes": [
+            "person"
+          ],
+          "vehicle_classes": [
+            "car",
+            "truck",
+            "bus",
+            "motorcycle",
+            "train",
+            "forklift"
+          ],
+          "operating_zones": [],
+          "restricted_zones": [],
+          "interaction_radius_px": 260.0,
+          "critical_radius_px": 70.0,
+          "closing_speed_reference_px_per_s": 160.0,
+          "conflict_radius_px": 90.0,
+          "trajectory_miss_radius_px": 320.0,
+          "prediction_horizon_seconds": 6.0,
+          "persistence_violation_threshold": 3,
+          "escalation_signal_threshold": 0.2,
+          "weights": {
+            "proximity": 30.0,
+            "closing_speed": 25.0,
+            "trajectory": 25.0,
+            "zone": 20.0,
+            "persistence": 15.0
+          },
+          "thresholds": {
+            "image_pixels": {
+              "coordinate_space": "image_pixels",
+              "interaction_radius_px": 260.0,
+              "critical_radius_px": 70.0,
+              "conflict_radius_px": 90.0,
+              "miss_radius_px": 320.0,
+              "unsafe_separation_px": 90.0,
+              "closing_speed_reference_px_per_s": 160.0,
+              "closing_speed_floor_px_per_s": 10.0
+            },
+            "ground_plane_meters": {
+              "coordinate_space": "ground_plane_meters",
+              "interaction_radius_m": 6.5,
+              "critical_radius_m": 1.5,
+              "conflict_radius_m": 2.0,
+              "miss_radius_m": 8.0,
+              "unsafe_separation_m": 2.0,
+              "closing_speed_reference_m_per_s": 4.0,
+              "closing_speed_floor_m_per_s": 0.25
+            }
+          },
+          "thresholds_note": "pixel and metre thresholds are configured independently; neither is derived from the other"
+        },
+        "entities_considered": [
+          "person_1",
+          "truck_2"
+        ],
+        "candidates_evaluated": 2,
+        "configured_coordinate_space": "image_pixels",
+        "scoring_coordinate_space": "image_pixels",
+        "spaces_used": {},
+        "score_interpretation": "0-100 ordinal risk score; NOT a calibrated probability",
+        "calibration": null
+      }
+    }
+  ]
+}

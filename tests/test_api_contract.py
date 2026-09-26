@@ -512,6 +512,24 @@ def test_the_original_video_is_served_back_unmodified(client, analysis_id, video
     assert response.content == video_bytes, "the server must not re-encode the upload"
 
 
+def test_the_video_is_served_inline_so_a_browser_can_play_it(client, analysis_id):
+    """`attachment` makes a browser download the file instead of playing it.
+
+    The frontend renders the original video in a media element, so the
+    disposition is part of the contract, not a detail.
+    """
+    response = client.get(f"/api/analyze/{analysis_id}/video")
+    disposition = response.headers["content-disposition"]
+    assert disposition.startswith("inline")
+    assert "attachment" not in disposition
+    assert response.headers["content-type"] == "video/mp4"
+
+
+def test_the_video_route_supports_range_requests(client, analysis_id):
+    """Seeking in the player asks for byte ranges."""
+    assert client.get(f"/api/analyze/{analysis_id}/video").headers["accept-ranges"] == "bytes"
+
+
 def test_the_video_route_404s_for_an_unknown_analysis(client):
     assert client.get("/api/analyze/nope/video").status_code == 404
 

@@ -1,0 +1,41 @@
+{
+  "selected": {
+    "kind": "cpu",
+    "semantic_device": "cpu",
+    "label": "CPU",
+    "torch_device": "cpu",
+    "name": "cpu",
+    "index": null,
+    "runtime_version": null,
+    "requested": "auto"
+  },
+  "available": [
+    {
+      "kind": "cpu",
+      "semantic_device": "cpu",
+      "label": "CPU",
+      "torch_device": "cpu",
+      "name": "cpu",
+      "index": null,
+      "runtime_version": null,
+      "requested": null
+    }
+  ],
+  "environment": {
+    "os": "Linux 6.18.44-fc-v37 (x86_64)",
+    "python": "3.11.15",
+    "torch": "2.14.0+cu130",
+    "ultralytics": "8.4.146",
+    "opencv": "5.0.0",
+    "numpy": "2.4.6",
+    "hip": null,
+    "cuda": "13.0",
+    "rocm_build": false,
+    "gpu_kind": null,
+    "gpus": [],
+    "mps": false,
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+    "cpu_count": 4,
+    "ram_gb": 15.7
+  }
+}

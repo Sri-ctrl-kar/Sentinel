@@ -4,7 +4,7 @@
 
 Sentinel is a multimodal predictive incident-intelligence system.
 
-## Current milestone: M0.8 — AMD ROCm Acceleration & Benchmarking
+## Current milestone: M0.9 — API & Command Center
 
 ```
 video → detection → tracking → events → temporal memory → calibration
@@ -66,7 +66,21 @@ frames, model load excluded, same workload on both devices): inference
 claim. See [AMD ROCm acceleration](#amd-rocm-acceleration-m08) and
 [`benchmarks/`](benchmarks/).
 
+**M0.9** puts Sentinel in front of a person. A thin FastAPI adapter
+(`app/api/`) runs the existing pipeline over an uploaded video and serialises
+what the existing objects already produce — events, risk timeline, per-frame
+tracks, incident evidence, AI explanation, grounding verdict. A React command
+center (`frontend/`) renders it: the original video with track overlay, the
+risk signal and time-to-risk, the predicted incident marked as *predicted*, the
+grounded reasons, a clickable event timeline, and the provenance of every claim.
+See [API and command center](#api-and-command-center-m09).
+
 ```bash
+# one terminal
+uvicorn app.api.server:app --reload --port 8000
+# another
+cd frontend && npm install && npm run dev        # http://127.0.0.1:5173
+
 python -m app.benchmark --info                        # what hardware is here
 python -m app.benchmark --video clip.mp4 --device cpu # measure it
 python -m app.incident --scenario D --reasoner mock   # no key, no network
@@ -147,6 +161,13 @@ app/
 │   ├── harness.py                   the real pipeline, measured on one device
 │   ├── compare.py                   speedup + CPU/GPU correctness parity
 │   └── __main__.py                  --info / --video / --compare / --parity
+│
+├── api/                             ── LAYER 7: over HTTP (M0.9)
+│   ├── server.py                    create_app(), CORS, /api/health
+│   ├── store.py                     in-memory analyses + upload dir
+│   ├── runner.py                    the frame loop, keeping per-frame tracks
+│   ├── schemas.py                   Pydantic mirrors of the core payloads
+│   └── routes/{analysis,incident}.py
 │
 ├── incident.py                      the M0.7 demo command
 ├── storage/memory.py                flat event log + JSON persistence
@@ -1515,6 +1536,75 @@ makes every later optimisation unmeasurable:
 
 ---
 
+## API and command center (M0.9)
+
+M0.9 adds two things and changes none of the seven milestones under them: an
+HTTP adapter around the validated pipeline, and a browser client for it.
+
+### The API
+
+```bash
+pip install -r requirements-api.txt
+uvicorn app.api.server:app --reload --port 8000
+# interactive docs at http://127.0.0.1:8000/docs
+```
+
+| Route | Returns |
+| --- | --- |
+| `POST /api/analyze` | 202 + `analysis_id`; the upload runs in the background |
+| `GET /api/analyze/{id}` | `queued` / `running` / `complete` / `failed`, progress, pipeline summary, error |
+| `GET /api/analyze/{id}/events` | the temporal event stream + folded entity states |
+| `GET /api/analyze/{id}/risk` | `RiskEngine.assess_timeline()`, worst moment, score disclaimer |
+| `GET /api/analyze/{id}/timeline` | per-frame tracks, events and risk — what an overlay draws from |
+| `GET /api/analyze/{id}/incident` | evidence → explanation → grounding, the M0.7 chain over video |
+| `GET /api/analyze/{id}/video` | the original upload, byte for byte, served inline |
+| `GET /api/device` | the semantic device (`cpu`/`rocm`/`cuda`/`mps`) and host metadata |
+
+Every route is an adapter: it validates input, calls a validated object, and
+serialises that object's own `to_dict()`. Nothing about perception, tracking,
+events, risk or grounding is computed in `app/api/`, and a test asserts the
+same clip through the API runner and through `PerceptionPipeline.run()`
+produces identical events, entities, counts and risk.
+
+FastAPI and Uvicorn are optional — nothing outside `app/api/` imports a web
+framework, and the full suite passes with them uninstalled.
+
+### The command center
+
+```bash
+cd frontend && npm install && npm run dev      # http://127.0.0.1:5173
+```
+
+React 19 + Vite + TypeScript, ~250 KB of JS, two runtime dependencies. It reads
+the API and nothing else. See [`frontend/README.md`](frontend/README.md) for
+the API base URL, tests and layout.
+
+What it shows, in the order an operator asks:
+
+* **SEE** — the original video with the tracker's own boxes drawn over it in
+  SVG. The server never draws on the video.
+* **UNDERSTAND** — the risk score as `n/100` with its severity band, the moment
+  it was assessed, and **time to risk**: a countdown when predicted, `UNSAFE
+  NOW` when the engine says the threshold is already crossed, `unavailable`
+  plus the engine's reason when it is not predicted.
+* **PREDICT** — the incident, badged `PREDICTED — has not happened` or
+  `CURRENT — happening now`, never blurred.
+* **WHY THIS ALERT?** — the factors that actually scored, each with the
+  engine's own rationale and point contribution, and every measurement with its
+  unit.
+* **Event timeline** — every recorded event and every severity change; clicking
+  one seeks the video.
+* **Lifecycle** — the engine's five states, with the current one marked.
+* **Provenance** — device, model, backend, coordinate space, grounding verdict,
+  and the line that matters: *risk score is an engineering risk signal, not a
+  probability*. Anything the API does not report reads "not reported".
+
+Honesty rules are enforced in code and in tests: no invented numbers, no
+probability language, no predicted event shown as past, no fabricated progress,
+and an AMD device labelled `AMD ROCm / HIP` rather than CUDA.
+
+---
+
 ## Setup
 
 Python 3.9+.
@@ -1956,6 +2046,13 @@ own response models, and the SDK error hierarchy translated into reasoner
 errors. That last file skips cleanly when `anthropic` is not installed. None of
 them touches the network.
 
+`tests/test_api_contract.py` and `tests/test_api_runner.py` cover the M0.9
+API: upload validation, the status state machine, event/risk/track/incident/
+grounding serialisation, failure handling, device metadata, CORS, and the
+guarantee that the API's frame loop reproduces the pipeline exactly. The
+frontend has its own suite — `cd frontend && npm test` — whose fixtures were
+captured from the running API rather than written by hand.
+
 `tests/test_accel_device.py` and `tests/test_perf_benchmark.py` cover M0.8: CPU
 selection with and without torch, ROCm detection through a faked HIP runtime,
 the refusal to substitute a device that was named (`rocm` on an NVIDIA box
@@ -2167,10 +2264,28 @@ the calibration, so:
 - **Parity is checked between two runs of the same code**, so it can catch a
   device-dependent difference but not a bug present on both devices.
 
+### The API and frontend (M0.9)
+
+- **Single process, in memory.** Analyses live until the server restarts.
+  There is no database, no queue and no worker pool — deliberate for a demo,
+  insufficient for a deployment.
+- **No authentication and no rate limit.** Anyone who can reach the port can
+  upload. Bind it to localhost.
+- **Uploads are temporary.** The video is written to a temp directory and
+  deleted with the analysis.
+- **The browser needs a codec it can decode.** Sentinel analyses anything
+  OpenCV opens; a browser plays H.264/MP4. The clips generated by `scripts/`
+  use `mp4v` and will not render, though every panel still works — see
+  `frontend/README.md`.
+- **Precision is not reported by the API**, so the provenance panel says "not
+  reported" rather than asserting FP32.
+- **One analysis at a time in the UI.** No history, no comparison, no
+  multi-camera view.
+
 ### Not yet built
 
-Frontend, audio, autonomous agents, counterfactual simulation, database
-persistence.
+Audio, autonomous agents, counterfactual simulation, database persistence,
+authentication.
 
 ---
 
@@ -2218,7 +2333,12 @@ the reproducible perception benchmark with separated model-load/inference/
 pipeline timings and nearest-rank percentiles, the CPU baseline, CPU/GPU
 correctness parity with documented tolerances, and the `--info` diagnostic.
 
-**Not yet:** frontend, audio, agents, counterfactual simulation, database.
+**In M0.9:** the FastAPI adapter (upload, status, events, risk, per-frame
+timeline, incident, video passthrough, device), per-frame track collection at
+the API boundary, and the React command center that renders all of it.
+
+**Not yet:** audio, agents, counterfactual simulation, database, authentication,
+multi-camera.
 
 ---
 

@@ -1,0 +1,2149 @@
+{
+  "analysis_id": "demo-analysis",
+  "coordinate_space": "image_pixels",
+  "frame_count": 60,
+  "returned": 24,
+  "offset": 18,
+  "video": {
+    "path": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4",
+    "width": 640,
+    "height": 384,
+    "fps": 20.0,
+    "frame_count": 60,
+    "duration_seconds": 3.0
+  },
+  "frames": [
+    {
+      "frame_index": 18,
+      "timestamp": 0.9,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            128.0,
+            153.6,
+            168.0,
+            243.6
+          ],
+          "position": [
+            148.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 19,
+          "hits": 19
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            376.0,
+            192.0,
+            486.0,
+            262.0
+          ],
+          "position": [
+            431.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 19,
+          "hits": 19
+        }
+      ],
+      "events": [
+        {
+          "event_id": "evt_000015",
+          "timestamp": 0.9,
+          "frame_index": 18,
+          "entity_id": "person_1",
+          "track_id": 1,
+          "action": "detected",
+          "position": [
+            148.0,
+            198.6
+          ],
+          "bbox": [
+            128.0,
+            153.6,
+            168.0,
+            243.6
+          ],
+          "coordinate_space": "image_pixels",
+          "attributes": {
+            "class_name": "person",
+            "class_id": 0,
+            "confidence": 0.9,
+            "track_age": 19,
+            "visible_for_seconds": 0.85
+          },
+          "zones": [],
+          "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+        }
+      ],
+      "risk": {
+        "timestamp": 0.85,
+        "risk_score": 49.81,
+        "severity": "medium",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "predicted",
+          "seconds": 0.827,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 19,
+      "timestamp": 0.95,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            134.0,
+            153.6,
+            174.0,
+            243.6
+          ],
+          "position": [
+            154.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 20,
+          "hits": 20
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            368.0,
+            192.0,
+            478.0,
+            262.0
+          ],
+          "position": [
+            423.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 20,
+          "hits": 20
+        }
+      ],
+      "events": [
+        {
+          "event_id": "evt_000016",
+          "timestamp": 0.95,
+          "frame_index": 19,
+          "entity_id": "truck_2",
+          "track_id": 2,
+          "action": "detected",
+          "position": [
+            423.0,
+            227.0
+          ],
+          "bbox": [
+            368.0,
+            192.0,
+            478.0,
+            262.0
+          ],
+          "coordinate_space": "image_pixels",
+          "attributes": {
+            "class_name": "truck",
+            "class_id": 7,
+            "confidence": 0.82,
+            "track_age": 20,
+            "visible_for_seconds": 0.9
+          },
+          "zones": [],
+          "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+        }
+      ],
+      "risk": {
+        "timestamp": 0.85,
+        "risk_score": 49.81,
+        "severity": "medium",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "predicted",
+          "seconds": 0.827,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 20,
+      "timestamp": 1.0,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            140.0,
+            153.6,
+            180.0,
+            243.6
+          ],
+          "position": [
+            160.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 21,
+          "hits": 21
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            360.0,
+            192.0,
+            470.0,
+            262.0
+          ],
+          "position": [
+            415.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 21,
+          "hits": 21
+        }
+      ],
+      "events": [],
+      "risk": {
+        "timestamp": 1.05,
+        "risk_score": 54.07,
+        "severity": "medium",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "predicted",
+          "seconds": 0.556,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 21,
+      "timestamp": 1.05,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            146.0,
+            153.6,
+            186.0,
+            243.6
+          ],
+          "position": [
+            166.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 22,
+          "hits": 22
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            352.0,
+            192.0,
+            462.0,
+            262.0
+          ],
+          "position": [
+            407.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 22,
+          "hits": 22
+        }
+      ],
+      "events": [
+        {
+          "event_id": "evt_000017",
+          "timestamp": 1.05,
+          "frame_index": 21,
+          "entity_id": "person_1",
+          "track_id": 1,
+          "action": "detected",
+          "position": [
+            166.0,
+            198.6
+          ],
+          "bbox": [
+            146.0,
+            153.6,
+            186.0,
+            243.6
+          ],
+          "coordinate_space": "image_pixels",
+          "attributes": {
+            "class_name": "person",
+            "class_id": 0,
+            "confidence": 0.9,
+            "track_age": 22,
+            "visible_for_seconds": 1.0
+          },
+          "zones": [],
+          "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+        },
+        {
+          "event_id": "evt_000018",
+          "timestamp": 1.05,
+          "frame_index": 21,
+          "entity_id": "truck_2",
+          "track_id": 2,
+          "action": "moved",
+          "position": [
+            407.0,
+            227.0
+          ],
+          "bbox": [
+            352.0,
+            192.0,
+            462.0,
+            262.0
+          ],
+          "coordinate_space": "image_pixels",
+          "attributes": {
+            "class_name": "truck",
+            "class_id": 7,
+            "confidence": 0.82,
+            "track_age": 22,
+            "displacement_px": 40.0,
+            "from_position": [
+              447.0,
+              227.0
+            ],
+            "speed_px_per_frame": 8.0
+          },
+          "zones": [],
+          "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+        }
+      ],
+      "risk": {
+        "timestamp": 1.05,
+        "risk_score": 54.07,
+        "severity": "medium",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "predicted",
+          "seconds": 0.556,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 22,
+      "timestamp": 1.1,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            152.0,
+            153.6,
+            192.0,
+            243.6
+          ],
+          "position": [
+            172.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 23,
+          "hits": 23
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            344.0,
+            192.0,
+            454.0,
+            262.0
+          ],
+          "position": [
+            399.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 23,
+          "hits": 23
+        }
+      ],
+      "events": [
+        {
+          "event_id": "evt_000019",
+          "timestamp": 1.1,
+          "frame_index": 22,
+          "entity_id": "person_1",
+          "track_id": 1,
+          "action": "moved",
+          "position": [
+            172.0,
+            198.6
+          ],
+          "bbox": [
+            152.0,
+            153.6,
+            192.0,
+            243.6
+          ],
+          "coordinate_space": "image_pixels",
+          "attributes": {
+            "class_name": "person",
+            "class_id": 0,
+            "confidence": 0.9,
+            "track_age": 23,
+            "displacement_px": 42.0,
+            "from_position": [
+              130.0,
+              198.6
+            ],
+            "speed_px_per_frame": 6.0
+          },
+          "zones": [],
+          "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+        }
+      ],
+      "risk": {
+        "timestamp": 1.05,
+        "risk_score": 54.07,
+        "severity": "medium",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "predicted",
+          "seconds": 0.556,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 23,
+      "timestamp": 1.15,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            158.0,
+            153.6,
+            198.0,
+            243.6
+          ],
+          "position": [
+            178.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 24,
+          "hits": 24
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            336.0,
+            192.0,
+            446.0,
+            262.0
+          ],
+          "position": [
+            391.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 24,
+          "hits": 24
+        }
+      ],
+      "events": [],
+      "risk": {
+        "timestamp": 1.05,
+        "risk_score": 54.07,
+        "severity": "medium",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "predicted",
+          "seconds": 0.556,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 24,
+      "timestamp": 1.2,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            164.0,
+            153.6,
+            204.0,
+            243.6
+          ],
+          "position": [
+            184.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 25,
+          "hits": 25
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            328.0,
+            192.0,
+            438.0,
+            262.0
+          ],
+          "position": [
+            383.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 25,
+          "hits": 25
+        }
+      ],
+      "events": [
+        {
+          "event_id": "evt_000020",
+          "timestamp": 1.2,
+          "frame_index": 24,
+          "entity_id": "truck_2",
+          "track_id": 2,
+          "action": "detected",
+          "position": [
+            383.0,
+            227.0
+          ],
+          "bbox": [
+            328.0,
+            192.0,
+            438.0,
+            262.0
+          ],
+          "coordinate_space": "image_pixels",
+          "attributes": {
+            "class_name": "truck",
+            "class_id": 7,
+            "confidence": 0.82,
+            "track_age": 25,
+            "visible_for_seconds": 1.15
+          },
+          "zones": [],
+          "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+        }
+      ],
+      "risk": {
+        "timestamp": 1.25,
+        "risk_score": 68.85,
+        "severity": "high",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "predicted",
+          "seconds": 0.384,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 25,
+      "timestamp": 1.25,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            170.0,
+            153.6,
+            210.0,
+            243.6
+          ],
+          "position": [
+            190.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 26,
+          "hits": 26
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            320.0,
+            192.0,
+            430.0,
+            262.0
+          ],
+          "position": [
+            375.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 26,
+          "hits": 26
+        }
+      ],
+      "events": [
+        {
+          "event_id": "evt_000021",
+          "timestamp": 1.25,
+          "frame_index": 25,
+          "entity_id": "person_1",
+          "track_id": 1,
+          "action": "detected",
+          "position": [
+            190.0,
+            198.6
+          ],
+          "bbox": [
+            170.0,
+            153.6,
+            210.0,
+            243.6
+          ],
+          "coordinate_space": "image_pixels",
+          "attributes": {
+            "class_name": "person",
+            "class_id": 0,
+            "confidence": 0.9,
+            "track_age": 26,
+            "visible_for_seconds": 1.2
+          },
+          "zones": [],
+          "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+        }
+      ],
+      "risk": {
+        "timestamp": 1.25,
+        "risk_score": 68.85,
+        "severity": "high",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "predicted",
+          "seconds": 0.384,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 26,
+      "timestamp": 1.3,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            176.0,
+            153.6,
+            216.0,
+            243.6
+          ],
+          "position": [
+            196.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 27,
+          "hits": 27
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            312.0,
+            192.0,
+            422.0,
+            262.0
+          ],
+          "position": [
+            367.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 27,
+          "hits": 27
+        }
+      ],
+      "events": [
+        {
+          "event_id": "evt_000022",
+          "timestamp": 1.3,
+          "frame_index": 26,
+          "entity_id": "truck_2",
+          "track_id": 2,
+          "action": "moved",
+          "position": [
+            367.0,
+            227.0
+          ],
+          "bbox": [
+            312.0,
+            192.0,
+            422.0,
+            262.0
+          ],
+          "coordinate_space": "image_pixels",
+          "attributes": {
+            "class_name": "truck",
+            "class_id": 7,
+            "confidence": 0.82,
+            "track_age": 27,
+            "displacement_px": 40.0,
+            "from_position": [
+              407.0,
+              227.0
+            ],
+            "speed_px_per_frame": 8.0
+          },
+          "zones": [],
+          "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+        }
+      ],
+      "risk": {
+        "timestamp": 1.25,
+        "risk_score": 68.85,
+        "severity": "high",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "predicted",
+          "seconds": 0.384,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 27,
+      "timestamp": 1.35,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            182.0,
+            153.6,
+            222.0,
+            243.6
+          ],
+          "position": [
+            202.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 28,
+          "hits": 28
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            304.0,
+            192.0,
+            414.0,
+            262.0
+          ],
+          "position": [
+            359.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 28,
+          "hits": 28
+        }
+      ],
+      "events": [
+        {
+          "event_id": "evt_000023",
+          "timestamp": 1.35,
+          "frame_index": 27,
+          "entity_id": "person_1",
+          "track_id": 1,
+          "action": "detected",
+          "position": [
+            202.0,
+            198.6
+          ],
+          "bbox": [
+            182.0,
+            153.6,
+            222.0,
+            243.6
+          ],
+          "coordinate_space": "image_pixels",
+          "attributes": {
+            "class_name": "person",
+            "class_id": 0,
+            "confidence": 0.9,
+            "track_age": 28,
+            "visible_for_seconds": 1.3
+          },
+          "zones": [],
+          "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+        }
+      ],
+      "risk": {
+        "timestamp": 1.45,
+        "risk_score": 81.93,
+        "severity": "high",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "predicted",
+          "seconds": 0.156,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 28,
+      "timestamp": 1.4,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            188.0,
+            153.6,
+            228.0,
+            243.6
+          ],
+          "position": [
+            208.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 29,
+          "hits": 29
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            296.0,
+            192.0,
+            406.0,
+            262.0
+          ],
+          "position": [
+            351.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 29,
+          "hits": 29
+        }
+      ],
+      "events": [],
+      "risk": {
+        "timestamp": 1.45,
+        "risk_score": 81.93,
+        "severity": "high",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "predicted",
+          "seconds": 0.156,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 29,
+      "timestamp": 1.45,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            194.0,
+            153.6,
+            234.0,
+            243.6
+          ],
+          "position": [
+            214.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 30,
+          "hits": 30
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            288.0,
+            192.0,
+            398.0,
+            262.0
+          ],
+          "position": [
+            343.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 30,
+          "hits": 30
+        }
+      ],
+      "events": [
+        {
+          "event_id": "evt_000024",
+          "timestamp": 1.45,
+          "frame_index": 29,
+          "entity_id": "person_1",
+          "track_id": 1,
+          "action": "moved",
+          "position": [
+            214.0,
+            198.6
+          ],
+          "bbox": [
+            194.0,
+            153.6,
+            234.0,
+            243.6
+          ],
+          "coordinate_space": "image_pixels",
+          "attributes": {
+            "class_name": "person",
+            "class_id": 0,
+            "confidence": 0.9,
+            "track_age": 30,
+            "displacement_px": 42.0,
+            "from_position": [
+              172.0,
+              198.6
+            ],
+            "speed_px_per_frame": 6.0
+          },
+          "zones": [],
+          "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+        },
+        {
+          "event_id": "evt_000025",
+          "timestamp": 1.45,
+          "frame_index": 29,
+          "entity_id": "truck_2",
+          "track_id": 2,
+          "action": "detected",
+          "position": [
+            343.0,
+            227.0
+          ],
+          "bbox": [
+            288.0,
+            192.0,
+            398.0,
+            262.0
+          ],
+          "coordinate_space": "image_pixels",
+          "attributes": {
+            "class_name": "truck",
+            "class_id": 7,
+            "confidence": 0.82,
+            "track_age": 30,
+            "visible_for_seconds": 1.4
+          },
+          "zones": [],
+          "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+        }
+      ],
+      "risk": {
+        "timestamp": 1.45,
+        "risk_score": 81.93,
+        "severity": "high",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "predicted",
+          "seconds": 0.156,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 30,
+      "timestamp": 1.5,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            200.0,
+            153.6,
+            240.0,
+            243.6
+          ],
+          "position": [
+            220.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 31,
+          "hits": 31
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            280.0,
+            192.0,
+            390.0,
+            262.0
+          ],
+          "position": [
+            335.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 31,
+          "hits": 31
+        }
+      ],
+      "events": [],
+      "risk": {
+        "timestamp": 1.45,
+        "risk_score": 81.93,
+        "severity": "high",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "predicted",
+          "seconds": 0.156,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 31,
+      "timestamp": 1.55,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            206.0,
+            153.6,
+            246.0,
+            243.6
+          ],
+          "position": [
+            226.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 32,
+          "hits": 32
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            272.0,
+            192.0,
+            382.0,
+            262.0
+          ],
+          "position": [
+            327.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 32,
+          "hits": 32
+        }
+      ],
+      "events": [
+        {
+          "event_id": "evt_000026",
+          "timestamp": 1.55,
+          "frame_index": 31,
+          "entity_id": "person_1",
+          "track_id": 1,
+          "action": "detected",
+          "position": [
+            226.0,
+            198.6
+          ],
+          "bbox": [
+            206.0,
+            153.6,
+            246.0,
+            243.6
+          ],
+          "coordinate_space": "image_pixels",
+          "attributes": {
+            "class_name": "person",
+            "class_id": 0,
+            "confidence": 0.9,
+            "track_age": 32,
+            "visible_for_seconds": 1.5
+          },
+          "zones": [],
+          "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+        },
+        {
+          "event_id": "evt_000027",
+          "timestamp": 1.55,
+          "frame_index": 31,
+          "entity_id": "truck_2",
+          "track_id": 2,
+          "action": "moved",
+          "position": [
+            327.0,
+            227.0
+          ],
+          "bbox": [
+            272.0,
+            192.0,
+            382.0,
+            262.0
+          ],
+          "coordinate_space": "image_pixels",
+          "attributes": {
+            "class_name": "truck",
+            "class_id": 7,
+            "confidence": 0.82,
+            "track_age": 32,
+            "displacement_px": 40.0,
+            "from_position": [
+              367.0,
+              227.0
+            ],
+            "speed_px_per_frame": 8.0
+          },
+          "zones": [],
+          "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+        }
+      ],
+      "risk": {
+        "timestamp": 1.65,
+        "risk_score": 87.58,
+        "severity": "high",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "predicted",
+          "seconds": 0.056,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 32,
+      "timestamp": 1.6,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            212.0,
+            153.6,
+            252.0,
+            243.6
+          ],
+          "position": [
+            232.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 33,
+          "hits": 33
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            264.0,
+            192.0,
+            374.0,
+            262.0
+          ],
+          "position": [
+            319.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 33,
+          "hits": 33
+        }
+      ],
+      "events": [],
+      "risk": {
+        "timestamp": 1.65,
+        "risk_score": 87.58,
+        "severity": "high",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "predicted",
+          "seconds": 0.056,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 33,
+      "timestamp": 1.65,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            218.0,
+            153.6,
+            258.0,
+            243.6
+          ],
+          "position": [
+            238.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 34,
+          "hits": 34
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            256.0,
+            192.0,
+            366.0,
+            262.0
+          ],
+          "position": [
+            311.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 34,
+          "hits": 34
+        }
+      ],
+      "events": [],
+      "risk": {
+        "timestamp": 1.65,
+        "risk_score": 87.58,
+        "severity": "high",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "predicted",
+          "seconds": 0.056,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 34,
+      "timestamp": 1.7,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            224.0,
+            153.6,
+            264.0,
+            243.6
+          ],
+          "position": [
+            244.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 35,
+          "hits": 35
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            248.0,
+            192.0,
+            358.0,
+            262.0
+          ],
+          "position": [
+            303.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 35,
+          "hits": 35
+        }
+      ],
+      "events": [
+        {
+          "event_id": "evt_000028",
+          "timestamp": 1.7,
+          "frame_index": 34,
+          "entity_id": "person_1",
+          "track_id": 1,
+          "action": "detected",
+          "position": [
+            244.0,
+            198.6
+          ],
+          "bbox": [
+            224.0,
+            153.6,
+            264.0,
+            243.6
+          ],
+          "coordinate_space": "image_pixels",
+          "attributes": {
+            "class_name": "person",
+            "class_id": 0,
+            "confidence": 0.9,
+            "track_age": 35,
+            "visible_for_seconds": 1.65
+          },
+          "zones": [],
+          "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+        },
+        {
+          "event_id": "evt_000029",
+          "timestamp": 1.7,
+          "frame_index": 34,
+          "entity_id": "truck_2",
+          "track_id": 2,
+          "action": "detected",
+          "position": [
+            303.0,
+            227.0
+          ],
+          "bbox": [
+            248.0,
+            192.0,
+            358.0,
+            262.0
+          ],
+          "coordinate_space": "image_pixels",
+          "attributes": {
+            "class_name": "truck",
+            "class_id": 7,
+            "confidence": 0.82,
+            "track_age": 35,
+            "visible_for_seconds": 1.65
+          },
+          "zones": [],
+          "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+        }
+      ],
+      "risk": {
+        "timestamp": 1.65,
+        "risk_score": 87.58,
+        "severity": "high",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "predicted",
+          "seconds": 0.056,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 35,
+      "timestamp": 1.75,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            230.0,
+            153.6,
+            270.0,
+            243.6
+          ],
+          "position": [
+            250.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 36,
+          "hits": 36
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            240.0,
+            192.0,
+            350.0,
+            262.0
+          ],
+          "position": [
+            295.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 36,
+          "hits": 36
+        }
+      ],
+      "events": [],
+      "risk": null
+    },
+    {
+      "frame_index": 36,
+      "timestamp": 1.8,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            236.0,
+            153.6,
+            276.0,
+            243.6
+          ],
+          "position": [
+            256.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 37,
+          "hits": 37
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            232.0,
+            192.0,
+            342.0,
+            262.0
+          ],
+          "position": [
+            287.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 37,
+          "hits": 37
+        }
+      ],
+      "events": [
+        {
+          "event_id": "evt_000030",
+          "timestamp": 1.8,
+          "frame_index": 36,
+          "entity_id": "person_1",
+          "track_id": 1,
+          "action": "moved",
+          "position": [
+            256.0,
+            198.6
+          ],
+          "bbox": [
+            236.0,
+            153.6,
+            276.0,
+            243.6
+          ],
+          "coordinate_space": "image_pixels",
+          "attributes": {
+            "class_name": "person",
+            "class_id": 0,
+            "confidence": 0.9,
+            "track_age": 37,
+            "displacement_px": 42.0,
+            "from_position": [
+              214.0,
+              198.6
+            ],
+            "speed_px_per_frame": 6.0
+          },
+          "zones": [],
+          "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+        },
+        {
+          "event_id": "evt_000031",
+          "timestamp": 1.8,
+          "frame_index": 36,
+          "entity_id": "truck_2",
+          "track_id": 2,
+          "action": "moved",
+          "position": [
+            287.0,
+            227.0
+          ],
+          "bbox": [
+            232.0,
+            192.0,
+            342.0,
+            262.0
+          ],
+          "coordinate_space": "image_pixels",
+          "attributes": {
+            "class_name": "truck",
+            "class_id": 7,
+            "confidence": 0.82,
+            "track_age": 37,
+            "displacement_px": 40.0,
+            "from_position": [
+              327.0,
+              227.0
+            ],
+            "speed_px_per_frame": 8.0
+          },
+          "zones": [],
+          "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+        }
+      ],
+      "risk": {
+        "timestamp": 1.85,
+        "risk_score": 95.45,
+        "severity": "critical",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "already_unsafe",
+          "seconds": 0.0,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 37,
+      "timestamp": 1.85,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            242.0,
+            153.6,
+            282.0,
+            243.6
+          ],
+          "position": [
+            262.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 38,
+          "hits": 38
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            224.0,
+            192.0,
+            334.0,
+            262.0
+          ],
+          "position": [
+            279.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 38,
+          "hits": 38
+        }
+      ],
+      "events": [],
+      "risk": {
+        "timestamp": 1.85,
+        "risk_score": 95.45,
+        "severity": "critical",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "already_unsafe",
+          "seconds": 0.0,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 38,
+      "timestamp": 1.9,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            248.0,
+            153.6,
+            288.0,
+            243.6
+          ],
+          "position": [
+            268.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 39,
+          "hits": 39
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            216.0,
+            192.0,
+            326.0,
+            262.0
+          ],
+          "position": [
+            271.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 39,
+          "hits": 39
+        }
+      ],
+      "events": [],
+      "risk": {
+        "timestamp": 1.85,
+        "risk_score": 95.45,
+        "severity": "critical",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "already_unsafe",
+          "seconds": 0.0,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 39,
+      "timestamp": 1.95,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            254.0,
+            153.6,
+            294.0,
+            243.6
+          ],
+          "position": [
+            274.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 40,
+          "hits": 40
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            208.0,
+            192.0,
+            318.0,
+            262.0
+          ],
+          "position": [
+            263.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 40,
+          "hits": 40
+        }
+      ],
+      "events": [
+        {
+          "event_id": "evt_000032",
+          "timestamp": 1.95,
+          "frame_index": 39,
+          "entity_id": "person_1",
+          "track_id": 1,
+          "action": "detected",
+          "position": [
+            274.0,
+            198.6
+          ],
+          "bbox": [
+            254.0,
+            153.6,
+            294.0,
+            243.6
+          ],
+          "coordinate_space": "image_pixels",
+          "attributes": {
+            "class_name": "person",
+            "class_id": 0,
+            "confidence": 0.9,
+            "track_age": 40,
+            "visible_for_seconds": 1.9
+          },
+          "zones": [],
+          "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+        },
+        {
+          "event_id": "evt_000033",
+          "timestamp": 1.95,
+          "frame_index": 39,
+          "entity_id": "truck_2",
+          "track_id": 2,
+          "action": "detected",
+          "position": [
+            263.0,
+            227.0
+          ],
+          "bbox": [
+            208.0,
+            192.0,
+            318.0,
+            262.0
+          ],
+          "coordinate_space": "image_pixels",
+          "attributes": {
+            "class_name": "truck",
+            "class_id": 7,
+            "confidence": 0.82,
+            "track_age": 40,
+            "visible_for_seconds": 1.9
+          },
+          "zones": [],
+          "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+        }
+      ],
+      "risk": {
+        "timestamp": 1.85,
+        "risk_score": 95.45,
+        "severity": "critical",
+        "incident_type": "PERSON_VEHICLE_COLLISION_RISK",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "already_unsafe",
+          "seconds": 0.0,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 40,
+      "timestamp": 2.0,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            260.0,
+            153.6,
+            300.0,
+            243.6
+          ],
+          "position": [
+            280.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 41,
+          "hits": 41
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            200.0,
+            192.0,
+            310.0,
+            262.0
+          ],
+          "position": [
+            255.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 41,
+          "hits": 41
+        }
+      ],
+      "events": [],
+      "risk": {
+        "timestamp": 2.05,
+        "risk_score": 30.0,
+        "severity": "low",
+        "incident_type": "CLOSE_PROXIMITY",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "already_unsafe",
+          "seconds": 0.0,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    },
+    {
+      "frame_index": 41,
+      "timestamp": 2.05,
+      "tracks": [
+        {
+          "track_id": 1,
+          "entity_id": "person_1",
+          "bbox": [
+            266.0,
+            153.6,
+            306.0,
+            243.6
+          ],
+          "position": [
+            286.0,
+            198.6
+          ],
+          "confidence": 0.9,
+          "class_id": 0,
+          "class_name": "person",
+          "age": 42,
+          "hits": 42
+        },
+        {
+          "track_id": 2,
+          "entity_id": "truck_2",
+          "bbox": [
+            192.0,
+            192.0,
+            302.0,
+            262.0
+          ],
+          "position": [
+            247.0,
+            227.0
+          ],
+          "confidence": 0.82,
+          "class_id": 7,
+          "class_name": "truck",
+          "age": 42,
+          "hits": 42
+        }
+      ],
+      "events": [
+        {
+          "event_id": "evt_000034",
+          "timestamp": 2.05,
+          "frame_index": 41,
+          "entity_id": "truck_2",
+          "track_id": 2,
+          "action": "moved",
+          "position": [
+            247.0,
+            227.0
+          ],
+          "bbox": [
+            192.0,
+            192.0,
+            302.0,
+            262.0
+          ],
+          "coordinate_space": "image_pixels",
+          "attributes": {
+            "class_name": "truck",
+            "class_id": 7,
+            "confidence": 0.82,
+            "track_age": 42,
+            "displacement_px": 40.0,
+            "from_position": [
+              287.0,
+              227.0
+            ],
+            "speed_px_per_frame": 8.0
+          },
+          "zones": [],
+          "source": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4"
+        }
+      ],
+      "risk": {
+        "timestamp": 2.05,
+        "risk_score": 30.0,
+        "severity": "low",
+        "incident_type": "CLOSE_PROXIMITY",
+        "involved_entity_ids": [
+          "person_1",
+          "truck_2"
+        ],
+        "coordinate_space": "image_pixels",
+        "time_to_risk": {
+          "status": "already_unsafe",
+          "seconds": 0.0,
+          "coordinate_space": "image_pixels",
+          "units": "pixels",
+          "reason": null,
+          "unsafe_separation_threshold_px": 90.0
+        }
+      }
+    }
+  ]
+}

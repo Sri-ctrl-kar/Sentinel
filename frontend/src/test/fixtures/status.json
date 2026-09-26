@@ -1,0 +1,58 @@
+{
+  "analysis_id": "demo-analysis",
+  "status": "complete",
+  "original_filename": "bay.mp4",
+  "created_at": 1790446601.4322212,
+  "elapsed_seconds": 9.59,
+  "progress": {
+    "frames_processed": 60,
+    "total_frames": 60,
+    "percent": 100.0
+  },
+  "device": {
+    "kind": "cpu",
+    "semantic_device": "cpu",
+    "label": "CPU",
+    "torch_device": "cpu",
+    "name": "cpu",
+    "index": null,
+    "runtime_version": null,
+    "requested": "auto"
+  },
+  "video": {
+    "path": "/tmp/claude-0/fx/509668eca4a740b5ab84975bf3ec0586.mp4",
+    "width": 640,
+    "height": 384,
+    "fps": 20.0,
+    "frame_count": 60,
+    "duration_seconds": 3.0
+  },
+  "pipeline": {
+    "frames_processed": 60,
+    "processing_seconds": 9.585,
+    "processing_fps": 6.26,
+    "detections_total": 120,
+    "track_reports_total": 118,
+    "track_ids_created": 2,
+    "track_frames": {
+      "person_1": 59,
+      "truck_2": 59
+    },
+    "event_count": 56,
+    "entities": [
+      "person_1",
+      "truck_2"
+    ],
+    "detector": {
+      "backend": "mock",
+      "model": "synthetic",
+      "device": "cpu",
+      "accelerator": "cpu"
+    },
+    "tracker": "byte_iou",
+    "coordinate_space": "image_pixels",
+    "zones": []
+  },
+  "error": null,
+  "video_url": "/api/analyze/509668eca4a740b5ab84975bf3ec0586/video"
+}
