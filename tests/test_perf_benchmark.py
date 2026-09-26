@@ -546,3 +546,178 @@ def test_the_cli_exposes_the_documented_flags():
 def test_info_lines_handle_an_unavailable_device_request():
     lines = "\n".join(info_lines("rocm"))
     assert "unavailable" in lines or "AMD ROCm / HIP" in lines
+
+
+# ---------------------------------------------------------------------------
+# The benchmark -> pipeline device boundary (M0.8 regression)
+# ---------------------------------------------------------------------------
+# The bug: to_pipeline_config() handed PipelineConfig the *torch* device string,
+# which is "cuda" on ROCm. PipelineConfig.device is a request that gets
+# re-resolved downstream, and app.accel reads "cuda" as "NVIDIA, specifically" —
+# so a ROCm benchmark asked Sentinel to run on CUDA and was correctly refused.
+# What must cross this boundary is the semantic kind.
+from app.accel import device as accel_module  # noqa: E402
+from app.perception.backends import yolo_ultralytics as yolo_backend  # noqa: E402
+from test_accel_device import fake_torch  # noqa: E402
+
+ROCM_SPEC = DeviceSpec(
+    kind="rocm", torch_device="cuda", name="AMD Instinct MI300X", index=0,
+    runtime_version="6.2.41134",
+)
+
+
+@pytest.fixture
+def rocm_host(monkeypatch):
+    """Make this machine look like a single-GPU ROCm host to app.accel."""
+    torch_module = fake_torch(
+        cuda_available=True, hip="6.2.41134", names=("AMD Instinct MI300X",)
+    )
+    monkeypatch.setattr(accel_module, "_torch", lambda: torch_module)
+    return torch_module
+
+
+def test_a_rocm_device_reaches_the_pipeline_as_rocm_not_as_cuda():
+    """The required regression: kind crosses the boundary, not torch_device."""
+    config = BenchmarkConfig(video="clip.mp4", device="rocm").to_pipeline_config(
+        ROCM_SPEC
+    )
+    assert config.device == "rocm"
+    assert config.device != "cuda"
+
+
+def test_the_boundary_value_is_the_kind_attribute_itself():
+    """Not a derived string: literally DeviceSpec.kind."""
+    config = BenchmarkConfig(video="clip.mp4").to_pipeline_config(ROCM_SPEC)
+    assert config.device == ROCM_SPEC.kind == "rocm"
+
+
+def test_a_rocm_benchmark_config_is_accepted_by_sentinels_own_resolver(rocm_host):
+    """End to end: the config the harness builds must actually run on AMD.
+
+    Asserting the string alone would not prove much — the point is that the
+    downstream resolver, the one that refused before, now resolves it, hands
+    torch the "cuda" string a ROCm build wants, and still reports AMD.
+    """
+    config = BenchmarkConfig(video="clip.mp4", device="rocm").to_pipeline_config(
+        accel_module.resolve_device("rocm")
+    )
+    assert config.device == "rocm"
+    assert yolo_backend.resolve_device(config.device) == "cuda"
+    assert yolo_backend.describe_accelerator() == "rocm"
+
+
+def test_the_boundary_no_longer_refuses_a_rocm_run(rocm_host):
+    """The exact failure that was reported: DeviceUnavailable on an AMD host."""
+    from app.accel import DeviceUnavailable
+
+    config = BenchmarkConfig(video="clip.mp4", device="rocm").to_pipeline_config(
+        accel_module.resolve_device("rocm")
+    )
+    try:
+        yolo_backend.resolve_device(config.device)
+    except DeviceUnavailable as exc:  # pragma: no cover - the bug, if it returns
+        pytest.fail(f"the benchmark's own device request was refused: {exc}")
+
+
+def test_rocm_is_still_never_reported_as_cuda(rocm_host):
+    """Fixing the request string must not blur the reporting."""
+    spec = accel_module.resolve_device("rocm")
+    assert spec.kind == "rocm"
+    assert spec.label == "AMD ROCm / HIP"
+    assert "NVIDIA" not in spec.describe()
+    assert spec.torch_device == "cuda", "torch still needs the CUDA API string"
+
+
+@pytest.mark.parametrize(
+    "spec,expected",
+    [
+        (CPU, "cpu"),
+        (DeviceSpec(kind="cuda", torch_device="cuda", name="RTX 4090", index=0), "cuda"),
+        (DeviceSpec(kind="mps", torch_device="mps", name="mps"), "mps"),
+        (ROCM_SPEC, "rocm"),
+    ],
+)
+def test_every_device_kind_crosses_the_boundary_as_itself(spec, expected):
+    config = BenchmarkConfig(video="clip.mp4").to_pipeline_config(spec)
+    assert config.device == expected
+
+
+def test_an_indexed_device_crosses_as_its_kind_not_as_a_torch_string():
+    """A multi-GPU spec still hands over the kind, never "cuda:1".
+
+    Consequence, documented rather than hidden: an explicit ``--device cuda:1``
+    on a multi-GPU host benchmarks that kind's default device (index 0) while
+    the result reports the spec that was resolved. Selecting a specific card
+    would need ``app.accel`` to accept an indexed *semantic* request
+    (``"rocm:1"``), which is an accel-level change and out of scope here.
+    """
+    spec = DeviceSpec(kind="rocm", torch_device="cuda:1", name="MI300X", index=1)
+    config = BenchmarkConfig(video="clip.mp4", device="cuda:1").to_pipeline_config(spec)
+    assert config.device == "rocm"
+    assert ":" not in config.device
+    assert config.device != spec.torch_device
+
+
+def test_no_torch_device_string_ever_reaches_a_pipeline_config():
+    """Guard the boundary at the source level, so it cannot regress quietly.
+
+    The rule is narrow and exact: ``torch_device`` is the right thing to hand
+    *torch* (``__main__`` allocates its probe tensor with it) and the wrong
+    thing to hand ``PipelineConfig``. So this checks every PipelineConfig
+    construction in the package, not every mention of the attribute.
+    """
+    import os
+    import re
+
+    import app.benchmark
+
+    package = os.path.dirname(os.path.abspath(app.benchmark.__file__))
+    constructions = []
+    for name in sorted(os.listdir(package)):
+        if not name.endswith(".py"):
+            continue
+        path = os.path.join(package, name)
+        with open(path, "r", encoding="utf-8") as handle:
+            source = handle.read()
+        for match in re.finditer(r"PipelineConfig\(", source):
+            depth, index = 0, match.end() - 1
+            while index < len(source):
+                depth += {"(": 1, ")": -1}.get(source[index], 0)
+                if depth == 0:
+                    break
+                index += 1
+            constructions.append((f"app/benchmark/{name}", source[match.end() : index]))
+
+    assert constructions, "expected at least one PipelineConfig construction"
+    for where, body in constructions:
+        assert "torch_device" not in body, (
+            f"{where} builds a PipelineConfig from a torch device string; "
+            f"PipelineConfig.device takes the semantic DeviceSpec.kind."
+        )
+
+
+def test_the_parity_path_uses_the_same_fixed_boundary():
+    """--parity builds its pipeline through to_pipeline_config, so it inherits."""
+    import inspect
+
+    from app.benchmark.__main__ import evidence_for
+
+    source = inspect.getsource(evidence_for)
+    assert "to_pipeline_config" in source
+    assert "torch_device" not in source
+
+
+def test_the_benchmark_result_still_carries_the_whole_device_spec():
+    """The other ``device=`` in harness.py is reporting, and must stay a spec.
+
+    ``BenchmarkResult.device`` is what makes a run say "AMD ROCm / HIP".
+    Reducing it to a string — the same edit that is correct for
+    PipelineConfig — would silently un-fix the labelling this milestone exists
+    to get right.
+    """
+    result = make_result(device=ROCM_SPEC)
+    assert isinstance(result.device, DeviceSpec)
+    assert result.device.kind == "rocm"
+    assert result.device.label == "AMD ROCm / HIP"
+    assert result.device.torch_device == "cuda", "torch still needs the CUDA string"
+    assert result.to_dict()["device"]["label"] == "AMD ROCm / HIP"

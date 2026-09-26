@@ -123,14 +123,30 @@ class BenchmarkConfig:
         return payload
 
     def to_pipeline_config(self, device: DeviceSpec) -> PipelineConfig:
-        """The very same configuration object the production pipeline uses."""
+        """The very same configuration object the production pipeline uses.
+
+        ``PipelineConfig.device`` takes the **semantic** device kind
+        (``"cpu"``, ``"rocm"``, ``"cuda"``, ``"mps"``), never
+        :attr:`DeviceSpec.torch_device`. That distinction is the whole bug this
+        boundary once had: ``torch_device`` is ``"cuda"`` on ROCm, because ROCm
+        PyTorch speaks the CUDA API — but ``PipelineConfig.device`` is a
+        *request* that gets re-resolved downstream by
+        :func:`app.accel.resolve_device`, which reads ``"cuda"`` as "NVIDIA,
+        specifically" and correctly refuses to run it on an AMD runtime. So a
+        ROCm benchmark asked Sentinel for CUDA and was turned away by its own
+        anti-mismatch guard.
+
+        The translation back to torch's ``"cuda"`` happens once, downstream, in
+        the detector — the only place that actually talks to torch.
+        """
         return PipelineConfig(
             video_path=self.video,
             stride=self.stride,
             max_frames=self.total_frames,
             detector=self.detector,
             weights=self.weights,
-            device=device.torch_device,
+            # Semantic kind, never the torch device string. See the docstring.
+            device=device.kind,
             imgsz=self.imgsz,
             half=self.half,
             confidence=self.confidence,
@@ -354,6 +370,9 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkResult:
 
     return BenchmarkResult(
         config=config,
+        # The whole DeviceSpec, deliberately: this is the *reporting* channel,
+        # and it is what makes the result say "AMD ROCm / HIP" rather than
+        # "cuda". Not the same boundary as PipelineConfig.device above.
         device=device,
         environment=environment,
         inference=inference.summary(),
