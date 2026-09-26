@@ -73,29 +73,6 @@ class BenchmarkError(RuntimeError):
     """The benchmark could not run — missing video, missing weights, no device."""
 
 
-def semantic_device(device: DeviceSpec) -> str:
-    """The device string to hand Sentinel's own resolver.
-
-    This is a boundary between two different vocabularies, and crossing it with
-    the wrong one is how M0.8 broke AMD. :attr:`DeviceSpec.torch_device` is what
-    *torch* wants, and on ROCm that is ``"cuda"`` — but ``PipelineConfig.device``
-    is a *request*, re-resolved downstream by :func:`app.accel.resolve_device`,
-    which reads ``"cuda"`` as "NVIDIA, specifically" and refuses to run on an
-    AMD runtime. So what crosses this boundary is the semantic kind
-    (``"rocm"``), and the translation back to ``"cuda"`` happens once, inside
-    the detector, where torch is actually spoken to.
-
-    An explicit device index is the one thing passed through verbatim: a
-    ``"cuda:1"`` request collapsed to ``"cuda"`` would benchmark GPU 0 while
-    reporting GPU 1 — the same report-versus-execution mismatch in miniature.
-    ``app.accel`` resolves an indexed string without vendor-checking it, so AMD
-    multi-GPU hosts keep both the right card and the right label.
-    """
-    if device.index is not None and ":" in device.torch_device:
-        return device.torch_device
-    return device.kind
-
-
 @dataclass
 class BenchmarkConfig:
     """Everything that must be identical between two comparable runs."""
@@ -146,14 +123,30 @@ class BenchmarkConfig:
         return payload
 
     def to_pipeline_config(self, device: DeviceSpec) -> PipelineConfig:
-        """The very same configuration object the production pipeline uses."""
+        """The very same configuration object the production pipeline uses.
+
+        ``PipelineConfig.device`` takes the **semantic** device kind
+        (``"cpu"``, ``"rocm"``, ``"cuda"``, ``"mps"``), never
+        :attr:`DeviceSpec.torch_device`. That distinction is the whole bug this
+        boundary once had: ``torch_device`` is ``"cuda"`` on ROCm, because ROCm
+        PyTorch speaks the CUDA API — but ``PipelineConfig.device`` is a
+        *request* that gets re-resolved downstream by
+        :func:`app.accel.resolve_device`, which reads ``"cuda"`` as "NVIDIA,
+        specifically" and correctly refuses to run it on an AMD runtime. So a
+        ROCm benchmark asked Sentinel for CUDA and was turned away by its own
+        anti-mismatch guard.
+
+        The translation back to torch's ``"cuda"`` happens once, downstream, in
+        the detector — the only place that actually talks to torch.
+        """
         return PipelineConfig(
             video_path=self.video,
             stride=self.stride,
             max_frames=self.total_frames,
             detector=self.detector,
             weights=self.weights,
-            device=semantic_device(device),
+            # Semantic kind, never the torch device string. See the docstring.
+            device=device.kind,
             imgsz=self.imgsz,
             half=self.half,
             confidence=self.confidence,
@@ -377,6 +370,9 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkResult:
 
     return BenchmarkResult(
         config=config,
+        # The whole DeviceSpec, deliberately: this is the *reporting* channel,
+        # and it is what makes the result say "AMD ROCm / HIP" rather than
+        # "cuda". Not the same boundary as PipelineConfig.device above.
         device=device,
         environment=environment,
         inference=inference.summary(),
