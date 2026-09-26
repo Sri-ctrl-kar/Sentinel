@@ -1,0 +1,13 @@
+# Sentinel M0.9 — the HTTP API (optional).
+#
+# Only needed to serve the API:
+#
+#   pip install -r requirements-api.txt
+#   uvicorn app.api.server:app --reload
+#
+# Everything else — the CLI entry points, the benchmark, the whole test suite —
+# runs without these. The API-specific tests skip cleanly when they are absent.
+
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+python-multipart>=0.0.9

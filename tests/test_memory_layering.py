@@ -439,6 +439,10 @@ REASONING_PACKAGES = (
     "evaluation",
 )
 
+#: Web frameworks. The API layer is the only place any of these may appear —
+#: a pipeline that imported a web framework could not run in a script.
+WEB_PACKAGES = ("fastapi", "starlette", "uvicorn", "pydantic", "multipart")
+
 
 @pytest.mark.parametrize("package", REASONING_PACKAGES)
 def test_the_reasoning_layers_know_nothing_about_devices(package):
@@ -504,3 +508,78 @@ def test_device_selection_is_not_cuda_only():
             f"{os.path.relpath(path, ROOT)} mentions cuda but never hip; that is "
             f"how an AMD GPU ends up labelled NVIDIA."
         )
+
+
+# ---------------------------------------------------------------------------
+# The API is an adapter, not a layer anything depends on (M0.9)
+# ---------------------------------------------------------------------------
+API_PACKAGES = REASONING_PACKAGES + ("perception", "storage", "benchmark", "accel")
+
+
+@pytest.mark.parametrize("package", API_PACKAGES)
+def test_no_layer_imports_the_api_package(package):
+    """The API consumes the pipeline; the pipeline must never know it exists."""
+    for path in module_files(package, recursive=True):
+        for name in imported_names(path):
+            assert not name.lstrip(".").startswith("api"), (
+                f"{os.path.relpath(path, ROOT)} imports '{name}'. The HTTP layer "
+                f"is a consumer of the core, never a dependency of it."
+            )
+
+
+def test_only_the_api_package_imports_a_web_framework():
+    """FastAPI is optional; nothing outside app/api/ may need it."""
+    offenders = []
+    for dirpath, _dirnames, filenames in os.walk(os.path.join(ROOT, "app")):
+        if os.sep + "api" in dirpath:
+            continue
+        for filename in sorted(filenames):
+            if not filename.endswith(".py"):
+                continue
+            path = os.path.join(dirpath, filename)
+            roots = {n.lstrip(".").split(".")[0] for n in imported_names(path)}
+            if roots & set(WEB_PACKAGES):
+                offenders.append(os.path.relpath(path, ROOT))
+    assert offenders == [], (
+        f"{offenders} import a web framework outside app/api/. The CLI, the "
+        f"benchmark and the test suite must run without one installed."
+    )
+
+
+@pytest.mark.parametrize("path", list(module_files("api", recursive=True)))
+def test_the_api_layer_has_no_model_specific_imports(path):
+    """The adapter serialises objects; it never touches a model runtime."""
+    for name in imported_names(path):
+        root = name.lstrip(".").split(".")[0]
+        assert root not in MODEL_SPECIFIC, (
+            f"{os.path.relpath(path, ROOT)} imports '{name}'. The API talks to "
+            f"the detector interface, not to torch or OpenCV."
+        )
+
+
+def test_the_api_store_and_runner_need_no_web_framework():
+    """A script must be able to drive an analysis without FastAPI installed."""
+    for module in ("store", "runner"):
+        path = os.path.join(ROOT, "app", "api", f"{module}.py")
+        roots = {n.lstrip(".").split(".")[0] for n in imported_names(path)}
+        assert not roots & set(WEB_PACKAGES), (
+            f"app/api/{module}.py imports a web framework; it is meant to be "
+            f"usable on its own."
+        )
+
+
+def test_importing_the_api_package_does_not_load_a_web_framework():
+    """`import app.api` must stay free: the app factory is fetched lazily."""
+    watched = WEB_PACKAGES
+    code = (
+        "import sys; import app.api; "
+        f"loaded=[m for m in {watched!r} if m in sys.modules]; "
+        "print(','.join(loaded))"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "", (
+        f"importing app.api pulled in {result.stdout.strip()}"
+    )
