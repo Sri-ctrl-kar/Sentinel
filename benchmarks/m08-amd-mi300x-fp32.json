@@ -1,0 +1,98 @@
+{
+  "record_id": "m08-amd-mi300x-fp32",
+  "milestone": "M0.8",
+  "title": "Sentinel perception benchmark — CPU vs AMD Instinct MI300X, FP32",
+  "status": "measured_on_real_hardware",
+  "record_kind": "transcribed_report",
+  "record_note": "Figures transcribed verbatim from a run of `python -m app.benchmark --compare cpu,rocm --parity` on the AMD host. Fields the report did not carry are null and labelled as not recorded; none has been inferred or filled in. `python -m app.benchmark ... --json` emits the harness's own complete record, which is the authoritative machine-readable form.",
+
+  "workload": {
+    "identical_on_both_devices": true,
+    "model": "YOLOv8n",
+    "precision": "FP32",
+    "fp16_used": false,
+    "frames_measured": 120,
+    "warmup_frames": 5,
+    "warmup_excluded_from_measurement": true,
+    "model_load_excluded_from_throughput": true,
+    "video": "/tmp/sentinel_benchmark.mp4",
+    "video_committed_to_repository": false,
+    "batching": false
+  },
+
+  "hardware": {
+    "accelerator": "AMD Instinct MI300X VF",
+    "accelerator_kind": "rocm",
+    "accelerator_label": "AMD ROCm / HIP",
+    "rocm_hip_runtime": "7.1.52802",
+    "cpu": null,
+    "cpu_cores": null,
+    "ram_gb": null,
+    "os": null,
+    "python": null,
+    "torch": null,
+    "ultralytics": null,
+    "not_recorded": [
+      "cpu",
+      "cpu_cores",
+      "ram_gb",
+      "os",
+      "python",
+      "torch",
+      "ultralytics",
+      "weights_sha256",
+      "per_frame_percentiles"
+    ]
+  },
+
+  "results": {
+    "cpu": {
+      "device_label": "CPU",
+      "inference_fps": 76.03,
+      "pipeline_fps": 73.26,
+      "detections": 320,
+      "tracks": 9,
+      "events": 38,
+      "mean_confidence": 0.6245,
+      "risk_score": 47.44,
+      "severity": "medium"
+    },
+    "rocm": {
+      "device_label": "AMD ROCm / HIP",
+      "device_name": "AMD Instinct MI300X VF",
+      "inference_fps": 147.14,
+      "pipeline_fps": 138.45,
+      "detections": 320,
+      "tracks": 9,
+      "events": 38,
+      "mean_confidence": 0.6245,
+      "risk_score": 47.44,
+      "severity": "medium"
+    }
+  },
+
+  "speedup": {
+    "basis": "same host, same workload, CPU baseline vs AMD ROCm",
+    "inference": 1.94,
+    "pipeline": 1.89
+  },
+
+  "parity": {
+    "verdict": "PASS",
+    "risk_semantics_unchanged": true,
+    "detections_match": true,
+    "tracks_match": true,
+    "events_match": true,
+    "mean_confidence_match": true,
+    "risk_score_match": true,
+    "severity_match": true
+  },
+
+  "caveats": [
+    "One clip, one host, one model, one resolution. This is a measurement of this workload on this machine, not a statement about general real-world performance.",
+    "FP32 only. No FP16, INT8, quantization, batching, ONNX Runtime, MIGraphX or TensorRT was used or measured.",
+    "Single-stream: frames are processed one at a time, as a live camera delivers them.",
+    "Model load time is measured and reported separately by the harness and is excluded from every throughput figure here.",
+    "The MI300X was a virtual function (VF) instance; a bare-metal card may behave differently."
+  ]
+}

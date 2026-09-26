@@ -56,8 +56,15 @@ distinguished by `torch.version.hip` and an AMD card is never reported as
 CUDA — and a benchmark harness measures the real pipeline on whichever device
 it is given, separating model load, inference and end-to-end cost, with
 CPU/GPU correctness parity checked rather than assumed. Detection is 98% of the
-frame budget and is the only thing accelerated. See
-[AMD ROCm acceleration](#amd-rocm-acceleration-m08).
+frame budget and is the only thing accelerated.
+
+Measured on an AMD Instinct MI300X (ROCm/HIP 7.1.52802, YOLOv8n, FP32, 120
+frames, model load excluded, same workload on both devices): inference
+76.03 → 147.14 FPS (**1.94×**), end-to-end pipeline 73.26 → 138.45 FPS
+(**1.89×**), with correctness parity PASS and the risk verdict identical
+(47.44, medium) on both. One clip on one host — not a general performance
+claim. See [AMD ROCm acceleration](#amd-rocm-acceleration-m08) and
+[`benchmarks/`](benchmarks/).
 
 ```bash
 python -m app.benchmark --info                        # what hardware is here
@@ -1305,6 +1312,11 @@ AMD_BENCHMARK = NOT_RUN
 REASON = AMD ROCm device unavailable
 ```
 
+That output is from the development container, which has no AMD GPU — it is
+what the diagnostic looks like when there is nothing to accelerate on. On the
+AMD host the same command reports `HIP available: yes` with the MI300X visible,
+which is what gated the measured run below.
+
 ### CPU fallback
 
 CPU is not a degraded mode, it is the default. Sentinel runs end to end with no
@@ -1370,9 +1382,12 @@ synthetic scene of coloured rectangles produces.
 | Input | 640x384, imgsz 640, conf 0.25, IoU 0.45, all classes |
 | Frames | 120 measured, 5 warmup discarded |
 
-### CPU benchmark results
+### CPU benchmark results (development container)
 
-Benchmark measured on the machine above, 2026-09-12:
+Benchmark measured on the machine above, 2026-09-12. This is the development
+container, **not** the AMD host — the CPU/AMD comparison further down was
+measured on a different machine and its CPU baseline is a different number.
+Comparing across the two would be meaningless; each pairing stands on its own.
 
 ```
 device            : CPU — cpu
@@ -1391,36 +1406,51 @@ detections 320  tracks 9  events 38  mean conf 0.6245
 
 ### AMD benchmark results
 
-```
-AMD_BENCHMARK = NOT_RUN
-REASON = AMD ROCm device unavailable
-```
+**Measured on real AMD hardware.** Durable record:
+[`benchmarks/m08-amd-mi300x-fp32.md`](benchmarks/m08-amd-mi300x-fp32.md)
+([json](benchmarks/m08-amd-mi300x-fp32.json)).
 
-This machine has no AMD GPU: no `/dev/kfd`, no ROCm installation, and the
-installed PyTorch is a CUDA build (`torch.version.hip` is `None`). **No AMD
-number is published here, and none is estimated.** The harness, the device
-abstraction and the parity check are complete and run unchanged on an AMD host;
-what is missing is the host.
+| | |
+| --- | --- |
+| Accelerator | AMD Instinct MI300X VF |
+| Reported as | `AMD ROCm / HIP` |
+| ROCm / HIP runtime | 7.1.52802 |
+| Model | YOLOv8n |
+| **Precision** | **FP32** |
+| Frames measured | 120 (+5 warmup, discarded) |
+| Clip | `/tmp/sentinel_benchmark.mp4` (not committed) |
 
-To produce the AMD half, on a ROCm machine:
+Both devices ran the **same workload** — same weights, input resolution,
+confidence and IoU thresholds, class filter, frame count, warmup and clip. Only
+the device differed. **Model load time is excluded from every throughput figure
+below**; the harness measures and reports it separately.
 
-```bash
-pip install torch torchvision --index-url https://download.pytorch.org/whl/rocm6.2
-pip install -r requirements-yolo.txt
-python -m app.benchmark --info                      # must show HIP available: yes
-python -m app.benchmark --video clip.mp4 --compare cpu,rocm --parity
-```
+| | CPU | AMD MI300X | speedup |
+| --- | --- | --- | --- |
+| Inference (detect) | **76.03 FPS** | **147.14 FPS** | **1.94×** |
+| Pipeline (end to end) | **73.26 FPS** | **138.45 FPS** | **1.89×** |
+
+What this is not: one clip, one host, one model, one resolution, single stream.
+It measures this workload on this machine — **it is not a claim about general
+real-world performance**, and it is not an FP16 result. See
+[what was NOT optimized](#what-was-not-optimized).
 
 ### Speedup
 
-Not measured. A speedup figure requires two measured runs; only one device was
-available. The harness computes and prints it from the two runs when both
-exist, and labels a comparison against an unverified device as a device-to-device
-comparison rather than an acceleration claim.
+Measured on the AMD host, same workload on both devices, FP32, model load
+excluded:
 
-For reference, the comparison machinery was exercised CPU-against-CPU on the
-same clip: 0.96x–1.09x across runs, which is the honest size of run-to-run
-noise on this box and a useful floor for reading any future AMD number.
+```
+inference : 76.03 fps -> 147.14 fps   1.94x
+pipeline  : 73.26 fps -> 138.45 fps   1.89x
+```
+
+Both ratios are consistent with the throughput figures they come from
+(147.14/76.03 = 1.935, 138.45/73.26 = 1.890).
+
+For scale, the comparison machinery was also exercised CPU-against-CPU on the
+development container: 0.96x–1.09x across runs. That is the size of run-to-run
+noise, and the floor above which a speedup means something.
 
 ### Correctness parity
 
@@ -1444,16 +1474,25 @@ across the threshold and changes a detection count by one with nothing wrong.
 Tolerated differences are still printed — never silently absorbed. A comparison
 that could not be made reports `NOT COMPARED`, never `YES`.
 
-CPU-against-CPU on the benchmark clip, as a self-consistency check of the
-machinery:
+Measured CPU against AMD MI300X, same clip, FP32:
+
+| | CPU | AMD MI300X |
+| --- | --- | --- |
+| Detections | 320 | 320 |
+| Tracks | 9 | 9 |
+| Events | 38 | 38 |
+| Mean confidence | 0.6245 | 0.6245 |
+| Risk score | 47.44 | 47.44 |
+| Severity | medium | medium |
 
 ```
-PASS — identical on both devices
-  note: risk compared: score 63.3 vs 63.3, severity medium vs medium
+correctness parity      : PASS
 risk semantics unchanged: YES
 ```
 
-No CPU/AMD parity result exists yet, for the same reason as the benchmark.
+Not one tolerance was needed: the two devices agreed exactly, down to the mean
+confidence. The device changed and Sentinel's meaning did not, which is the
+result the milestone was for.
 
 ### What was NOT optimized
 
@@ -2110,12 +2149,16 @@ the calibration, so:
 
 ### Acceleration (M0.8)
 
-- **No AMD measurement exists.** The device abstraction, the benchmark and the
-  parity check are written and tested, but this repository has never run on an
-  AMD GPU. Every AMD-related number is absent rather than estimated.
-- **The published CPU baseline is one machine, one clip.** A 4-core Xeon at
-  640x384 with YOLOv8n. Another CPU, resolution or model gives different
-  numbers; the harness records enough metadata to tell runs apart.
+- **The AMD measurement is one clip on one host.** An MI300X VF at FP32 with
+  YOLOv8n, 120 frames of one video, single stream. It says what this workload
+  did on that machine and nothing about general deployment performance. The
+  record in [`benchmarks/`](benchmarks/) lists which host metadata that run did
+  not capture.
+- **Two CPU baselines exist and are not comparable.** 29.90 FPS on the
+  development container, 76.03 FPS on the AMD host. Each is only meaningful
+  against the other measurement taken on the same machine.
+- **FP32 only.** No FP16, INT8, quantization, batching or alternative runtime
+  has been measured, so nothing is known about what those would do here.
 - **The benchmark clip is synthetic motion over a real photograph.** It
   produces genuine detections and genuine tracking work, but it is not footage
   of a real incident and its scene does not change.
@@ -2212,10 +2255,10 @@ real.
    suite says an explanation is not wrong — not that it is useful.
 8. **An explanation-quality eval.** Grounding is a floor. Whether a human
    operator acts correctly on the text is a separate, unmeasured question.
-9. **Run the benchmark on AMD hardware.** Everything for it is in place; what
-   is missing is a ROCm host. Until then Sentinel has a CPU baseline and no
-   acceleration claim.
-10. **Then, and only then, precision and backend work** — FP16 first, since it
-    is a flag rather than a code path, each benchmarked separately against this
-    baseline.
+9. **Widen the AMD measurement.** M0.8 has one real result — an MI300X at
+   FP32 on one clip. Multiple clips, resolutions, models and a bare-metal card
+   would turn a measurement into a characterisation.
+10. **Then precision and backend work** — FP16 first, since it is a flag rather
+    than a code path, each benchmarked separately against the FP32 baseline
+    that now exists on both devices.
 11. **The frontend**, once there is something stable to display.
