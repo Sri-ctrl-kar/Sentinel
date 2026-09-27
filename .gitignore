@@ -14,8 +14,10 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Anchored to the repository root: these are Python packaging directories, and
+# unanchored `lib/` also matches source directories like frontend/src/lib/.
+/lib/
+/lib64/
 parts/
 sdist/
 var/
