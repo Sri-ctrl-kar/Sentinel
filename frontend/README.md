@@ -136,7 +136,7 @@ hand.
 | --- | --- |
 | `format.test.ts` | severity → state mapping, missing-value formatting, predicted-vs-current logic |
 | `timeline.test.ts` | frame lookup, step-function risk selection, marker building |
-| `panels.test.tsx` | overlay geometry, risk states, time-to-risk variants, evidence, lifecycle, provenance, AI narrative, unplayable video |
+| `panels.test.tsx` | overlay geometry, risk states, time-to-risk variants, evidence, lifecycle (including the states a clip passed through), provenance, AI narrative, unplayable video |
 | `EventTimeline.test.tsx` | marker rendering, click-to-seek, accessible names |
 | `App.test.tsx` | upload, polling through queued → running → complete, failure, missing fields, seeking, AMD device chip |
 

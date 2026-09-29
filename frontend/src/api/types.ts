@@ -379,10 +379,20 @@ export interface GroundingPayload {
   notes: string[];
 }
 
+/** One time step of the incident's lifecycle, derived by the backend tracker. */
+export interface LifecyclePoint {
+  timestamp: number;
+  state: LifecycleState;
+  risk_score: number;
+}
+
 export interface IncidentResponse {
   analysis_id: string;
   incident_found: boolean;
+  /** The state at the clip's worst moment — what this whole response describes. */
   lifecycle_state: LifecycleState | null;
+  /** The same situation at every risk time step, in order. May be empty. */
+  lifecycle_history: LifecyclePoint[];
   quantities: QuantityPayload[];
   evidence: IncidentEvidencePayload | null;
   explanation: ExplanationPayload | null;

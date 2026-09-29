@@ -7,15 +7,25 @@
  * Inventing intermediate stages would misreport the system.
  */
 
-import type { LifecycleState } from '../api/types';
-import { LIFECYCLE_DESCRIPTIONS, LIFECYCLE_ORDER } from '../lib/format';
+import type { LifecyclePoint, LifecycleState } from '../api/types';
+import { LIFECYCLE_DESCRIPTIONS, LIFECYCLE_ORDER, formatSeconds } from '../lib/format';
 
 interface Props {
   state: LifecycleState | null;
+  /** Every step the backend tracker derived, in order. Empty is legitimate. */
+  history?: LifecyclePoint[];
 }
 
-export function LifecycleTrail({ state }: Props) {
+export function LifecycleTrail({ state, history = [] }: Props) {
   const currentIndex = state ? LIFECYCLE_ORDER.indexOf(state) : -1;
+
+  // When the clip's history is known, a rung is lit only if the situation
+  // genuinely passed through it. Marking every earlier rung would invent a
+  // progression: a situation can go straight from observed to current.
+  const entered = new Map<LifecycleState, number>();
+  for (const point of history) {
+    if (!entered.has(point.state)) entered.set(point.state, point.timestamp);
+  }
 
   return (
     <section className="panel" aria-label="Incident lifecycle">
@@ -30,7 +40,11 @@ export function LifecycleTrail({ state }: Props) {
         ) : (
           <ol className="lifecycle" data-testid="lifecycle-trail">
             {LIFECYCLE_ORDER.map((step, index) => {
-              const reached = currentIndex >= 0 && index <= currentIndex;
+              const at = entered.get(step);
+              const reached =
+                history.length > 0
+                  ? at !== undefined
+                  : currentIndex >= 0 && index <= currentIndex;
               const isCurrent = step === state;
               return (
                 <li className="lifecycle__step" key={step}>
@@ -55,6 +69,11 @@ export function LifecycleTrail({ state }: Props) {
                     >
                       {step.toUpperCase()}
                       {isCurrent && <span className="lifecycle__here">◄ NOW</span>}
+                      {at !== undefined && (
+                        <span className="lifecycle__at" data-testid={`lifecycle-at-${step}`}>
+                          from {formatSeconds(at)}
+                        </span>
+                      )}
                     </span>
                     <span className="lifecycle__desc">
                       {LIFECYCLE_DESCRIPTIONS[step]}

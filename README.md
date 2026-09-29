@@ -1556,9 +1556,17 @@ uvicorn app.api.server:app --reload --port 8000
 | `GET /api/analyze/{id}/events` | the temporal event stream + folded entity states |
 | `GET /api/analyze/{id}/risk` | `RiskEngine.assess_timeline()`, worst moment, score disclaimer |
 | `GET /api/analyze/{id}/timeline` | per-frame tracks, events and risk — what an overlay draws from |
-| `GET /api/analyze/{id}/incident` | evidence → explanation → grounding, the M0.7 chain over video |
+| `GET /api/analyze/{id}/incident` | evidence → explanation → grounding, the M0.7 chain over video, plus the situation's lifecycle at every risk step |
 | `GET /api/analyze/{id}/video` | the original upload, byte for byte, served inline |
 | `GET /api/device` | the semantic device (`cpu`/`rocm`/`cuda`/`mps`) and host metadata |
+
+`lifecycle_state` is the state at the clip's worst moment — the moment the rest
+of the response describes. Because the risk score peaks once a situation is
+already unsafe, that scalar alone would almost always read `current`, hiding the
+`developing` and `imminent` steps the engine derived earlier. `lifecycle_history`
+carries the same situation's state at every risk time step, walked through the
+M0.7 `LifecycleTracker` and scoped to one entity pair by `situation_key`, so a
+client can show what actually happened without deriving a state of its own.
 
 Every route is an adapter: it validates input, calls a validated object, and
 serialises that object's own `to_dict()`. Nothing about perception, tracking,

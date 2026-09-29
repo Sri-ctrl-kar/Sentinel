@@ -26,10 +26,12 @@ from app.api.schemas import (  # noqa: E402
     ExplanationPayload,
     GroundingPayload,
     IncidentEvidencePayload,
+    LifecyclePointPayload,
     RiskAssessmentPayload,
     RiskReportPayload,
     TrackPayload,
 )
+from app.intelligence.lifecycle import INCIDENT_STATES  # noqa: E402
 from app.api.server import ApiSettings, create_app  # noqa: E402
 from app.api.store import AnalysisStore  # noqa: E402
 
@@ -550,6 +552,82 @@ def test_the_incident_endpoint_returns_the_full_chain(client, analysis_id):
     assert IncidentEvidencePayload(**body["evidence"])
     assert ExplanationPayload(**body["explanation"])
     assert GroundingPayload(**body["grounding"])
+
+
+def test_the_incident_reports_the_lifecycle_the_situation_passed_through(
+    client, analysis_id
+):
+    """The clip's states over time, not only the state at its worst moment.
+
+    The worst moment is the one the score peaks at, which is systematically the
+    moment the situation is already unsafe — so a response carrying only that
+    state can almost never show ``developing`` or ``imminent``, however clearly
+    the engine predicted them earlier.
+    """
+    body = client.get(f"/api/analyze/{analysis_id}/incident").json()
+    history = [LifecyclePointPayload(**point) for point in body["lifecycle_history"]]
+
+    assert history, "a found incident always passed through at least one state"
+    assert [p.timestamp for p in history] == sorted(p.timestamp for p in history)
+    assert {p.state for p in history} <= set(INCIDENT_STATES)
+
+    # The scalar the rest of the response describes is the entry at the worst
+    # moment — the history adds to it and never contradicts it.
+    worst_timestamp = body["evidence"]["timestamp"]
+    at_worst = [p for p in history if p.timestamp == pytest.approx(worst_timestamp)]
+    assert len(at_worst) == 1
+    assert at_worst[0].state == body["lifecycle_state"]
+
+    # This clip is a converging approach: it is predicted before it happens.
+    assert "imminent" in {p.state for p in history}
+    assert history[0].timestamp < worst_timestamp
+
+
+def test_the_lifecycle_history_follows_one_situation_only(client, analysis_id, store):
+    """Blending entity pairs would report a progression that never happened."""
+    from app.api.routes.incident import lifecycle_history
+    from app.api.routes.analysis import risk_reports_for, worst_report
+    from app.intelligence.lifecycle import situation_key
+
+    record = store.get(analysis_id)
+    reports = risk_reports_for(record)
+    worst = worst_report(reports)
+    key = situation_key(worst.top)
+
+    history = lifecycle_history(reports, worst.top)
+    stamps = [p["timestamp"] for p in history]
+
+    # Every step whose own assessments contain this pair is represented once,
+    # and no step contributes twice.
+    expected = [
+        round(r.timestamp, 4)
+        for r in reports
+        if any(situation_key(a) == key for a in r.assessments)
+    ]
+    assert stamps == expected
+    assert len(stamps) == len(set(stamps))
+
+
+def test_the_lifecycle_history_is_derived_by_the_m07_tracker(client, analysis_id, store):
+    """No second derivation: the route's output must equal the tracker's."""
+    from app.api.routes.incident import lifecycle_history
+    from app.api.routes.analysis import risk_reports_for, worst_report
+    from app.intelligence.lifecycle import LifecycleTracker, situation_key
+
+    record = store.get(analysis_id)
+    reports = risk_reports_for(record)
+    worst = worst_report(reports)
+    key = situation_key(worst.top)
+
+    tracker = LifecycleTracker()
+    expected = []
+    for report in reports:
+        for candidate in report.assessments:
+            if situation_key(candidate) == key:
+                expected.append(tracker.update(candidate))
+                break
+
+    assert [p["state"] for p in lifecycle_history(reports, worst.top)] == expected
 
 
 def test_the_incident_evidence_comes_from_the_validated_builder(client, analysis_id, store):

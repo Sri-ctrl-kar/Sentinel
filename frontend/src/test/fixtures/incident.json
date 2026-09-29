@@ -2,6 +2,68 @@
   "analysis_id": "demo-analysis",
   "incident_found": true,
   "lifecycle_state": "current",
+  "lifecycle_history": [
+    {
+      "timestamp": 0.45,
+      "state": "imminent",
+      "risk_score": 48.08
+    },
+    {
+      "timestamp": 0.65,
+      "state": "imminent",
+      "risk_score": 48.76
+    },
+    {
+      "timestamp": 0.85,
+      "state": "imminent",
+      "risk_score": 49.81
+    },
+    {
+      "timestamp": 1.05,
+      "state": "imminent",
+      "risk_score": 54.07
+    },
+    {
+      "timestamp": 1.25,
+      "state": "imminent",
+      "risk_score": 68.85
+    },
+    {
+      "timestamp": 1.45,
+      "state": "imminent",
+      "risk_score": 81.93
+    },
+    {
+      "timestamp": 1.65,
+      "state": "imminent",
+      "risk_score": 87.58
+    },
+    {
+      "timestamp": 1.85,
+      "state": "current",
+      "risk_score": 95.45
+    },
+    {
+      "timestamp": 2.05,
+      "state": "current",
+      "risk_score": 30.0
+    },
+    {
+      "timestamp": 2.25,
+      "state": "observed",
+      "risk_score": 25.4
+    },
+    {
+      "timestamp": 2.45,
+      "state": "observed",
+      "risk_score": 18.03
+    },
+    {
+      "timestamp": 2.65,
+      "state": "observed",
+      "risk_score": 9.0
+    }
+  ],
   "quantities": [
     {
       "name": "current separation",

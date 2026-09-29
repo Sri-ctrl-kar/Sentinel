@@ -431,12 +431,29 @@ class GroundingPayload(ApiModel):
     notes: List[str] = Field(default_factory=list)
 
 
+class LifecyclePointPayload(ApiModel):
+    """One time step of the incident's lifecycle, as the M0.7 tracker derived it."""
+
+    timestamp: float
+    state: str
+    risk_score: float
+
+
 class IncidentResponse(ApiModel):
     """The M0.7 triple, over a video analysis instead of a scenario."""
 
     analysis_id: str
     incident_found: bool
-    lifecycle_state: Optional[str] = None
+    lifecycle_state: Optional[str] = Field(
+        default=None,
+        description="The state at the clip's worst moment — the moment this "
+        "whole response describes.",
+    )
+    lifecycle_history: List[LifecyclePointPayload] = Field(
+        default_factory=list,
+        description="The same situation's state at every risk time step, in "
+        "order. `lifecycle_state` is the entry at the worst moment.",
+    )
     quantities: List[QuantityPayload] = Field(default_factory=list)
     evidence: Optional[IncidentEvidencePayload] = None
     explanation: Optional[ExplanationPayload] = None

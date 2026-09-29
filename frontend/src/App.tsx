@@ -181,7 +181,10 @@ export default function App() {
               />
               <PredictionPanel incident={analysis.incident} />
               <EvidencePanel incident={analysis.incident} />
-              <LifecycleTrail state={analysis.incident?.lifecycle_state ?? null} />
+              <LifecycleTrail
+                state={analysis.incident?.lifecycle_state ?? null}
+                history={analysis.incident?.lifecycle_history ?? []}
+              />
               <TrustPanel
                 device={deviceForHeader}
                 pipeline={analysis.status?.pipeline ?? null}

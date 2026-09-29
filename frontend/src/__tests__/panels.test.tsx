@@ -210,6 +210,7 @@ describe('prediction panel', () => {
       analysis_id: 'demo-analysis',
       incident_found: false,
       lifecycle_state: null,
+      lifecycle_history: [],
       quantities: [],
       evidence: null,
       explanation: null,
@@ -288,6 +289,65 @@ describe('lifecycle trail', () => {
   it('marks the current state with a word, not only a colour', () => {
     render(<LifecycleTrail state="imminent" />);
     expect(screen.getByTestId('lifecycle-current')).toHaveTextContent('NOW');
+  });
+
+  it('lights the states the clip passed through before its worst moment', () => {
+    // The captured clip is imminent for seven steps before it becomes unsafe.
+    // Showing only `lifecycle_state` would report CURRENT and nothing else.
+    render(
+      <LifecycleTrail
+        state={incidentFixture.lifecycle_state}
+        history={incidentFixture.lifecycle_history}
+      />,
+    );
+    expect(screen.getByTestId('lifecycle-at-imminent')).toBeInTheDocument();
+    expect(screen.getByTestId('lifecycle-at-current')).toBeInTheDocument();
+    expect(screen.getByTestId('lifecycle-at-observed')).toBeInTheDocument();
+  });
+
+  it('leaves a state dark when the situation never entered it', () => {
+    // This clip never developed: every prediction landed inside the 2s horizon,
+    // so DEVELOPING must stay unlit rather than be filled in as a ladder rung.
+    expect(
+      incidentFixture.lifecycle_history.some((p) => p.state === 'developing'),
+    ).toBe(false);
+
+    render(
+      <LifecycleTrail
+        state={incidentFixture.lifecycle_state}
+        history={incidentFixture.lifecycle_history}
+      />,
+    );
+    expect(screen.queryByTestId('lifecycle-at-developing')).toBeNull();
+    expect(
+      screen.getByTestId('lifecycle-trail').querySelectorAll('.lifecycle__dot--reached'),
+    ).toHaveLength(3);
+  });
+
+  it('says when each state was first entered, using the engine timestamps', () => {
+    const first = (state: string) =>
+      incidentFixture.lifecycle_history.find((p) => p.state === state)!.timestamp;
+
+    render(
+      <LifecycleTrail
+        state={incidentFixture.lifecycle_state}
+        history={incidentFixture.lifecycle_history}
+      />,
+    );
+    expect(screen.getByTestId('lifecycle-at-imminent')).toHaveTextContent(
+      first('imminent').toFixed(2),
+    );
+    expect(screen.getByTestId('lifecycle-at-current')).toHaveTextContent(
+      first('current').toFixed(2),
+    );
+  });
+
+  it('falls back to the ladder when no history is available', () => {
+    render(<LifecycleTrail state="current" history={[]} />);
+    expect(screen.queryByTestId('lifecycle-at-current')).toBeNull();
+    expect(
+      screen.getByTestId('lifecycle-trail').querySelectorAll('.lifecycle__dot--reached'),
+    ).toHaveLength(4);
   });
 
   it('says there is no lifecycle when none was returned', () => {
