@@ -8,6 +8,7 @@
  */
 
 import type { IncidentResponse } from '../api/types';
+import { formatSeconds } from '../lib/format';
 
 interface Props {
   incident: IncidentResponse | null;
@@ -23,7 +24,11 @@ export function NarrativePanel({ incident }: Props) {
     <section className="panel" aria-label="AI incident interpretation">
       <header className="panel__head">
         <h2 className="panel__title">AI incident interpretation</h2>
-        <span className="panel__aside">explains · does not decide</span>
+        <span className="panel__aside" data-testid="narrative-moment">
+          {incident?.evidence
+            ? `worst moment · ${formatSeconds(incident.evidence.timestamp)} · explains, does not decide`
+            : 'explains · does not decide'}
+        </span>
       </header>
 
       <div className="panel__body">

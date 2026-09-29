@@ -297,26 +297,73 @@ describe('failure and missing data', () => {
     expect(screen.getByTestId('risk-none')).toBeInTheDocument();
   });
 
-  it('renders when the incident has no time to risk', async () => {
-    const noTtr = clone(incidentFixture);
-    noTtr.evidence!.time_to_risk = null;
-    await uploadAndFinish({ incident: noTtr });
+  it('renders when the assessment at the playhead has no time to risk', async () => {
+    // The panel reads the risk timeline now, so that is what the test bends.
+    const risk = clone(riskFixture);
+    for (const report of risk.timeline) {
+      for (const assessment of report.assessments) assessment.time_to_risk = null;
+    }
+    await uploadAndFinish({ risk });
     expect(screen.getByTestId('prediction-ttr')).toHaveTextContent('unavailable');
   });
 
   it('never shows a predicted conflict as something that happened', async () => {
-    const predicted = clone(incidentFixture);
-    predicted.lifecycle_state = 'imminent';
-    predicted.evidence!.incident_state = 'imminent';
-    predicted.evidence!.time_to_risk = {
-      status: 'predicted',
-      seconds: 1.4,
-      threshold: 90,
-      reason: null,
-    };
-    await uploadAndFinish({ incident: predicted });
+    const risk = clone(riskFixture);
+    const incident = clone(incidentFixture);
+    const worst = incident.evidence!.timestamp;
+    for (const report of risk.timeline) {
+      for (const assessment of report.assessments) {
+        assessment.time_to_risk = {
+          status: 'predicted',
+          seconds: 1.4,
+          coordinate_space: 'image_pixels',
+          units: 'pixels',
+          reason: null,
+        };
+      }
+    }
+    for (const point of incident.lifecycle_history) {
+      if (point.timestamp === worst) point.state = 'imminent';
+    }
+    await uploadAndFinish({ risk, incident });
     const badge = screen.getByTestId('tense-badge');
     expect(badge).toHaveTextContent('PREDICTED');
     expect(badge).toHaveTextContent(/has not happened/i);
+  });
+
+  it('moves the incident panel and the NOW marker with the playhead', async () => {
+    // The live defect: seeking to 1.0 s left CURRENT and the peak score on
+    // screen, because nothing passed the video clock to the incident panels.
+    const user = await uploadAndFinish();
+
+    // The app lands on the worst moment.
+    expect(screen.getByTestId('tense-badge')).toHaveTextContent(/happening now/i);
+    expect(screen.getByTestId('prediction-score')).toHaveTextContent(
+      incidentFixture.evidence!.risk_score.toFixed(1),
+    );
+    expect(screen.getByTestId('lifecycle-current')).toHaveTextContent('CURRENT');
+
+    // Scrub back to a moment the engine scored as imminent.
+    const earlier = incidentFixture.lifecycle_history.find(
+      (point) => point.state === 'imminent',
+    )!;
+    const scrubber = screen.getByLabelText(/scrub/i);
+    fireEvent.change(scrubber, { target: { value: String(earlier.timestamp) } });
+
+    expect(screen.getByTestId('prediction-score')).toHaveTextContent(
+      earlier.risk_score.toFixed(1),
+    );
+    expect(screen.getByTestId('prediction-score')).not.toHaveTextContent(
+      incidentFixture.evidence!.risk_score.toFixed(1),
+    );
+    expect(screen.getByTestId('lifecycle-value')).toHaveTextContent('IMMINENT');
+    expect(screen.getByTestId('tense-badge')).not.toHaveTextContent(/happening now/i);
+    expect(screen.getByTestId('lifecycle-current')).toHaveTextContent('IMMINENT');
+
+    // The worst moment is still on screen — labelled as the worst moment.
+    expect(screen.getByTestId('worst-moment-divider')).toHaveTextContent(
+      incidentFixture.evidence!.risk_score.toFixed(1),
+    );
+    return user;
   });
 });

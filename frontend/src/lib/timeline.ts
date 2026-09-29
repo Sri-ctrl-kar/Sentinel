@@ -9,6 +9,8 @@
 
 import type {
   EventPayload,
+  LifecyclePoint,
+  RiskAssessmentPayload,
   RiskReportPayload,
   TimelineFramePayload,
 } from '../api/types';
@@ -44,6 +46,59 @@ export function riskAt(
   for (const report of reports) {
     if (report.timestamp <= time + 1e-9) current = report;
     else break;
+  }
+  return current;
+}
+
+/**
+ * The state the backend derived for the incident at or before `time`.
+ *
+ * A lookup, never a derivation: every state in `lifecycle_history` was produced
+ * by `app/intelligence/lifecycle.py`, and this only picks which one the playhead
+ * is standing in. Null before the first one, which the caller must say out loud
+ * rather than falling back to the worst moment.
+ */
+export function lifecycleAt(
+  history: LifecyclePoint[],
+  time: number,
+): LifecyclePoint | null {
+  let current: LifecyclePoint | null = null;
+  for (const point of history) {
+    if (point.timestamp <= time + 1e-9) current = point;
+    else break;
+  }
+  return current;
+}
+
+/** Stable identity for "the same situation", mirroring `situation_key`. */
+function situationKey(entityIds: string[]): string {
+  return [...entityIds].sort().join('\u0000');
+}
+
+/**
+ * This incident's own assessment at or before `time`.
+ *
+ * Scoped to one entity pair, so the panel keeps following the situation it is
+ * about instead of jumping to whichever pair happens to score highest at the
+ * playhead — that is what `riskAt` is for. Same step-function rule as the rest
+ * of this module: the last assessment the engine actually produced, or null.
+ */
+export function assessmentAt(
+  reports: RiskReportPayload[],
+  time: number,
+  entityIds: string[],
+): RiskAssessmentPayload | null {
+  if (entityIds.length === 0) return null;
+  const key = situationKey(entityIds);
+  let current: RiskAssessmentPayload | null = null;
+  for (const report of reports) {
+    if (report.timestamp > time + 1e-9) break;
+    for (const assessment of report.assessments) {
+      if (situationKey(assessment.involved_entity_ids) === key) {
+        current = assessment;
+        break;
+      }
+    }
   }
   return current;
 }

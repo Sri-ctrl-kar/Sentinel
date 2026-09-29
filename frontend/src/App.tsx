@@ -26,7 +26,13 @@ import { TrustPanel } from './components/TrustPanel';
 import { UploadLanding } from './components/UploadLanding';
 import { VideoIntelligence } from './components/VideoIntelligence';
 import { useAnalysis } from './hooks/useAnalysis';
-import { clipDuration, peakRisk, riskAt } from './lib/timeline';
+import {
+  assessmentAt,
+  clipDuration,
+  lifecycleAt,
+  peakRisk,
+  riskAt,
+} from './lib/timeline';
 
 export default function App() {
   const analysis = useAnalysis();
@@ -96,6 +102,27 @@ export default function App() {
     [reports, currentTime],
   );
   const involved = currentReport?.assessments[0]?.involved_entity_ids ?? [];
+
+  // The incident panels follow the playhead too. `liveAssessment` is the
+  // tracked situation's own assessment at this moment — scoped to its entity
+  // pair, so the panel does not hop to whichever pair happens to score highest
+  // — and `liveState` is the state the backend derived for that same moment.
+  // Both are null before the situation was first assessed, which the panels say
+  // rather than falling back to the worst moment.
+  const incidentEntities = analysis.incident?.evidence?.entities ?? [];
+  const liveAssessment = useMemo(
+    () =>
+      assessmentAt(
+        reports,
+        currentTime,
+        incidentEntities.map((entity) => entity.entity_id),
+      ),
+    [reports, currentTime, incidentEntities],
+  );
+  const liveState = useMemo(
+    () => lifecycleAt(analysis.incident?.lifecycle_history ?? [], currentTime),
+    [analysis.incident, currentTime],
+  );
   const duration = clipDuration(
     analysis.status?.video?.duration_seconds ?? null,
     analysis.timeline?.frames ?? [],
@@ -179,11 +206,16 @@ export default function App() {
                 current={currentReport}
                 currentTime={currentTime}
               />
-              <PredictionPanel incident={analysis.incident} />
+              <PredictionPanel
+                incident={analysis.incident}
+                live={liveAssessment}
+                liveState={liveState?.state ?? null}
+              />
               <EvidencePanel incident={analysis.incident} />
               <LifecycleTrail
                 state={analysis.incident?.lifecycle_state ?? null}
                 history={analysis.incident?.lifecycle_history ?? []}
+                now={liveState?.state ?? null}
               />
               <TrustPanel
                 device={deviceForHeader}

@@ -1,8 +1,20 @@
 import { describe, expect, it } from 'vitest';
 
 import type { EventPayload, RiskReportPayload, TimelineFramePayload } from '../api/types';
-import { buildMarkers, clipDuration, frameAt, peakRisk, riskAt } from '../lib/timeline';
-import { risk as riskFixture, timeline as timelineFixture } from '../test/fixtures';
+import {
+  assessmentAt,
+  buildMarkers,
+  clipDuration,
+  frameAt,
+  lifecycleAt,
+  peakRisk,
+  riskAt,
+} from '../lib/timeline';
+import {
+  incident as incidentFixture,
+  risk as riskFixture,
+  timeline as timelineFixture,
+} from '../test/fixtures';
 
 function report(timestamp: number, score: number, severity: string): RiskReportPayload {
   return {
@@ -127,5 +139,67 @@ describe('clipDuration', () => {
 
   it('is zero when there is nothing at all', () => {
     expect(clipDuration(null, [])).toBe(0);
+  });
+});
+
+describe('lifecycleAt', () => {
+  const history = incidentFixture.lifecycle_history;
+
+  it('is null before the situation was first assessed', () => {
+    expect(lifecycleAt(history, history[0].timestamp - 0.01)).toBeNull();
+  });
+
+  it('holds the state the backend derived, without interpolating', () => {
+    const first = history[0];
+    expect(lifecycleAt(history, first.timestamp)?.state).toBe(first.state);
+    expect(lifecycleAt(history, first.timestamp + 0.01)?.state).toBe(first.state);
+  });
+
+  it('reaches current only once the clip actually does', () => {
+    const current = history.find((point) => point.state === 'current')!;
+    const before = history.filter((point) => point.timestamp < current.timestamp);
+    for (const point of before) {
+      expect(lifecycleAt(history, point.timestamp)?.state).not.toBe('current');
+    }
+    expect(lifecycleAt(history, current.timestamp)?.state).toBe('current');
+  });
+
+  it('is null for an empty history', () => {
+    expect(lifecycleAt([], 5)).toBeNull();
+  });
+});
+
+describe('assessmentAt', () => {
+  const reports = riskFixture.timeline;
+  const pair = incidentFixture.evidence!.entities.map((e) => e.entity_id);
+
+  it('returns this situation own assessment at the playhead', () => {
+    const worst = incidentFixture.evidence!.timestamp;
+    const found = assessmentAt(reports, worst, pair);
+    expect(found?.timestamp).toBe(worst);
+    expect(found?.risk_score).toBe(incidentFixture.evidence!.risk_score);
+  });
+
+  it('holds the last assessment produced, like every other lookup here', () => {
+    const worst = incidentFixture.evidence!.timestamp;
+    expect(assessmentAt(reports, worst + 0.05, pair)?.timestamp).toBe(worst);
+  });
+
+  it('does not care about entity order', () => {
+    const t = incidentFixture.evidence!.timestamp;
+    expect(assessmentAt(reports, t, [...pair].reverse())?.risk_score).toBe(
+      assessmentAt(reports, t, pair)?.risk_score,
+    );
+  });
+
+  it('is null for a situation the clip never contained', () => {
+    const t = incidentFixture.evidence!.timestamp;
+    expect(assessmentAt(reports, t, ['person_99', 'ghost_1'])).toBeNull();
+    expect(assessmentAt(reports, t, [])).toBeNull();
+  });
+
+  it('is null before the first assessment of that situation', () => {
+    const first = reports.find((r) => r.assessments.length > 0)!;
+    expect(assessmentAt(reports, first.timestamp - 0.01, pair)).toBeNull();
   });
 });

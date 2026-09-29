@@ -137,6 +137,15 @@ hand.
 | `format.test.ts` | severity → state mapping, missing-value formatting, predicted-vs-current logic |
 | `timeline.test.ts` | frame lookup, step-function risk selection, marker building |
 | `panels.test.tsx` | overlay geometry, risk states, time-to-risk variants, evidence, lifecycle (including the states a clip passed through), provenance, AI narrative, unplayable video |
+
+Every panel that can follow the video clock does. `src/lib/timeline.ts` selects
+the frame, the risk report, this incident's own assessment (`assessmentAt`, by
+entity pair) and its lifecycle state (`lifecycleAt`) at the playhead — all
+lookups into what the API returned, never a re-derivation. Material that exists
+only for the clip's worst moment, the AI narrative and the evidence factors,
+sits under a divider naming that moment, so nothing reads as live when it is
+not. Before a situation's first assessment the panels say so rather than showing
+the worst moment's numbers.
 | `EventTimeline.test.tsx` | marker rendering, click-to-seek, accessible names |
 | `App.test.tsx` | upload, polling through queued → running → complete, failure, missing fields, seeking, AMD device chip |
 

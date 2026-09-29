@@ -8,7 +8,7 @@
  */
 
 import type { IncidentResponse } from '../api/types';
-import { formatQuantity, humanise } from '../lib/format';
+import { formatQuantity, formatSeconds, humanise } from '../lib/format';
 
 interface Props {
   incident: IncidentResponse | null;
@@ -37,6 +37,11 @@ export function EvidencePanel({ incident }: Props) {
           <p className="empty">No incident evidence for this clip.</p>
         ) : (
           <>
+            {/* These factors were measured once, at the clip's worst moment.
+                They do not follow the playhead, so they say when they are from. */}
+            <div className="panel__divider" data-testid="evidence-moment">
+              Worst moment · {formatSeconds(evidence.timestamp)}
+            </div>
             <ul className="evidence" data-testid="evidence-list">
               {active.length === 0 && (
                 <li className="evidence__item">

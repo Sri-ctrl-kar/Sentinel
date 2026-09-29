@@ -11,12 +11,22 @@ import type { LifecyclePoint, LifecycleState } from '../api/types';
 import { LIFECYCLE_DESCRIPTIONS, LIFECYCLE_ORDER, formatSeconds } from '../lib/format';
 
 interface Props {
+  /** The state at the clip's worst moment. */
   state: LifecycleState | null;
   /** Every step the backend tracker derived, in order. Empty is legitimate. */
   history?: LifecyclePoint[];
+  /**
+   * The state at the playhead, which is where `◄ NOW` belongs. `null` means the
+   * situation had not been assessed yet at this point in the clip; omitting the
+   * prop entirely means the caller has no playhead, and the worst moment stands
+   * in for it.
+   */
+  now?: LifecycleState | null;
 }
 
-export function LifecycleTrail({ state, history = [] }: Props) {
+export function LifecycleTrail({ state, history = [], now }: Props) {
+  // `now === undefined` is "no playhead", not "no state at the playhead".
+  const marked = now === undefined ? state : now;
   const currentIndex = state ? LIFECYCLE_ORDER.indexOf(state) : -1;
 
   // When the clip's history is known, a rung is lit only if the situation
@@ -39,13 +49,18 @@ export function LifecycleTrail({ state, history = [] }: Props) {
           <p className="empty">No incident lifecycle to show.</p>
         ) : (
           <ol className="lifecycle" data-testid="lifecycle-trail">
+            {marked === null && (
+              <li className="lifecycle__note" data-testid="lifecycle-unassessed">
+                Not yet assessed at this point in the clip.
+              </li>
+            )}
             {LIFECYCLE_ORDER.map((step, index) => {
               const at = entered.get(step);
               const reached =
                 history.length > 0
                   ? at !== undefined
                   : currentIndex >= 0 && index <= currentIndex;
-              const isCurrent = step === state;
+              const isCurrent = step === marked;
               return (
                 <li className="lifecycle__step" key={step}>
                   <span className="lifecycle__rail" aria-hidden="true">

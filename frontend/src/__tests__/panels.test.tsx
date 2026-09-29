@@ -166,8 +166,23 @@ describe('risk panel', () => {
 
 // ---------------------------------------------------------------------------
 describe('prediction panel', () => {
+  // The assessment the engine produced at the clip's worst moment, and one from
+  // earlier in the same clip — both straight out of the captured risk timeline.
+  const worstAssessment = peak.assessments[0];
+  const earlier = riskFixture.timeline.find(
+    (report) =>
+      report.assessments.length > 0 &&
+      report.assessments[0].time_to_risk?.status === 'predicted',
+  )!.assessments[0];
+
   it('marks a present breach as CURRENT, never as predicted', () => {
-    render(<PredictionPanel incident={incidentFixture} />);
+    render(
+      <PredictionPanel
+        incident={incidentFixture}
+        live={worstAssessment}
+        liveState="current"
+      />,
+    );
     const badge = screen.getByTestId('tense-badge');
     expect(badge).toHaveTextContent('CURRENT');
     expect(badge).toHaveTextContent(/happening now/i);
@@ -175,30 +190,93 @@ describe('prediction panel', () => {
   });
 
   it('marks a forward-looking conflict as PREDICTED and says it has not happened', () => {
-    const predicted = clone(incidentFixture) as IncidentResponse;
-    predicted.lifecycle_state = 'imminent';
-    predicted.evidence!.incident_state = 'imminent';
-    predicted.evidence!.time_to_risk = {
+    const predicted = clone(earlier);
+    predicted.time_to_risk = {
       status: 'predicted',
       seconds: 1.4,
-      threshold: 90,
+      coordinate_space: 'image_pixels',
+      units: 'pixels',
       reason: null,
     };
-    render(<PredictionPanel incident={predicted} />);
+    render(
+      <PredictionPanel
+        incident={incidentFixture}
+        live={predicted}
+        liveState="imminent"
+      />,
+    );
     const badge = screen.getByTestId('tense-badge');
     expect(badge).toHaveTextContent('PREDICTED');
     expect(badge).toHaveTextContent(/has not happened/i);
     expect(screen.getByTestId('prediction-ttr')).toHaveTextContent('1.40 s');
   });
 
-  it('shows the incident type, lifecycle and involved entities from the API', () => {
-    render(<PredictionPanel incident={incidentFixture} />);
+  it('follows the playhead instead of freezing on the worst moment', () => {
+    // The defect this replaced: every seek showed the worst moment's score and
+    // CURRENT, however early in the clip the operator was looking.
+    const { rerender } = render(
+      <PredictionPanel
+        incident={incidentFixture}
+        live={earlier}
+        liveState="imminent"
+      />,
+    );
+    expect(screen.getByTestId('prediction-score')).toHaveTextContent(
+      earlier.risk_score.toFixed(1),
+    );
+    expect(screen.getByTestId('lifecycle-value')).toHaveTextContent('IMMINENT');
+    expect(screen.getByTestId('tense-badge')).not.toHaveTextContent('happening now');
+
+    rerender(
+      <PredictionPanel
+        incident={incidentFixture}
+        live={worstAssessment}
+        liveState="current"
+      />,
+    );
+    expect(screen.getByTestId('prediction-score')).toHaveTextContent(
+      worstAssessment.risk_score.toFixed(1),
+    );
+    expect(screen.getByTestId('tense-badge')).toHaveTextContent(/happening now/i);
+  });
+
+  it('says so when the situation was not assessed at this moment', () => {
+    render(<PredictionPanel incident={incidentFixture} live={null} liveState={null} />);
+    expect(screen.getByTestId('tense-badge')).toHaveTextContent(/not assessed/i);
+    // Never the worst moment's numbers standing in for an unassessed moment.
+    expect(screen.getByTestId('prediction-score')).toHaveTextContent('—');
+    expect(screen.getByTestId('lifecycle-value')).toHaveTextContent('—');
+  });
+
+  it('names the moment the worst-moment material belongs to', () => {
+    render(
+      <PredictionPanel
+        incident={incidentFixture}
+        live={earlier}
+        liveState="imminent"
+      />,
+    );
+    const divider = screen.getByTestId('worst-moment-divider');
+    expect(divider).toHaveTextContent(
+      incidentFixture.evidence!.timestamp.toFixed(2),
+    );
+    expect(divider).toHaveTextContent(
+      incidentFixture.evidence!.risk_score.toFixed(1),
+    );
+  });
+
+  it('shows the incident type and the involved entities from the API', () => {
+    render(
+      <PredictionPanel
+        incident={incidentFixture}
+        live={worstAssessment}
+        liveState="current"
+      />,
+    );
     expect(screen.getByTestId('incident-type')).toHaveTextContent(
       incidentFixture.evidence!.incident_type.replace(/_/g, ' '),
     );
-    expect(screen.getByTestId('lifecycle-value')).toHaveTextContent(
-      incidentFixture.evidence!.incident_state.toUpperCase(),
-    );
+    expect(screen.getByTestId('lifecycle-value')).toHaveTextContent('CURRENT');
     const entities = screen.getByTestId('involved-entities');
     for (const entity of incidentFixture.evidence!.entities) {
       expect(entities).toHaveTextContent(entity.entity_id);
@@ -222,12 +300,15 @@ describe('prediction panel', () => {
     expect(screen.getByTestId('no-incident')).toHaveTextContent(/no assessment/i);
   });
 
-  it('survives a missing prediction block', () => {
-    const noPrediction = clone(incidentFixture) as IncidentResponse;
-    noPrediction.evidence!.prediction = null;
-    render(<PredictionPanel incident={noPrediction} />);
-    expect(screen.queryByTestId('prediction-outcome')).not.toBeInTheDocument();
+  it('survives an assessment with no prediction outcome', () => {
+    const noOutcome = clone(peak.assessments[0]);
+    noOutcome.prediction_outcome = null;
+    noOutcome.time_to_risk = null;
+    render(
+      <PredictionPanel incident={incidentFixture} live={noOutcome} liveState="observed" />,
+    );
     expect(screen.getByTestId('incident-type')).toBeInTheDocument();
+    expect(screen.getByTestId('prediction-ttr')).toHaveTextContent('unavailable');
   });
 });
 
