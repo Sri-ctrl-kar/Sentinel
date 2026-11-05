@@ -216,8 +216,34 @@ def test_the_readme_does_not_conflate_the_two_cpu_baselines(readme):
     assert "29.90" in readme and "76.03" in readme
 
 
-def test_the_readme_no_longer_claims_the_amd_benchmark_was_not_run(readme):
+def test_the_readme_dates_the_amd_run_to_hardware_that_is_gone(readme):
+    """The figures stay; the implication that the device is still there does not.
+
+    This replaces an assertion that the README no longer said `NOT_RUN`, which
+    held while an AMD host existed. The credits expired and the droplet was
+    deleted, so `NOT_RUN` is the current state again and the recorded figures
+    have to read as a dated past run rather than a live capability.
+    """
     amd_section = readme[readme.index("### AMD benchmark results") :]
     amd_section = amd_section[: amd_section.index("### Correctness parity")]
-    assert "NOT_RUN" not in amd_section
-    assert "Measured on real AMD hardware" in amd_section
+    assert "no longer available" in amd_section
+    assert "NOT_RUN" in amd_section
+    assert "**Measured on real AMD hardware.**" not in amd_section
+
+
+def test_the_readme_leads_with_the_current_cpu_only_status(readme):
+    """A reader must meet the current state before the MI300X figures."""
+    status = readme[readme.index("### Current benchmark status") :]
+    status = status[: status.index("### Why Sentinel benefits")]
+    assert "CPU only" in status
+    assert "AMD_BENCHMARK = NOT_RUN" in status
+    assert "no AMD ROCm device available" in status
+    assert readme.index("### Current benchmark status") < readme.index(
+        "### AMD benchmark results"
+    )
+
+
+def test_the_record_index_says_no_amd_run_is_possible_now():
+    index = read("README.md")
+    assert "AMD_BENCHMARK = NOT_RUN" in index
+    assert "no longer available" in index

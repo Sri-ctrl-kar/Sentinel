@@ -1,6 +1,9 @@
 # M0.8 — CPU vs AMD Instinct MI300X, FP32
 
-**Status: measured on real AMD hardware.** Machine-readable form:
+**Status: measured on real AMD hardware that is no longer available.** The
+host was a rented AMD droplet; its credits expired and it was deleted, so this
+run cannot be reproduced or refreshed, and nothing here describes a device this
+project can still reach. Machine-readable form:
 [`m08-amd-mi300x-fp32.json`](m08-amd-mi300x-fp32.json).
 
 Sentinel's perception workload — the same YOLOv8n model, the same clip, the
@@ -80,6 +83,11 @@ milestone was for: the device changed and Sentinel's meaning did not.
   instance.
 
 ## Reproducing
+
+Not reproducible by this project as it stands: the AMD host is gone, so
+`--info` reports `HIP available: no` and `AMD_BENCHMARK = NOT_RUN` on every
+machine it can reach. The commands are kept for whoever does have an AMD
+device.
 
 ```bash
 python -m app.benchmark --info    # must report HIP available: yes

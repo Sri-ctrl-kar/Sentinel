@@ -58,12 +58,16 @@ it is given, separating model load, inference and end-to-end cost, with
 CPU/GPU correctness parity checked rather than assumed. Detection is 98% of the
 frame budget and is the only thing accelerated.
 
-Measured on an AMD Instinct MI300X (ROCm/HIP 7.1.52802, YOLOv8n, FP32, 120
-frames, model load excluded, same workload on both devices): inference
+The current benchmark state is CPU only — the latest run is a local CPU run on
+a screen-recording clip, and `AMD_BENCHMARK = NOT_RUN` because no AMD ROCm
+device is available. An **earlier run, on an AMD Instinct MI300X that is no
+longer available** (ROCm/HIP 7.1.52802, YOLOv8n, FP32, 120 frames, model load
+excluded, same workload on both devices), recorded inference
 76.03 → 147.14 FPS (**1.94×**), end-to-end pipeline 73.26 → 138.45 FPS
 (**1.89×**), with correctness parity PASS and the risk verdict identical
-(47.44, medium) on both. One clip on one host — not a general performance
-claim. See [AMD ROCm acceleration](#amd-rocm-acceleration-m08) and
+(47.44, medium) on both. One clip on one host, on retired hardware — not a
+general performance claim and not a current result. See
+[AMD ROCm acceleration](#amd-rocm-acceleration-m08) and
 [`benchmarks/`](benchmarks/).
 
 **M0.9** puts Sentinel in front of a person. A thin FastAPI adapter
@@ -1253,6 +1257,24 @@ python -m app.incident --scenario D --strict               # exit 3 if ungrounde
 
 ## AMD ROCm acceleration (M0.8)
 
+### Current benchmark status
+
+The latest benchmark run is **CPU only**: a local CPU run on a provided
+screen-recording clip. It reports CPU figures and nothing else.
+
+```
+AMD_BENCHMARK = NOT_RUN
+REASON = no AMD ROCm device available (cloud credits expired, droplet deleted)
+```
+
+No AMD device is reachable from this project any more, so no ROCm run can be
+made or repeated today. The MI300X figures further down are a **dated record of
+an earlier run on hardware that no longer exists** — kept because deleting a
+measurement that happened would be its own kind of dishonesty, but they are not
+a current result, not a capability this project can demonstrate on demand, and
+nothing here should be read as AMD performance, CPU-vs-AMD parity or ROCm
+acceleration being measured *now*.
+
 ### Why Sentinel benefits from GPU acceleration
 
 Because one stage costs everything. Measured on this repository's own
@@ -1339,9 +1361,10 @@ REASON = AMD ROCm device unavailable
 ```
 
 That output is from the development container, which has no AMD GPU — it is
-what the diagnostic looks like when there is nothing to accelerate on. On the
-AMD host the same command reports `HIP available: yes` with the MI300X visible,
-which is what gated the measured run below.
+what the diagnostic looks like when there is nothing to accelerate on, and it
+is what every machine this project can still reach now reports. On the AMD host
+that has since been deleted, the same command reported `HIP available: yes`
+with the MI300X visible, which is what gated the earlier run recorded below.
 
 ### CPU fallback
 
@@ -1432,7 +1455,11 @@ detections 320  tracks 9  events 38  mean conf 0.6245
 
 ### AMD benchmark results
 
-**Measured on real AMD hardware.** Durable record:
+**An earlier run, on an AMD Instinct MI300X that is no longer available**
+(see [current benchmark status](#current-benchmark-status): the AMD device is
+gone and `AMD_BENCHMARK = NOT_RUN` today). The figures below are preserved
+exactly as recorded; they describe that past run and no current capability.
+Durable record:
 [`benchmarks/m08-amd-mi300x-fp32.md`](benchmarks/m08-amd-mi300x-fp32.md)
 ([json](benchmarks/m08-amd-mi300x-fp32.json)).
 
@@ -1463,8 +1490,8 @@ real-world performance**, and it is not an FP16 result. See
 
 ### Speedup
 
-Measured on the AMD host, same workload on both devices, FP32, model load
-excluded:
+From that same earlier run on the now-unavailable AMD host, same workload on
+both devices, FP32, model load excluded:
 
 ```
 inference : 76.03 fps -> 147.14 fps   1.94x
@@ -1500,7 +1527,8 @@ across the threshold and changes a detection count by one with nothing wrong.
 Tolerated differences are still printed — never silently absorbed. A comparison
 that could not be made reports `NOT COMPARED`, never `YES`.
 
-Measured CPU against AMD MI300X, same clip, FP32:
+From the same earlier run on the retired AMD host — CPU against AMD MI300X,
+same clip, FP32:
 
 | | CPU | AMD MI300X |
 | --- | --- | --- |

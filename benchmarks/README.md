@@ -6,7 +6,13 @@ directory is projected, extrapolated or estimated.
 
 | Record | Milestone | What it measures | Status |
 | --- | --- | --- | --- |
-| [`m08-amd-mi300x-fp32`](m08-amd-mi300x-fp32.md) ([json](m08-amd-mi300x-fp32.json)) | M0.8 | Perception throughput and correctness parity, CPU vs AMD Instinct MI300X, FP32 | measured on real hardware |
+| [`m08-amd-mi300x-fp32`](m08-amd-mi300x-fp32.md) ([json](m08-amd-mi300x-fp32.json)) | M0.8 | Perception throughput and correctness parity, CPU vs AMD Instinct MI300X, FP32 | measured on hardware that is no longer available — a past run, not a current result |
+
+**No AMD run is possible today.** The AMD cloud credits expired and the droplet
+was deleted, so `AMD_BENCHMARK = NOT_RUN` (reason: no AMD ROCm device
+available) and the record above cannot be reproduced or refreshed. The most
+recent benchmark run is a local CPU run on a provided screen-recording clip,
+reporting CPU figures only; its output is not transcribed here as a record yet.
 
 ## Conventions
 
