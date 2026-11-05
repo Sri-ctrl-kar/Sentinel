@@ -35,7 +35,18 @@ from app.intelligence.lifecycle import INCIDENT_STATES  # noqa: E402
 from app.api.server import ApiSettings, create_app  # noqa: E402
 from app.api.store import AnalysisStore  # noqa: E402
 
-MOCK_RUN = {"detector": "mock", "sample_interval": "0.1", "risk_step": "0.2"}
+# `device: cpu` is part of what makes this suite deterministic, like the mock
+# detector beside it. Without it the upload asks for `auto`, which correctly
+# prefers whatever accelerator the machine has — Metal on a Mac, ROCm on the
+# benchmark box — and a contract test would then assert the hardware it happens
+# to run on. Production device selection is not touched: `auto` still means
+# auto, and a test that wants to check `auto` asks for it explicitly below.
+MOCK_RUN = {
+    "detector": "mock",
+    "sample_interval": "0.1",
+    "risk_step": "0.2",
+    "device": "cpu",
+}
 
 
 @pytest.fixture
@@ -66,7 +77,13 @@ def video_bytes(demo_video):
 
 def upload(client, video_bytes, filename="clip.mp4", content_type="video/mp4", **form):
     data = dict(MOCK_RUN)
-    data.update({k: str(v) for k, v in form.items()})
+    for key, value in form.items():
+        if value is None:
+            # Drop the field entirely, so a test can exercise the API's own
+            # default rather than a value this helper chose for determinism.
+            data.pop(key, None)
+        else:
+            data[key] = str(value)
     return client.post(
         "/api/analyze",
         files={"video": (filename, io.BytesIO(video_bytes), content_type)},
@@ -813,10 +830,25 @@ def test_requesting_an_unavailable_device_is_409(client):
 
 
 def test_the_analysis_reports_the_device_it_ran_on(client, analysis_id):
+    """This run asked for the CPU, so the CPU is what it must report."""
     device = client.get(f"/api/analyze/{analysis_id}").json()["device"]
     assert device["kind"] == "cpu"
     assert device["semantic_device"] == "cpu"
+    assert device["requested"] == "cpu"
+
+
+def test_an_upload_without_a_device_asks_for_auto_and_says_so(client, video_bytes):
+    """The default still reaches the pipeline, and the run reports what it got.
+
+    Deliberately no assertion that the result is the CPU: `auto` resolves to
+    this machine's accelerator, and pinning that here would make the suite fail
+    on exactly the hardware Sentinel is built to use.
+    """
+    body = upload(client, video_bytes, device=None).json()
+    device = client.get(f"/api/analyze/{body['analysis_id']}").json()["device"]
     assert device["requested"] == "auto"
+    assert device["kind"] in ("cpu", "rocm", "cuda", "mps")
+    assert device["semantic_device"] == device["kind"]
 
 
 # ---------------------------------------------------------------------------

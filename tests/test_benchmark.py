@@ -99,12 +99,10 @@ def test_annotation_can_carry_calibration_and_zones():
 # The rendered clip
 # ===========================================================================
 @pytest.fixture(scope="module")
-def clip_result():
-    pytest.importorskip("cv2")
-    import os
-
-    if not os.path.exists(CLIP):
-        pytest.skip("rendered clip not generated")
+def clip_result(rendered_clip):
+    """`rendered_clip` renders the video the annotations point at if it is
+    missing. The old guard checked the *annotations* — which are committed, so
+    it never fired, and the evaluator failed on the absent video instead."""
     return evaluate_clip(load_annotation(CLIP))
 
 

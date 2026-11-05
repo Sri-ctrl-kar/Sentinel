@@ -745,6 +745,11 @@ python scripts/generate_demo_video.py \
     -o data/clips/rendered_bay.mp4 --annotations data/clips/rendered_bay.json
 ```
 
+The annotations are checked in; the `.mp4` is not, because it is reproducible.
+Running that command is optional: the test suite renders the video with the
+same script and the same defaults when it is missing, and never rewrites the
+annotations.
+
 #### What is NOT validated
 
 - **No real footage has been evaluated.** Every clip is rendered: perfect
@@ -1615,7 +1620,8 @@ and an AMD device labelled `AMD ROCm / HIP` rather than CUDA.
 
 ## Setup
 
-Python 3.9+.
+Python 3.9+. The suite is run on 3.11 and 3.13; every dependency also publishes
+wheels for 3.14, which has not been exercised here.
 
 ### Minimal install (no model weights, no torch)
 

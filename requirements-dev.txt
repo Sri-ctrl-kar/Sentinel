@@ -2,3 +2,10 @@
 
 -r requirements.txt
 pytest>=8.0
+
+# Starlette's TestClient, which `tests/test_api_contract.py` runs the API
+# through, imports this and raises at *collection* time without it — which
+# interrupts the whole run, not just that module. It arrived by accident until
+# now, as a transitive dependency of the optional Anthropic SDK, so a machine
+# that installed only this file could not collect the suite at all.
+httpx2>=2,<3
