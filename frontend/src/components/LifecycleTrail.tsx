@@ -51,7 +51,7 @@ export function LifecycleTrail({ state, history = [], now }: Props) {
           <ol className="lifecycle" data-testid="lifecycle-trail">
             {marked === null && (
               <li className="lifecycle__note" data-testid="lifecycle-unassessed">
-                Not yet assessed at this point in the clip.
+                Not assessed at this point in the clip.
               </li>
             )}
             {LIFECYCLE_ORDER.map((step, index) => {

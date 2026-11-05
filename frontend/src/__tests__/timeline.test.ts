@@ -180,9 +180,40 @@ describe('assessmentAt', () => {
     expect(found?.risk_score).toBe(incidentFixture.evidence!.risk_score);
   });
 
-  it('holds the last assessment produced, like every other lookup here', () => {
+  it('stays inside the report the playhead is standing in', () => {
+    // Within one step the selected report has not changed yet, so the same
+    // assessment is still the right answer.
     const worst = incidentFixture.evidence!.timestamp;
     expect(assessmentAt(reports, worst + 0.05, pair)?.timestamp).toBe(worst);
+  });
+
+  it('never holds an assessment forward into a report that has none', () => {
+    // The defect this replaced: 47 seconds after the last assessment the
+    // incident panel still showed one, next to a risk panel saying there was
+    // none. A report with no assessments is an answer, not a gap to fill.
+    const empty = reports.filter((report) => report.assessments.length === 0);
+    expect(empty.length).toBeGreaterThan(0);
+    for (const report of empty) {
+      expect(assessmentAt(reports, report.timestamp, pair)).toBeNull();
+    }
+  });
+
+  it('agrees with riskAt about whether this moment was assessed at all', () => {
+    // Both panels read the same report, so they cannot disagree about silence.
+    for (const report of reports) {
+      const selected = riskAt(reports, report.timestamp);
+      const riskPanelHasNothing = (selected?.assessments.length ?? 0) === 0;
+      if (riskPanelHasNothing) {
+        expect(assessmentAt(reports, report.timestamp, pair)).toBeNull();
+      }
+    }
+  });
+
+  it('is null once the playhead passes the clip last assessment', () => {
+    const last = reports[reports.length - 1];
+    if (last.assessments.length === 0) {
+      expect(assessmentAt(reports, last.timestamp + 30, pair)).toBeNull();
+    }
   });
 
   it('does not care about entity order', () => {

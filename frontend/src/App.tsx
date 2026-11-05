@@ -119,9 +119,19 @@ export default function App() {
       ),
     [reports, currentTime, incidentEntities],
   );
+  // Looked up by the live assessment's own timestamp, not by the playhead:
+  // the state on screen must belong to the assessment on screen. Past the
+  // situation's last assessment there is no assessment and so no state, which
+  // the panel and the trail both say instead of holding the last one.
   const liveState = useMemo(
-    () => lifecycleAt(analysis.incident?.lifecycle_history ?? [], currentTime),
-    [analysis.incident, currentTime],
+    () =>
+      liveAssessment === null
+        ? null
+        : lifecycleAt(
+            analysis.incident?.lifecycle_history ?? [],
+            liveAssessment.timestamp,
+          ),
+    [analysis.incident, liveAssessment],
   );
   const duration = clipDuration(
     analysis.status?.video?.duration_seconds ?? null,

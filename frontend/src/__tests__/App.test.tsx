@@ -6,7 +6,7 @@
  * running, then complete, and the UI is asserted at each step.
  */
 
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -347,9 +347,22 @@ describe('failure and missing data', () => {
     const earlier = incidentFixture.lifecycle_history.find(
       (point) => point.state === 'imminent',
     )!;
+    // Let the landing seek settle before scrubbing: it arrives through an
+    // effect, and a scrub in the same tick can be overwritten by it.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
     const scrubber = screen.getByLabelText(/scrub/i);
     fireEvent.change(scrubber, { target: { value: String(earlier.timestamp) } });
 
+    // Awaited, not asserted synchronously: the seek lands through an effect,
+    // and reading the DOM in the same tick races it.
+    await waitFor(() => {
+      expect(screen.getByTestId('prediction-as-of')).toHaveTextContent(
+        earlier.timestamp.toFixed(2),
+      );
+    });
     expect(screen.getByTestId('prediction-score')).toHaveTextContent(
       earlier.risk_score.toFixed(1),
     );
@@ -360,10 +373,34 @@ describe('failure and missing data', () => {
     expect(screen.getByTestId('tense-badge')).not.toHaveTextContent(/happening now/i);
     expect(screen.getByTestId('lifecycle-current')).toHaveTextContent('IMMINENT');
 
+    // The two panels must agree about which moment is on screen.
+    expect(screen.getByLabelText('Predictive risk')).toHaveTextContent(
+      `as of ${earlier.timestamp.toFixed(2)} s`,
+    );
+
     // The worst moment is still on screen — labelled as the worst moment.
     expect(screen.getByTestId('worst-moment-divider')).toHaveTextContent(
       incidentFixture.evidence!.risk_score.toFixed(1),
     );
+
+    // Past the clip's last assessment both panels fall silent together: no
+    // score, no lifecycle, no NOW marker — rather than holding the last one.
+    const silent = riskFixture.timeline
+      .filter((report) => report.assessments.length === 0)
+      .map((report) => report.timestamp)
+      .filter((timestamp) => timestamp > earlier.timestamp)
+      .pop()!;
+    fireEvent.change(scrubber, { target: { value: String(silent) } });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('tense-badge')).toHaveTextContent(/not assessed/i);
+    });
+    expect(screen.getByTestId('risk-none')).toBeInTheDocument();
+    expect(screen.getByTestId('prediction-score')).toHaveTextContent('—');
+    expect(screen.getByTestId('lifecycle-value')).toHaveTextContent('—');
+    expect(screen.queryByTestId('lifecycle-current')).toBeNull();
+    expect(screen.getByTestId('lifecycle-unassessed')).toBeInTheDocument();
+
     return user;
   });
 });

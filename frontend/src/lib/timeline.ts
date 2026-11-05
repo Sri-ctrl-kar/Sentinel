@@ -76,12 +76,18 @@ function situationKey(entityIds: string[]): string {
 }
 
 /**
- * This incident's own assessment at or before `time`.
+ * This incident's own assessment in the report the playhead is standing in.
  *
  * Scoped to one entity pair, so the panel keeps following the situation it is
  * about instead of jumping to whichever pair happens to score highest at the
- * playhead — that is what `riskAt` is for. Same step-function rule as the rest
- * of this module: the last assessment the engine actually produced, or null.
+ * playhead — that is what `riskAt` is for.
+ *
+ * It looks *only* inside the report `riskAt` selected, and never searches
+ * further back. The engine emits a report at every step, including steps where
+ * it assessed nothing, so holding an older assessment would put a badge and a
+ * score on screen for a moment the engine had nothing to say about — and would
+ * contradict the risk panel, which reads the same report and says so. One
+ * report, one answer, both panels.
  */
 export function assessmentAt(
   reports: RiskReportPayload[],
@@ -89,18 +95,14 @@ export function assessmentAt(
   entityIds: string[],
 ): RiskAssessmentPayload | null {
   if (entityIds.length === 0) return null;
+  const report = riskAt(reports, time);
+  if (report === null) return null;
   const key = situationKey(entityIds);
-  let current: RiskAssessmentPayload | null = null;
-  for (const report of reports) {
-    if (report.timestamp > time + 1e-9) break;
-    for (const assessment of report.assessments) {
-      if (situationKey(assessment.involved_entity_ids) === key) {
-        current = assessment;
-        break;
-      }
-    }
-  }
-  return current;
+  return (
+    report.assessments.find(
+      (assessment) => situationKey(assessment.involved_entity_ids) === key,
+    ) ?? null
+  );
 }
 
 /** The highest-scoring report in the run, or null when none was produced. */
