@@ -58,15 +58,24 @@ it is given, separating model load, inference and end-to-end cost, with
 CPU/GPU correctness parity checked rather than assumed. Detection is 98% of the
 frame budget and is the only thing accelerated.
 
-The current benchmark state is CPU only — the latest run is a local CPU run on
-a screen-recording clip, and `AMD_BENCHMARK = NOT_RUN` because no AMD ROCm
-device is available. An **earlier run, on an AMD Instinct MI300X that is no
-longer available** (ROCm/HIP 7.1.52802, YOLOv8n, FP32, 120 frames, model load
-excluded, same workload on both devices), recorded inference
-76.03 → 147.14 FPS (**1.94×**), end-to-end pipeline 73.26 → 138.45 FPS
-(**1.89×**), with correctness parity PASS and the risk verdict identical
-(47.44, medium) on both. One clip on one host, on retired hardware — not a
-general performance claim and not a current result. See
+**M0.8 is not complete.** The device abstraction and the benchmark harness are
+built and exercised, but the milestone's own objective — validating ROCm
+acceleration on real AMD hardware — cannot be met from this project as it
+stands. `AMD_BENCHMARK = NOT_RUN`: no AMD ROCm device is available, the cloud
+credits expired and the droplet was deleted, so no ROCm run can be made or
+repeated.
+
+The benchmarks in this repository come from three different machines and are
+reported **separately, never against each other**: current measurements on a
+local Apple Silicon CPU
+([results](#apple-silicon-cpu-benchmark-results-current-hardware), two dated
+records covering different windows of one clip), a historical run on an AMD
+Instinct MI300X that no longer exists
+([results](#amd-benchmark-results-historical-hardware)), and an older CPU
+baseline from this project's development container. No cross-device speedup or
+performance comparison is claimed between them, and none can be computed from
+them: different clips, different hosts, different runs. See
+[three machines, three separate records](#three-machines-three-separate-records),
 [AMD ROCm acceleration](#amd-rocm-acceleration-m08) and
 [`benchmarks/`](benchmarks/).
 
@@ -1284,6 +1293,28 @@ a current result, not a capability this project can demonstrate on demand, and
 nothing here should be read as AMD performance, CPU-vs-AMD parity or ROCm
 acceleration being measured *now*.
 
+### Three machines, three separate records
+
+This chapter reports benchmarks from three different machines. They are
+separate, hardware-specific records rather than one comparison:
+
+* the **development container** — Intel Xeon, 4 cores, **not** the AMD host —
+  a CPU baseline measured 2026-09-12;
+* the **AMD host** — its own CPU and an AMD Instinct MI300X, measured
+  2026-09-26, since deleted — the one place in this chapter where two devices
+  ran the same clip and the same workload, and therefore the only place a
+  measured ratio exists;
+* a **local Apple Silicon Mac** — CPU only, two dated records over different
+  windows of one clip; the current measurements, and the only ones that can be
+  reproduced today.
+
+**None of these may be read against another.** Different CPUs, different
+clips, different operating systems, library versions and dates: a figure from
+one belongs to that machine and that run alone. No cross-device speedup or
+performance comparison is claimed here, and none can be computed from what is
+published. The ratios in this chapter are internal to the AMD host's own
+CPU-versus-GPU pairing and belong to that host alone.
+
 ### Why Sentinel benefits from GPU acceleration
 
 Because one stage costs everything. Measured on this repository's own
@@ -1339,6 +1370,14 @@ Named devices are exact. `--device rocm` on a machine with an NVIDIA GPU raises
 `DeviceUnavailable` — *"refusing to run somewhere other than where you asked"* —
 rather than quietly producing a number from the wrong stack. Only `--device
 auto` falls back, because falling back is what `auto` means.
+
+**Historical transcript.** The `--info` output below was captured in the
+development container at the time of the dev-container and MI300X runs. Its
+`REASON` line is that environment's own wording — on that machine no AMD device
+was present at all. It is *not* the project's current status, which is a
+different statement with a different reason and is kept separately under
+[Current benchmark status](#current-benchmark-status): the AMD cloud credits
+expired and the droplet was deleted, so no AMD device can be reached any more.
 
 ```bash
 python -m app.benchmark --info
@@ -1417,11 +1456,14 @@ Rules the harness enforces rather than assumes:
 * A GPU run that cannot prove it executed on the GPU is **refused**, not
   reported.
 
-The clip: no video is committed to this repository. The numbers below were
-measured on a 125-frame 640x384 clip built by panning a window across a single
-street photograph (`scripts/make_benchmark_clip.py`), which gives real,
-moving detections — people, a bus, a train — rather than the zero detections a
-synthetic scene of coloured rectangles produces.
+The clip: no video is committed to this repository. **The development
+container and AMD host runs** — and only those — were measured on a 125-frame
+640x384 clip built by panning a window across a single street photograph
+(`scripts/make_benchmark_clip.py`), which gives real, moving detections —
+people, a bus, a train — rather than the zero detections a synthetic scene of
+coloured rectangles produces. The Apple Silicon records used a different clip
+of a different size, named in
+[their own section](#apple-silicon-cpu-benchmark-results-current-hardware).
 
 ### Hardware and software metadata
 
@@ -1442,10 +1484,7 @@ synthetic scene of coloured rectangles produces.
 
 ### CPU benchmark results (development container)
 
-Benchmark measured on the machine above, 2026-09-12. This is the development
-container, **not** the AMD host — the CPU/AMD comparison further down was
-measured on a different machine and its CPU baseline is a different number.
-Comparing across the two would be meaningless; each pairing stands on its own.
+Benchmark measured on the machine above, 2026-09-12.
 
 ```
 device            : CPU — cpu
@@ -1462,7 +1501,28 @@ event generation       33108.96 fps  mean     0.03 ms  p50     0.02  p95     0.0
 detections 320  tracks 9  events 38  mean conf 0.6245
 ```
 
-### AMD benchmark results
+### Apple Silicon CPU benchmark results (current hardware)
+
+Local Apple Silicon Mac, CPU, FP32, model load excluded, warmup discarded, one
+device. Apple Metal was available on that host and deliberately left idle.
+
+Two dated records of the same machine, clip, model and settings over different
+measurement windows. Neither supersedes the other, and neither is ranked
+against the other:
+
+| window | inference | pipeline (end to end) | record |
+| --- | --- | --- | --- |
+| whole 2105-frame clip | 58.0 FPS | 53.39 FPS | [md](benchmarks/m08-apple-silicon-cpu-fp32-full-clip-2026-11-06.md) · [json](benchmarks/m08-apple-silicon-cpu-fp32-full-clip-2026-11-06.json) |
+| first 120 frames (harness default) | 55.01 FPS | 50.45 FPS | [md](benchmarks/m08-apple-silicon-cpu-fp32-2026-11-06.md) · [json](benchmarks/m08-apple-silicon-cpu-fp32-2026-11-06.json) |
+
+Host: Darwin 27.0.0 (arm64), arm, 10 cores, 16.0 GiB, Python 3.14.0, PyTorch
+2.14.0, Ultralytics 8.4.163. Clip:
+`Screen Recording 2026-09-29 at 09.48.17.mov`, 2900 × 1416 at 33.47 fps, not
+committed.
+
+**No GPU was used in either run and no speedup is claimed by either.**
+
+### AMD benchmark results (historical hardware)
 
 **An earlier run, on an AMD Instinct MI300X that is no longer available**
 (see [current benchmark status](#current-benchmark-status): the AMD device is
