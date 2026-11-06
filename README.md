@@ -1260,9 +1260,14 @@ python -m app.incident --scenario D --strict               # exit 3 if ungrounde
 ### Current benchmark status
 
 The latest benchmark run is **CPU only**: a local Apple Silicon Mac, CPU, FP32,
-120 frames of a screen-recording clip — inference 55.01 FPS, end-to-end
-pipeline 50.45 FPS, model load excluded. It reports CPU figures and nothing
-else; there is no second device in it and so no speedup. Durable record:
+over the whole 2105-frame screen-recording clip — inference 58.0 FPS,
+end-to-end pipeline 53.39 FPS, model load excluded. It reports CPU figures and
+nothing else; there is no second device in it and so no speedup. Durable
+record:
+[`benchmarks/m08-apple-silicon-cpu-fp32-full-clip-2026-11-06.md`](benchmarks/m08-apple-silicon-cpu-fp32-full-clip-2026-11-06.md)
+([json](benchmarks/m08-apple-silicon-cpu-fp32-full-clip-2026-11-06.json)).
+An earlier run of the same machine, clip and settings over the harness default
+window of 120 frames is kept alongside it:
 [`benchmarks/m08-apple-silicon-cpu-fp32-2026-11-06.md`](benchmarks/m08-apple-silicon-cpu-fp32-2026-11-06.md)
 ([json](benchmarks/m08-apple-silicon-cpu-fp32-2026-11-06.json)).
 

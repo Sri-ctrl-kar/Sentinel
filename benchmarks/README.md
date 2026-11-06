@@ -6,12 +6,18 @@ directory is projected, extrapolated or estimated.
 
 | Record | Recorded | Milestone | What it measures | Status |
 | --- | --- | --- | --- | --- |
-| [`m08-apple-silicon-cpu-fp32-2026-11-06`](m08-apple-silicon-cpu-fp32-2026-11-06.md) ([json](m08-apple-silicon-cpu-fp32-2026-11-06.json)) | 2026-11-06 | M0.8 | Perception throughput on a local Apple Silicon CPU, FP32, single device | measured on a local Mac, CPU only — no comparison, no speedup |
+| [`m08-apple-silicon-cpu-fp32-full-clip-2026-11-06`](m08-apple-silicon-cpu-fp32-full-clip-2026-11-06.md) ([json](m08-apple-silicon-cpu-fp32-full-clip-2026-11-06.json)) | 2026-11-06 | M0.8 | Perception throughput on a local Apple Silicon CPU, FP32, single device, **whole 2105-frame clip** | measured on a local Mac, CPU only — no comparison, no speedup |
+| [`m08-apple-silicon-cpu-fp32-2026-11-06`](m08-apple-silicon-cpu-fp32-2026-11-06.md) ([json](m08-apple-silicon-cpu-fp32-2026-11-06.json)) | 2026-11-06 | M0.8 | Perception throughput on a local Apple Silicon CPU, FP32, single device, **first 120 frames** | measured on a local Mac, CPU only — no comparison, no speedup |
 | [`m08-amd-mi300x-fp32`](m08-amd-mi300x-fp32.md) ([json](m08-amd-mi300x-fp32.json)) | 2026-09-26 | M0.8 | Perception throughput and correctness parity, CPU vs AMD Instinct MI300X, FP32 | measured on hardware that is no longer available — a past run, not a current result |
 
-The two records are **not comparable**: different clips, different hosts,
-different runs. Neither a speedup nor a parity verdict may be computed across
-them, and neither record claims one.
+The two CPU records are the **same machine, the same clip and the same
+settings over different windows** — the harness default of 120 frames, and the
+whole 2105-frame recording. Neither supersedes the other and neither computes a
+ratio against the other.
+
+Neither is comparable to the **MI300X** record: different clip, different host,
+different run. No speedup and no parity verdict may be computed across them,
+and no record claims one.
 
 **No AMD run is possible today.** The AMD cloud credits expired and the droplet
 was deleted, so `AMD_BENCHMARK = NOT_RUN` (reason: no AMD ROCm device

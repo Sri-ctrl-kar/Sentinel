@@ -22,6 +22,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RECORDS = os.path.join(ROOT, "benchmarks")
 AMD_RECORD = "m08-amd-mi300x-fp32"
 CPU_RECORD = "m08-apple-silicon-cpu-fp32-2026-11-06"
+FULL_RECORD = "m08-apple-silicon-cpu-fp32-full-clip-2026-11-06"
 
 
 def read(name: str) -> str:
@@ -47,6 +48,16 @@ def cpu_record() -> dict:
 @pytest.fixture(scope="module")
 def cpu_prose() -> str:
     return read(f"{CPU_RECORD}.md")
+
+
+@pytest.fixture(scope="module")
+def full_record() -> dict:
+    return json.loads(read(f"{FULL_RECORD}.json"))
+
+
+@pytest.fixture(scope="module")
+def full_prose() -> str:
+    return read(f"{FULL_RECORD}.md")
 
 
 @pytest.fixture(scope="module")
@@ -489,3 +500,191 @@ def test_the_two_records_stay_separate(cpu_record, record):
     assert cpu_record["device"]["kind"] == "cpu"
     assert record["hardware"]["accelerator_kind"] == "rocm"
     assert cpu_record["results"]["detections"] != record["results"]["cpu"]["detections"]
+
+
+# ===========================================================================
+# The whole-clip Apple Silicon CPU record (2026-11-06)
+#
+# Same machine, clip and settings as the 120-frame record, over 2105 frames
+# instead of 125. It is an addition, not a replacement: the tests below check
+# its own figures, and that it neither absorbs nor supersedes its sibling.
+# ===========================================================================
+FULL_TIMINGS = {
+    "inference": {
+        "fps": 58.0, "mean_ms": 17.24, "p50_ms": 16.899, "p95_ms": 19.113,
+        "p99_ms": 24.431, "min_ms": 14.584, "max_ms": 100.333, "stdev_ms": 3.337,
+        "total_seconds": 36.2044,
+    },
+    "pipeline": {
+        "fps": 53.39, "mean_ms": 18.73, "p50_ms": 18.361, "p95_ms": 20.799,
+        "p99_ms": 26.774, "min_ms": 15.939, "max_ms": 102.424, "stdev_ms": 3.506,
+        "total_seconds": 39.3325,
+    },
+    "decode": {
+        "fps": 679.62, "mean_ms": 1.471, "p50_ms": 1.415, "p95_ms": 1.716,
+        "p99_ms": 2.216, "min_ms": 1.219, "max_ms": 13.877, "stdev_ms": 0.393,
+        "total_seconds": 3.0899,
+    },
+    "tracking": {
+        "fps": 92263.56, "mean_ms": 0.011, "p50_ms": 0.006, "p95_ms": 0.026,
+        "p99_ms": 0.032, "min_ms": 0.002, "max_ms": 0.076, "stdev_ms": 0.009,
+        "total_seconds": 0.0228,
+    },
+    "events": {
+        "fps": 144702.8, "mean_ms": 0.007, "p50_ms": 0.001, "p95_ms": 0.023,
+        "p99_ms": 0.03, "min_ms": 0.001, "max_ms": 0.059, "stdev_ms": 0.008,
+        "total_seconds": 0.0145,
+    },
+}
+
+FULL_CLASS_COUNTS = {
+    "airplane": 10, "backpack": 2, "bench": 3, "bird": 9, "boat": 152,
+    "car": 41, "dog": 12, "fire hydrant": 16, "horse": 10, "kite": 4,
+    "motorcycle": 72, "person": 687, "skateboard": 13, "suitcase": 14,
+    "surfboard": 58, "train": 1, "truck": 654, "umbrella": 2,
+}
+
+
+def test_the_full_clip_record_is_a_json_and_prose_pair():
+    for suffix in (".json", ".md"):
+        assert os.path.isfile(os.path.join(RECORDS, FULL_RECORD + suffix))
+
+
+def test_the_full_clip_record_is_indexed_beside_its_sibling():
+    index = read("README.md")
+    assert FULL_RECORD in index
+    assert CPU_RECORD in index, "the 120-frame record must stay in the index"
+    assert "whole 2105-frame clip" in index
+    assert "first 120 frames" in index
+
+
+@pytest.mark.parametrize("stage", sorted(FULL_TIMINGS))
+def test_every_full_clip_timing_is_preserved_exactly(full_record, stage):
+    recorded = full_record["timings"][stage]
+    for field, value in FULL_TIMINGS[stage].items():
+        assert recorded[field] == value, f"{stage}.{field} drifted"
+    assert recorded["frames"] == 2100
+
+
+@pytest.mark.parametrize("stage", ["inference", "pipeline", "decode"])
+def test_the_full_clip_throughput_follows_from_the_measured_totals(full_record, stage):
+    """FPS and mean must be the frame count over the time actually spent.
+
+    The two sub-millisecond stages are excluded: their `total_seconds` is
+    rounded to four decimals, which at 0.0145 s dominates the ratio.
+    """
+    timing = full_record["timings"][stage]
+    assert round(timing["frames"] / timing["total_seconds"], 2) == pytest.approx(
+        timing["fps"], abs=0.01
+    )
+    assert round(timing["total_seconds"] / timing["frames"] * 1000, 3) == pytest.approx(
+        timing["mean_ms"], abs=0.001
+    )
+
+
+def test_the_full_clip_percentiles_are_ordered(full_record):
+    for stage, timing in full_record["timings"].items():
+        assert timing["min_ms"] <= timing["p50_ms"] <= timing["p95_ms"], stage
+        assert timing["p95_ms"] <= timing["p99_ms"] <= timing["max_ms"], stage
+
+
+def test_the_full_clip_record_discloses_its_tail(full_record, full_prose):
+    """A max six times the median is the kind of thing a record must not bury."""
+    inference = full_record["timings"]["inference"]
+    assert inference["max_ms"] / inference["p50_ms"] > 5
+    assert "tail" in full_record["timing_note"].lower()
+    assert "100.333" in full_prose and "102.424" in full_prose
+
+
+def test_the_full_clip_class_counts_account_for_every_detection(full_record):
+    results = full_record["results"]
+    assert results["class_counts"] == FULL_CLASS_COUNTS
+    assert sum(results["class_counts"].values()) == results["detections"] == 1760
+    assert results["tracks_created"] == 26
+    assert results["events"] == 331
+    assert results["mean_confidence"] == 0.51423
+
+
+def test_the_full_clip_record_read_the_whole_clip(full_record, full_prose):
+    workload, clip = full_record["workload"], full_record["clip"]
+    assert workload["frames_measured"] == 2100
+    assert workload["warmup_frames"] == 5
+    assert workload["frames_read"] == 2105
+    assert workload["frames_read"] == clip["frame_count"]
+    assert clip["fully_covered"] is True
+    assert "the entire clip" in full_prose or "the whole clip" in full_prose
+
+
+def test_the_full_clip_record_names_the_device_it_verified(full_record):
+    device = full_record["device"]
+    assert device["requested"] == "cpu"
+    assert device["kind"] == "cpu"
+    assert device["verified"] is True
+
+
+def test_the_full_clip_record_says_metal_was_available_and_unused(full_record, full_prose):
+    accelerator = full_record["accelerator"]
+    assert accelerator["mps_available"] is True
+    assert accelerator["mps_used"] is False
+    assert accelerator["used"] is False
+    assert "deliberately not used" in full_prose
+
+
+def test_the_full_clip_record_is_fp32_and_excludes_model_load(full_record, full_prose):
+    workload = full_record["workload"]
+    assert workload["precision"] == "FP32"
+    assert workload["fp16_used"] is False
+    assert workload["model_load_excluded_from_throughput"] is True
+    assert workload["model_load_seconds"] == 0.092
+    assert workload["warmup_excluded_from_measurement"] is True
+    assert "**FP32**" in full_prose
+    assert "excluded from every throughput figure" in full_prose
+
+
+def test_the_full_clip_record_carries_no_home_directory_path(full_record, full_prose):
+    assert full_record["workload"]["video_absolute_path_recorded"] is False
+    for text in (json.dumps(full_record), full_prose):
+        assert "/Users/" not in text
+
+
+def test_the_full_clip_record_compares_itself_to_no_other_device(full_record, full_prose):
+    assert full_record["comparison"] is None
+    leaked = set(_numeric_leaves(full_record)) & set(MI300X_FIGURES)
+    assert not leaked, f"MI300X figures present as values: {sorted(leaked)}"
+    for figure in MI300X_FIGURES:
+        pattern = rf"(?<![\d.]){re.escape(f'{figure:g}')}(?![\d])"
+        assert not re.search(pattern, full_prose), f"MI300X figure {figure} in the prose"
+
+
+def test_the_full_clip_record_points_at_its_sibling_without_ranking_it(
+    full_record, full_prose
+):
+    """Added alongside, not instead of: it must say so and compute no ratio."""
+    companion = full_record["companion_record"]
+    assert companion["record_id"] == CPU_RECORD
+    flat = " ".join(full_prose.split())
+    assert "neither supersedes the other" in flat
+    assert "no ratio between them is computed" in flat
+    # The sibling's headline figures must not be restated or ratioed here.
+    for figure in (55.01, 50.45):
+        assert figure not in set(_numeric_leaves(full_record))
+
+
+def test_the_120_frame_record_is_untouched_by_the_full_clip_run(record, cpu_record):
+    """The earlier record keeps its own window and figures, unchanged."""
+    assert cpu_record["workload"]["frames_measured"] == 120
+    assert cpu_record["timings"]["inference"]["fps"] == 55.01
+    assert cpu_record["timings"]["pipeline"]["fps"] == 50.45
+    assert cpu_record["results"]["detections"] == 213
+    assert "companion_record" not in cpu_record
+    assert record["hardware"]["accelerator_kind"] == "rocm"
+
+
+def test_the_three_records_stay_distinct(cpu_record, full_record, record):
+    ids = {
+        cpu_record["record_id"],
+        full_record["record_id"],
+        record["record_id"],
+    }
+    assert len(ids) == 3
+    assert cpu_record["results"]["detections"] != full_record["results"]["detections"]
