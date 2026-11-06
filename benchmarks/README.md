@@ -4,15 +4,20 @@ Durable, dated records of benchmarks that were actually run, one file per
 result. A record lands here only when it was measured; nothing in this
 directory is projected, extrapolated or estimated.
 
-| Record | Milestone | What it measures | Status |
-| --- | --- | --- | --- |
-| [`m08-amd-mi300x-fp32`](m08-amd-mi300x-fp32.md) ([json](m08-amd-mi300x-fp32.json)) | M0.8 | Perception throughput and correctness parity, CPU vs AMD Instinct MI300X, FP32 | measured on hardware that is no longer available — a past run, not a current result |
+| Record | Recorded | Milestone | What it measures | Status |
+| --- | --- | --- | --- | --- |
+| [`m08-apple-silicon-cpu-fp32-2026-11-06`](m08-apple-silicon-cpu-fp32-2026-11-06.md) ([json](m08-apple-silicon-cpu-fp32-2026-11-06.json)) | 2026-11-06 | M0.8 | Perception throughput on a local Apple Silicon CPU, FP32, single device | measured on a local Mac, CPU only — no comparison, no speedup |
+| [`m08-amd-mi300x-fp32`](m08-amd-mi300x-fp32.md) ([json](m08-amd-mi300x-fp32.json)) | 2026-09-26 | M0.8 | Perception throughput and correctness parity, CPU vs AMD Instinct MI300X, FP32 | measured on hardware that is no longer available — a past run, not a current result |
+
+The two records are **not comparable**: different clips, different hosts,
+different runs. Neither a speedup nor a parity verdict may be computed across
+them, and neither record claims one.
 
 **No AMD run is possible today.** The AMD cloud credits expired and the droplet
 was deleted, so `AMD_BENCHMARK = NOT_RUN` (reason: no AMD ROCm device
-available) and the record above cannot be reproduced or refreshed. The most
-recent benchmark run is a local CPU run on a provided screen-recording clip,
-reporting CPU figures only; its output is not transcribed here as a record yet.
+available) and the MI300X record cannot be reproduced or refreshed. The most
+recent benchmark run is the local Apple Silicon CPU run above, which reports
+CPU figures only.
 
 ## Conventions
 

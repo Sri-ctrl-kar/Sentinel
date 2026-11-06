@@ -1,0 +1,169 @@
+{
+  "record_id": "m08-apple-silicon-cpu-fp32-2026-11-06",
+  "milestone": "M0.8",
+  "title": "Sentinel perception benchmark — local Apple Silicon CPU, FP32",
+  "status": "measured_on_local_cpu",
+  "recorded": "2026-11-06",
+  "run_timestamp": null,
+  "record_kind": "harness_json",
+  "record_note": "Values copied verbatim from the `runs[0]` object of `python -m app.benchmark --video <clip> --device cpu --json`. Nothing is rounded, derived or filled in here. The run's own wall-clock timestamp is not carried by the harness output, so `run_timestamp` is null and `recorded` is the date this record was written. The clip's absolute path was a home directory and is omitted; the file name is kept.",
+  "comparison": null,
+  "comparison_note": "One device. No second device was benchmarked, so this record contains no speedup, no parity check and no comparison of any kind. It is not related to, and must not be read against, the separate AMD MI300X record.",
+  "device": {
+    "requested": "cpu",
+    "kind": "cpu",
+    "label": "CPU",
+    "torch_device": "cpu",
+    "name": "cpu",
+    "index": null,
+    "runtime_version": null,
+    "verified": true,
+    "detail": "cpu"
+  },
+  "accelerator": {
+    "used": false,
+    "mps_available": true,
+    "mps_used": false,
+    "mps_note": "Apple Metal was available on this host and deliberately not used: the run requested `cpu` and the harness verified execution on the CPU.",
+    "hip": null,
+    "cuda": null,
+    "rocm_build": false,
+    "gpu_kind": null,
+    "gpus": []
+  },
+  "workload": {
+    "model": "YOLOv8n",
+    "weights": "yolov8n.pt",
+    "weights_sha256": "f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36",
+    "detector": "yolo",
+    "precision": "FP32",
+    "fp16_used": false,
+    "imgsz": 640,
+    "confidence": 0.25,
+    "iou": 0.45,
+    "classes": null,
+    "classes_note": "null means no class filter — all COCO classes were kept.",
+    "frames_measured": 120,
+    "warmup_frames": 5,
+    "warmup_excluded_from_measurement": true,
+    "stride": 1,
+    "model_load_seconds": 0.089,
+    "model_load_excluded_from_throughput": true,
+    "batching": false,
+    "video": "Screen Recording 2026-09-29 at 09.48.17.mov",
+    "video_committed_to_repository": false,
+    "video_absolute_path_recorded": false
+  },
+  "clip": {
+    "name": "Screen Recording 2026-09-29 at 09.48.17.mov",
+    "kind": "screen recording",
+    "width": 2900,
+    "height": 1416,
+    "fps": 33.47,
+    "frame_count": 2105,
+    "duration_seconds": 62.892,
+    "coverage_note": "120 frames of a 2105-frame clip were measured, at stride 1 — the opening seconds, not the whole recording."
+  },
+  "host": {
+    "os": "Darwin 27.0.0 (arm64)",
+    "cpu": "arm",
+    "cpu_count": 10,
+    "ram_gb": 16.0,
+    "python": "3.14.0",
+    "torch": "2.14.0",
+    "ultralytics": "8.4.163",
+    "opencv": "5.0.0",
+    "numpy": "2.5.3",
+    "not_recorded": [
+      "cpu_model",
+      "machine_model"
+    ],
+    "not_recorded_note": "The harness reports the CPU architecture (`arm`) and core count, not the chip name or machine model. Neither is inferred here."
+  },
+  "timings": {
+    "inference": {
+      "label": "inference (detect)",
+      "frames": 120,
+      "total_seconds": 2.1816,
+      "fps": 55.01,
+      "mean_ms": 18.18,
+      "p50_ms": 18.102,
+      "p95_ms": 19.123,
+      "p99_ms": 19.486,
+      "min_ms": 17.055,
+      "max_ms": 19.573,
+      "stdev_ms": 0.538
+    },
+    "pipeline": {
+      "label": "pipeline (end to end)",
+      "frames": 120,
+      "total_seconds": 2.3784,
+      "fps": 50.45,
+      "mean_ms": 19.82,
+      "p50_ms": 19.755,
+      "p95_ms": 20.726,
+      "p99_ms": 20.958,
+      "min_ms": 18.706,
+      "max_ms": 21.589,
+      "stdev_ms": 0.553
+    },
+    "decode": {
+      "label": "decode",
+      "frames": 120,
+      "total_seconds": 0.1932,
+      "fps": 621.08,
+      "mean_ms": 1.61,
+      "p50_ms": 1.568,
+      "p95_ms": 1.947,
+      "p99_ms": 2.119,
+      "min_ms": 1.405,
+      "max_ms": 2.321,
+      "stdev_ms": 0.166
+    },
+    "tracking": {
+      "label": "tracking",
+      "frames": 120,
+      "total_seconds": 0.0021,
+      "fps": 56548.08,
+      "mean_ms": 0.018,
+      "p50_ms": 0.017,
+      "p95_ms": 0.025,
+      "p99_ms": 0.027,
+      "min_ms": 0.012,
+      "max_ms": 0.031,
+      "stdev_ms": 0.003
+    },
+    "events": {
+      "label": "event generation",
+      "frames": 120,
+      "total_seconds": 0.0015,
+      "fps": 82002.28,
+      "mean_ms": 0.012,
+      "p50_ms": 0.011,
+      "p95_ms": 0.025,
+      "p99_ms": 0.029,
+      "min_ms": 0.007,
+      "max_ms": 0.03,
+      "stdev_ms": 0.004
+    }
+  },
+  "results": {
+    "detections": 213,
+    "tracks_created": 2,
+    "events": 7,
+    "class_counts": {
+      "person": 85,
+      "skateboard": 4,
+      "surfboard": 4,
+      "truck": 120
+    },
+    "mean_confidence": 0.6172
+  },
+  "caveats": [
+    "Not a general real-world performance claim: one clip, one host, one model, one resolution, single stream, 120 frames.",
+    "Not an accelerated result: CPU only. No MPS, no ROCm, no CUDA, no FP16, no INT8, no quantization, no batching, no ONNX Runtime or TensorRT.",
+    "Not a comparison: a single device was benchmarked, so no speedup or parity figure exists in this record.",
+    "Not a measurement of the whole clip: 120 of its 2105 frames.",
+    "Not a detection-accuracy result: the counts below are what the detector produced on this clip, with no ground truth to score them against."
+  ]
+}

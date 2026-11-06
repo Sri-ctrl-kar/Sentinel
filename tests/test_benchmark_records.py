@@ -14,12 +14,14 @@ from __future__ import annotations
 
 import json
 import os
+import re
 
 import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RECORDS = os.path.join(ROOT, "benchmarks")
 AMD_RECORD = "m08-amd-mi300x-fp32"
+CPU_RECORD = "m08-apple-silicon-cpu-fp32-2026-11-06"
 
 
 def read(name: str) -> str:
@@ -35,6 +37,16 @@ def record() -> dict:
 @pytest.fixture(scope="module")
 def prose() -> str:
     return read(f"{AMD_RECORD}.md")
+
+
+@pytest.fixture(scope="module")
+def cpu_record() -> dict:
+    return json.loads(read(f"{CPU_RECORD}.json"))
+
+
+@pytest.fixture(scope="module")
+def cpu_prose() -> str:
+    return read(f"{CPU_RECORD}.md")
 
 
 @pytest.fixture(scope="module")
@@ -247,3 +259,233 @@ def test_the_record_index_says_no_amd_run_is_possible_now():
     index = read("README.md")
     assert "AMD_BENCHMARK = NOT_RUN" in index
     assert "no longer available" in index
+
+
+# ===========================================================================
+# The local Apple Silicon CPU record (2026-11-06)
+#
+# Transcribed from one `--device cpu --json` run. These tests do not re-measure
+# anything: they hold the record to the same rules as its sibling — figures
+# preserved exactly, disclosures present, nothing generalised — and add the one
+# rule a single-device record needs, which is that it compares itself to
+# nothing.
+# ===========================================================================
+CPU_TIMINGS = {
+    "inference": {
+        "fps": 55.01, "mean_ms": 18.18, "p50_ms": 18.102, "p95_ms": 19.123,
+        "p99_ms": 19.486, "min_ms": 17.055, "max_ms": 19.573, "stdev_ms": 0.538,
+        "total_seconds": 2.1816,
+    },
+    "pipeline": {
+        "fps": 50.45, "mean_ms": 19.82, "p50_ms": 19.755, "p95_ms": 20.726,
+        "p99_ms": 20.958, "min_ms": 18.706, "max_ms": 21.589, "stdev_ms": 0.553,
+        "total_seconds": 2.3784,
+    },
+    "decode": {
+        "fps": 621.08, "mean_ms": 1.61, "p50_ms": 1.568, "p95_ms": 1.947,
+        "p99_ms": 2.119, "min_ms": 1.405, "max_ms": 2.321, "stdev_ms": 0.166,
+        "total_seconds": 0.1932,
+    },
+    "tracking": {
+        "fps": 56548.08, "mean_ms": 0.018, "p50_ms": 0.017, "p95_ms": 0.025,
+        "p99_ms": 0.027, "min_ms": 0.012, "max_ms": 0.031, "stdev_ms": 0.003,
+        "total_seconds": 0.0021,
+    },
+    "events": {
+        "fps": 82002.28, "mean_ms": 0.012, "p50_ms": 0.011, "p95_ms": 0.025,
+        "p99_ms": 0.029, "min_ms": 0.007, "max_ms": 0.03, "stdev_ms": 0.004,
+        "total_seconds": 0.0015,
+    },
+}
+
+
+def test_the_cpu_record_is_a_json_and_prose_pair():
+    for suffix in (".json", ".md"):
+        assert os.path.isfile(os.path.join(RECORDS, CPU_RECORD + suffix))
+
+
+def test_the_cpu_record_is_indexed_with_its_date():
+    index = read("README.md")
+    assert CPU_RECORD in index
+    assert "2026-11-06" in index
+
+
+@pytest.mark.parametrize("stage", sorted(CPU_TIMINGS))
+def test_every_cpu_timing_is_preserved_exactly(cpu_record, stage):
+    recorded = cpu_record["timings"][stage]
+    for field, value in CPU_TIMINGS[stage].items():
+        assert recorded[field] == value, f"{stage}.{field} drifted"
+    assert recorded["frames"] == 120
+
+
+@pytest.mark.parametrize("stage", ["inference", "pipeline"])
+def test_the_cpu_throughput_follows_from_the_measured_totals(cpu_record, stage):
+    """The FPS must be the frame count over the time actually spent.
+
+    Only the two slow stages are checked: `total_seconds` is rounded to four
+    decimals, which at 0.0021 s dominates the ratio and would make the fast
+    stages fail an exactness test for no reason.
+    """
+    timing = cpu_record["timings"][stage]
+    assert round(timing["frames"] / timing["total_seconds"], 2) == timing["fps"]
+    assert round(timing["total_seconds"] / timing["frames"] * 1000, 2) == timing["mean_ms"]
+
+
+def test_the_cpu_percentiles_are_ordered(cpu_record):
+    for stage, timing in cpu_record["timings"].items():
+        assert timing["min_ms"] <= timing["p50_ms"] <= timing["p95_ms"], stage
+        assert timing["p95_ms"] <= timing["p99_ms"] <= timing["max_ms"], stage
+
+
+def test_the_cpu_class_counts_account_for_every_detection(cpu_record):
+    results = cpu_record["results"]
+    assert sum(results["class_counts"].values()) == results["detections"] == 213
+    assert results["tracks_created"] == 2
+    assert results["events"] == 7
+    assert results["mean_confidence"] == 0.6172
+
+
+def test_the_cpu_record_names_the_device_it_verified(cpu_record, cpu_prose):
+    device = cpu_record["device"]
+    assert device["requested"] == "cpu"
+    assert device["kind"] == "cpu"
+    assert device["torch_device"] == "cpu"
+    assert device["verified"] is True
+    assert "CPU" in cpu_prose
+
+
+def test_the_cpu_record_says_metal_was_available_and_unused(cpu_record, cpu_prose):
+    """A CPU number from a machine with a GPU has to say the GPU sat idle."""
+    accelerator = cpu_record["accelerator"]
+    assert accelerator["mps_available"] is True
+    assert accelerator["mps_used"] is False
+    assert accelerator["used"] is False
+    assert "deliberately not used" in cpu_prose
+
+
+def test_the_cpu_record_is_fp32_and_says_so(cpu_record, cpu_prose):
+    assert cpu_record["workload"]["precision"] == "FP32"
+    assert cpu_record["workload"]["fp16_used"] is False
+    assert "**FP32**" in cpu_prose
+
+
+def test_the_cpu_record_excludes_model_load_and_discards_warmup(cpu_record, cpu_prose):
+    workload = cpu_record["workload"]
+    assert workload["model_load_excluded_from_throughput"] is True
+    assert workload["model_load_seconds"] == 0.089
+    assert workload["warmup_frames"] == 5
+    assert workload["warmup_excluded_from_measurement"] is True
+    assert "excluded from every throughput figure" in cpu_prose
+    assert "discarded" in cpu_prose
+
+
+def test_the_cpu_record_states_how_much_of_the_clip_it_measured(cpu_record, cpu_prose):
+    """120 frames of a 62.892s clip is not the clip, and must not read as it."""
+    clip = cpu_record["clip"]
+    assert clip["frame_count"] == 2105
+    assert clip["duration_seconds"] == 62.892
+    assert cpu_record["workload"]["frames_measured"] == 120
+    assert clip["frame_count"] > cpu_record["workload"]["frames_measured"]
+    assert "2105" in cpu_prose and "120" in cpu_prose
+
+
+def test_the_cpu_clip_is_named_but_not_committed(cpu_record):
+    workload = cpu_record["workload"]
+    assert workload["video"] == "Screen Recording 2026-09-29 at 09.48.17.mov"
+    assert workload["video_committed_to_repository"] is False
+    assert workload["video_absolute_path_recorded"] is False
+    assert not os.path.exists(os.path.join(RECORDS, workload["video"]))
+
+
+def test_the_cpu_record_carries_no_home_directory_path(cpu_record, cpu_prose):
+    """The path the harness reported was a home directory; only the name is kept."""
+    payload = json.dumps(cpu_record)
+    for text in (payload, cpu_prose):
+        assert "/Users/" not in text
+
+
+MI300X_FIGURES = (147.14, 138.45, 1.94, 1.89, 76.03, 73.26, 47.44)
+
+
+def _numeric_leaves(value):
+    if isinstance(value, dict):
+        for item in value.values():
+            yield from _numeric_leaves(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _numeric_leaves(item)
+    elif isinstance(value, (int, float)) and not isinstance(value, bool):
+        yield float(value)
+
+
+def test_the_cpu_record_compares_itself_to_nothing(cpu_record, cpu_prose):
+    """A single-device run has no speedup, no parity and no second device.
+
+    MI300X may be *named* — saying the two records are not comparable is the
+    point — but none of its figures may appear, and no ratio may exist here.
+    Values are compared as numbers, not as substrings: decode's p95 is 1.947 ms,
+    which contains "1.94" and is nobody's speedup.
+    """
+    assert cpu_record["comparison"] is None
+    assert "speedup" not in json.dumps(cpu_record).lower().replace(
+        "no speedup", ""
+    ), "a ratio field survives in a single-device record"
+    assert set(cpu_record["results"]) == {
+        "detections",
+        "tracks_created",
+        "events",
+        "class_counts",
+        "mean_confidence",
+    }
+
+    leaked = set(_numeric_leaves(cpu_record)) & set(MI300X_FIGURES)
+    assert not leaked, f"MI300X figures present as values: {sorted(leaked)}"
+
+    for figure in MI300X_FIGURES:
+        pattern = rf"(?<![\d.]){re.escape(f'{figure:g}')}(?![\d])"
+        assert not re.search(pattern, cpu_prose), f"MI300X figure {figure} in the prose"
+
+    flat = " ".join(cpu_prose.split())
+    assert "No second device was benchmarked" in flat
+    assert "not to be read against these numbers" in flat
+
+
+def test_the_cpu_record_claims_no_acceleration(cpu_record, cpu_prose):
+    for text in (json.dumps(cpu_record), cpu_prose):
+        assert "ROCm" not in text or "no ROCm" in text or "No MPS, no ROCm" in text
+    assert cpu_record["accelerator"]["rocm_build"] is False
+    assert cpu_record["accelerator"]["gpu_kind"] is None
+    assert cpu_record["accelerator"]["gpus"] == []
+
+
+def test_the_cpu_record_refuses_to_generalise(cpu_record, cpu_prose):
+    assert any("general real-world performance" in c for c in cpu_record["caveats"])
+    lowered = cpu_prose.lower()
+    assert "not a general real-world performance claim" in lowered
+    assert "does not predict" in lowered
+
+
+def test_the_cpu_record_records_the_host_and_marks_what_it_lacks(cpu_record, cpu_prose):
+    host = cpu_record["host"]
+    assert host["os"] == "Darwin 27.0.0 (arm64)"
+    assert host["cpu"] == "arm" and host["cpu_count"] == 10 and host["ram_gb"] == 16.0
+    assert host["python"] == "3.14.0" and host["torch"] == "2.14.0"
+    assert host["ultralytics"] == "8.4.163"
+    for field in host["not_recorded"]:
+        assert field not in host or host.get(field) is None
+    assert "not recorded" in cpu_prose
+
+
+def test_the_cpu_record_names_the_weights_it_ran(cpu_record, cpu_prose):
+    digest = "f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36"
+    assert cpu_record["workload"]["weights_sha256"] == digest
+    assert cpu_record["workload"]["weights"] == "yolov8n.pt"
+    assert digest in cpu_prose
+
+
+def test_the_two_records_stay_separate(cpu_record, record):
+    """Neither record may quietly absorb the other's hardware or figures."""
+    assert cpu_record["record_id"] != record["record_id"]
+    assert cpu_record["device"]["kind"] == "cpu"
+    assert record["hardware"]["accelerator_kind"] == "rocm"
+    assert cpu_record["results"]["detections"] != record["results"]["cpu"]["detections"]
