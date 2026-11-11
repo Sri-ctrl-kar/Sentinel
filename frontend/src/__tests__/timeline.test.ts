@@ -4,6 +4,9 @@ import type { EventPayload, RiskReportPayload, TimelineFramePayload } from '../a
 import {
   assessmentAt,
   buildMarkers,
+  historyFor,
+  liveAssessmentAt,
+  sameSituation,
   clipDuration,
   frameAt,
   lifecycleAt,
@@ -232,5 +235,81 @@ describe('assessmentAt', () => {
   it('is null before the first assessment of that situation', () => {
     const first = reports.find((r) => r.assessments.length > 0)!;
     expect(assessmentAt(reports, first.timestamp - 0.01, pair)).toBeNull();
+  });
+});
+
+describe('liveAssessmentAt', () => {
+  const reports = riskFixture.timeline;
+
+  it('is exactly what the risk panel reads, at every step of the clip', () => {
+    // The agreement property. The risk panel renders
+    // `riskAt(reports, t).assessments[0]`; the incident panel renders this.
+    // If they are ever different objects the two can disagree about whether
+    // this moment was assessed, which is the defect this replaced.
+    for (const report of reports) {
+      for (const t of [report.timestamp, report.timestamp + 0.01]) {
+        expect(liveAssessmentAt(reports, t)).toBe(
+          riskAt(reports, t)?.assessments[0] ?? null,
+        );
+      }
+    }
+  });
+
+  it('is null where the engine assessed nothing, never a held-over value', () => {
+    const empty = reports.filter((r) => r.assessments.length === 0);
+    expect(empty.length).toBeGreaterThan(0);
+    for (const report of empty) {
+      expect(liveAssessmentAt(reports, report.timestamp)).toBeNull();
+    }
+  });
+
+  it('is null before the first report', () => {
+    expect(liveAssessmentAt(reports, reports[0].timestamp - 1)).toBeNull();
+    expect(liveAssessmentAt([], 5)).toBeNull();
+  });
+
+  it('follows whichever situation the engine ranked first', () => {
+    const reportWithTwo: RiskReportPayload = {
+      ...report(1.0, 40, 'medium'),
+      assessment_count: 2,
+      assessments: [
+        { ...riskFixture.worst!.assessments[0], risk_score: 40, involved_entity_ids: ['a', 'b'] },
+        { ...riskFixture.worst!.assessments[0], risk_score: 10, involved_entity_ids: ['c', 'd'] },
+      ],
+    };
+    expect(liveAssessmentAt([reportWithTwo], 1.0)?.involved_entity_ids).toEqual(['a', 'b']);
+  });
+});
+
+describe('sameSituation', () => {
+  it('ignores order', () => {
+    expect(sameSituation(['person_1', 'truck_2'], ['truck_2', 'person_1'])).toBe(true);
+  });
+
+  it('is false for a different pair, and for an empty one', () => {
+    expect(sameSituation(['person_1', 'truck_2'], ['person_1', 'car_9'])).toBe(false);
+    expect(sameSituation([], ['person_1'])).toBe(false);
+    expect(sameSituation(['person_1'], [])).toBe(false);
+  });
+});
+
+describe('historyFor', () => {
+  const situations = incidentFixture.situations;
+
+  it('returns that situation own lifecycle, whatever the entity order', () => {
+    const first = situations[0];
+    expect(historyFor(situations, first.entity_ids)).toBe(first.history);
+    expect(historyFor(situations, [...first.entity_ids].reverse())).toBe(first.history);
+  });
+
+  it('borrows nothing for a situation the clip never contained', () => {
+    expect(historyFor(situations, ['ghost_1', 'ghost_2'])).toEqual([]);
+    expect(historyFor(situations, [])).toEqual([]);
+    expect(historyFor([], ['person_1', 'truck_2'])).toEqual([]);
+  });
+
+  it('agrees with the lifecycle_history the response also carries', () => {
+    const worst = incidentFixture.evidence!.entities.map((e) => e.entity_id);
+    expect(historyFor(situations, worst)).toEqual(incidentFixture.lifecycle_history);
   });
 });

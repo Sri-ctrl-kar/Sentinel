@@ -12,6 +12,7 @@ import type {
   LifecyclePoint,
   RiskAssessmentPayload,
   RiskReportPayload,
+  SituationLifecycle,
   TimelineFramePayload,
 } from '../api/types';
 
@@ -76,7 +77,11 @@ function situationKey(entityIds: string[]): string {
 }
 
 /**
- * This incident's own assessment in the report the playhead is standing in.
+ * One named situation's assessment in the report the playhead is standing in.
+ *
+ * The panels follow `liveAssessmentAt` instead — whichever situation the
+ * engine ranked first at this moment. This is the pair-scoped variant, for a
+ * caller that needs to follow one specific situation across the clip.
  *
  * Scoped to one entity pair, so the panel keeps following the situation it is
  * about instead of jumping to whichever pair happens to score highest at the
@@ -103,6 +108,48 @@ export function assessmentAt(
       (assessment) => situationKey(assessment.involved_entity_ids) === key,
     ) ?? null
   );
+}
+
+/**
+ * The situation the engine ranked first in the report the playhead is in.
+ *
+ * This is the very object the risk panel reads — `riskAt(...).assessments[0]`
+ * — so the two panels cannot disagree about whether this moment was assessed,
+ * or about its score. A clip holds as many situations as it has assessed
+ * pairs, and a viewer scrubbing it meets whichever is live now, not only the
+ * one that happened to peak.
+ */
+export function liveAssessmentAt(
+  reports: RiskReportPayload[],
+  time: number,
+): RiskAssessmentPayload | null {
+  const report = riskAt(reports, time);
+  return report?.assessments[0] ?? null;
+}
+
+/** Do two entity lists name the same situation? Order never matters. */
+export function sameSituation(a: string[], b: string[]): boolean {
+  if (a.length === 0 || b.length === 0) return false;
+  return situationKey(a) === situationKey(b);
+}
+
+/**
+ * The lifecycle the backend derived for one situation, by its entity pair.
+ *
+ * A lookup into `situations`, never a derivation: every state in it came from
+ * `app/intelligence/lifecycle.py`. An unknown pair has no history, which the
+ * caller must say rather than borrow another situation's.
+ */
+export function historyFor(
+  situations: SituationLifecycle[],
+  entityIds: string[],
+): LifecyclePoint[] {
+  if (entityIds.length === 0) return [];
+  const key = situationKey(entityIds);
+  const match = situations.find(
+    (situation) => situationKey(situation.entity_ids) === key,
+  );
+  return match ? match.history : [];
 }
 
 /** The highest-scoring report in the run, or null when none was produced. */

@@ -240,12 +240,52 @@ describe('prediction panel', () => {
     expect(screen.getByTestId('tense-badge')).toHaveTextContent(/happening now/i);
   });
 
+  it('names the situation on screen and says how it relates to the worst moment', () => {
+    // A long clip holds many situations. The panel must say which one it is
+    // showing, and whether that is the one the material below describes.
+    const other = clone(earlier);
+    other.involved_entity_ids = ['person_9', 'bus_4'];
+    other.risk_score = 21.5;
+
+    const { rerender } = render(
+      <PredictionPanel
+        incident={incidentFixture}
+        live={other}
+        liveState="developing"
+        isWorstSituation={false}
+      />,
+    );
+    expect(screen.getByTestId('live-situation')).toHaveTextContent('person_9 + bus_4');
+    expect(screen.getByTestId('situation-scope')).toHaveTextContent(/different situation/i);
+    expect(screen.getByTestId('prediction-score')).toHaveTextContent('21.5');
+    // The worst moment is still on screen, still labelled, still its own.
+    const divider = screen.getByTestId('worst-moment-divider');
+    expect(divider).toHaveTextContent(incidentFixture.evidence!.incident_id);
+    expect(divider).toHaveTextContent(
+      incidentFixture.evidence!.risk_score.toFixed(1),
+    );
+
+    rerender(
+      <PredictionPanel
+        incident={incidentFixture}
+        live={worstAssessment}
+        liveState="current"
+        isWorstSituation
+      />,
+    );
+    expect(screen.getByTestId('situation-scope')).toHaveTextContent(
+      /this is the clip's worst situation/i,
+    );
+  });
+
   it('says so when the situation was not assessed at this moment', () => {
     render(<PredictionPanel incident={incidentFixture} live={null} liveState={null} />);
     expect(screen.getByTestId('tense-badge')).toHaveTextContent(/not assessed/i);
     // Never the worst moment's numbers standing in for an unassessed moment.
     expect(screen.getByTestId('prediction-score')).toHaveTextContent('—');
     expect(screen.getByTestId('lifecycle-value')).toHaveTextContent('—');
+    expect(screen.getByTestId('live-situation')).toHaveTextContent(/no situation/i);
+    expect(screen.queryByTestId('situation-scope')).toBeNull();
   });
 
   it('names the moment the worst-moment material belongs to', () => {
@@ -289,6 +329,7 @@ describe('prediction panel', () => {
       incident_found: false,
       lifecycle_state: null,
       lifecycle_history: [],
+      situations: [],
       quantities: [],
       evidence: null,
       explanation: null,

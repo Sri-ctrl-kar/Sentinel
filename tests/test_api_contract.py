@@ -23,6 +23,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app.api.schemas import (  # noqa: E402
     EventPayload,
+    SituationLifecyclePayload,
     ExplanationPayload,
     GroundingPayload,
     IncidentEvidencePayload,
@@ -598,6 +599,91 @@ def test_the_incident_reports_the_lifecycle_the_situation_passed_through(
     # This clip is a converging approach: it is predicted before it happens.
     assert "imminent" in {p.state for p in history}
     assert history[0].timestamp < worst_timestamp
+
+
+def test_every_situation_in_the_clip_gets_its_own_lifecycle(client, analysis_id, store):
+    """A viewer scrubbing a long clip meets more than the worst situation.
+
+    The incident endpoint describes one moment; the video has many. Every
+    assessed entity pair is reported with its own lifecycle so the UI can
+    follow whichever situation is live at the playhead without inventing a
+    state for it.
+    """
+    from app.api.routes.analysis import risk_reports_for
+    from app.intelligence.lifecycle import situation_key
+
+    record = store.get(analysis_id)
+    reports = risk_reports_for(record)
+    expected_keys = {
+        situation_key(a) for r in reports for a in r.assessments
+    }
+
+    body = client.get(f"/api/analyze/{analysis_id}/incident").json()
+    situations = [SituationLifecyclePayload(**s) for s in body["situations"]]
+
+    assert situations, "a found incident means at least one situation exists"
+    assert {tuple(sorted(s.entity_ids)) for s in situations} == expected_keys
+    for situation in situations:
+        assert situation.history, "a situation with no history is not a situation"
+        stamps = [p.timestamp for p in situation.history]
+        assert stamps == sorted(stamps)
+        assert len(stamps) == len(set(stamps))
+        assert {p.state for p in situation.history} <= set(INCIDENT_STATES)
+
+
+def test_the_worst_situation_appears_in_both_places_identically(client, analysis_id):
+    """`lifecycle_history` is the worst situation's entry, not a separate walk."""
+    body = client.get(f"/api/analyze/{analysis_id}/incident").json()
+    worst_ids = sorted(e["entity_id"] for e in body["evidence"]["entities"])
+    matching = [
+        s for s in body["situations"] if sorted(s["entity_ids"]) == worst_ids
+    ]
+    assert len(matching) == 1
+    assert matching[0]["history"] == body["lifecycle_history"]
+
+
+def test_situations_are_derived_by_the_m07_tracker_per_pair(client, analysis_id, store):
+    """One tracker, many situations: it keys on the pair, so they stay apart."""
+    from app.api.routes.analysis import risk_reports_for
+    from app.api.routes.incident import situation_lifecycles
+    from app.intelligence.lifecycle import LifecycleTracker, situation_key
+
+    record = store.get(analysis_id)
+    reports = risk_reports_for(record)
+
+    tracker = LifecycleTracker()
+    expected: dict = {}
+    for report in reports:
+        for assessment in report.assessments:
+            expected.setdefault(situation_key(assessment), []).append(
+                tracker.update(assessment)
+            )
+
+    produced = {
+        tuple(sorted(s["entity_ids"])): [p["state"] for p in s["history"]]
+        for s in situation_lifecycles(reports)
+    }
+    assert produced == expected
+
+
+def test_a_situation_is_absent_where_the_engine_assessed_nothing(client, analysis_id, store):
+    """No history point may exist for a step that produced no assessment."""
+    from app.api.routes.analysis import risk_reports_for
+    from app.api.routes.incident import situation_lifecycles
+    from app.intelligence.lifecycle import situation_key
+
+    record = store.get(analysis_id)
+    reports = risk_reports_for(record)
+    assessed = {
+        (situation_key(a), round(a.timestamp, 4))
+        for r in reports
+        for a in r.assessments
+    }
+
+    for situation in situation_lifecycles(reports):
+        key = tuple(sorted(situation["entity_ids"]))
+        for point in situation["history"]:
+            assert (key, point["timestamp"]) in assessed
 
 
 def test_the_lifecycle_history_follows_one_situation_only(client, analysis_id, store):

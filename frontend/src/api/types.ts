@@ -386,6 +386,13 @@ export interface LifecyclePoint {
   risk_score: number;
 }
 
+/** One situation's lifecycle over the clip, as the backend tracker derived it. */
+export interface SituationLifecycle {
+  entity_ids: string[];
+  incident_type: string;
+  history: LifecyclePoint[];
+}
+
 export interface IncidentResponse {
   analysis_id: string;
   incident_found: boolean;
@@ -393,6 +400,8 @@ export interface IncidentResponse {
   lifecycle_state: LifecycleState | null;
   /** The same situation at every risk time step, in order. May be empty. */
   lifecycle_history: LifecyclePoint[];
+  /** Every situation the clip contained, each with its own lifecycle. */
+  situations: SituationLifecycle[];
   quantities: QuantityPayload[];
   evidence: IncidentEvidencePayload | null;
   explanation: ExplanationPayload | null;

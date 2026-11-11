@@ -322,13 +322,114 @@ describe('failure and missing data', () => {
         };
       }
     }
+    // The panel reads `situations`; `lifecycle_history` is the worst
+    // situation's copy of the same walk, so both are bent together — the
+    // backend guarantees they agree and this fixture must not contradict it.
     for (const point of incident.lifecycle_history) {
       if (point.timestamp === worst) point.state = 'imminent';
+    }
+    for (const situation of incident.situations) {
+      for (const point of situation.history) {
+        if (point.timestamp === worst) point.state = 'imminent';
+      }
     }
     await uploadAndFinish({ risk, incident });
     const badge = screen.getByTestId('tense-badge');
     expect(badge).toHaveTextContent('PREDICTED');
     expect(badge).toHaveTextContent(/has not happened/i);
+  });
+
+  it('follows whichever situation is live on a clip that holds more than one', async () => {
+    // The real-video gap: a clip long enough to be worth watching spends most
+    // of itself somewhere other than its worst moment. Pinned to the worst
+    // moment's entity pair, the incident panel went blank for all of it while
+    // the risk panel showed a live score from another pair.
+    const risk = clone(riskFixture);
+    const incident = clone(incidentFixture);
+    const worstTime = incident.evidence!.timestamp;
+    const template = clone(risk.worst!.assessments[0]);
+
+    const OTHER = ['person_9', 'bus_4'];
+    const otherTime = risk.timeline
+      .filter((r) => r.assessments.length > 0 && r.timestamp > worstTime)
+      .map((r) => r.timestamp)[0];
+    const silentTime = risk.timeline
+      .filter((r) => r.assessments.length === 0 && r.timestamp > worstTime)
+      .map((r) => r.timestamp)[0];
+    expect(otherTime).toBeDefined();
+    expect(silentTime).toBeDefined();
+
+    // At `otherTime` only the second situation is assessed.
+    for (const report of risk.timeline) {
+      if (report.timestamp !== otherTime) continue;
+      const other = { ...template };
+      other.involved_entity_ids = OTHER;
+      other.risk_score = 30.25;
+      other.severity = 'medium';
+      other.incident_type = 'PROXIMITY_BREACH';
+      other.timestamp = report.timestamp;
+      report.assessments = [other];
+      report.assessment_count = 1;
+      report.max_risk_score = other.risk_score;
+    }
+
+    // Both situations carry their own lifecycle, as the backend emits them.
+    incident.situations = [
+      {
+        entity_ids: incident.evidence!.entities.map((e) => e.entity_id),
+        incident_type: incident.evidence!.incident_type,
+        history: incident.lifecycle_history,
+      },
+      {
+        entity_ids: OTHER,
+        incident_type: 'PROXIMITY_BREACH',
+        history: [{ timestamp: otherTime, state: 'developing', risk_score: 30.25 }],
+      },
+    ];
+
+    await uploadAndFinish({ risk, incident });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const scrubber = screen.getByLabelText(/scrub/i);
+
+    // The app lands on the worst moment: that situation, named as such.
+    expect(screen.getByTestId('situation-scope')).toHaveTextContent(
+      /this is the clip's worst situation/i,
+    );
+
+    // Scrub to the moment only the *other* situation is live.
+    fireEvent.change(scrubber, { target: { value: String(otherTime) } });
+    await waitFor(() => {
+      expect(screen.getByTestId('live-situation')).toHaveTextContent('person_9 + bus_4');
+    });
+    expect(screen.getByTestId('prediction-score')).toHaveTextContent('30.3');
+    expect(screen.getByTestId('lifecycle-value')).toHaveTextContent('DEVELOPING');
+    expect(screen.getByTestId('situation-scope')).toHaveTextContent(/different situation/i);
+    // The panel is not blank, and it is not the worst moment's numbers either.
+    expect(screen.getByTestId('prediction-score')).not.toHaveTextContent(
+      incident.evidence!.risk_score.toFixed(1),
+    );
+    // Both panels report the same moment and the same number.
+    expect(screen.getByLabelText('Predictive risk')).toHaveTextContent('30.3');
+    expect(screen.getByTestId('prediction-as-of')).toHaveTextContent(
+      otherTime.toFixed(2),
+    );
+    // The worst moment is still on screen, still labelled as its own.
+    expect(screen.getByTestId('worst-moment-divider')).toHaveTextContent(
+      incident.evidence!.risk_score.toFixed(1),
+    );
+
+    // Scrub to a step the engine assessed nothing at: both panels fall silent.
+    fireEvent.change(scrubber, { target: { value: String(silentTime) } });
+    await waitFor(() => {
+      expect(screen.getByTestId('tense-badge')).toHaveTextContent(/not assessed/i);
+    });
+    expect(screen.getByTestId('risk-none')).toBeInTheDocument();
+    expect(screen.getByTestId('prediction-score')).toHaveTextContent('—');
+    expect(screen.getByTestId('lifecycle-value')).toHaveTextContent('—');
+    expect(screen.queryByTestId('lifecycle-current')).toBeNull();
+    expect(screen.getByTestId('live-situation')).toHaveTextContent(/no situation/i);
   });
 
   it('moves the incident panel and the NOW marker with the playhead', async () => {

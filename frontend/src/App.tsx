@@ -27,11 +27,13 @@ import { UploadLanding } from './components/UploadLanding';
 import { VideoIntelligence } from './components/VideoIntelligence';
 import { useAnalysis } from './hooks/useAnalysis';
 import {
-  assessmentAt,
   clipDuration,
+  historyFor,
   lifecycleAt,
+  liveAssessmentAt,
   peakRisk,
   riskAt,
+  sameSituation,
 } from './lib/timeline';
 
 export default function App() {
@@ -103,35 +105,42 @@ export default function App() {
   );
   const involved = currentReport?.assessments[0]?.involved_entity_ids ?? [];
 
-  // The incident panels follow the playhead too. `liveAssessment` is the
-  // tracked situation's own assessment at this moment — scoped to its entity
-  // pair, so the panel does not hop to whichever pair happens to score highest
-  // — and `liveState` is the state the backend derived for that same moment.
-  // Both are null before the situation was first assessed, which the panels say
-  // rather than falling back to the worst moment.
-  const incidentEntities = analysis.incident?.evidence?.entities ?? [];
+  // The incident panels follow the playhead, and follow whichever situation is
+  // live at it. A clip holds as many situations as it has assessed pairs; one
+  // long enough to be worth watching spends most of itself somewhere other than
+  // its worst moment, and a panel pinned to that one moment's entity pair goes
+  // blank for the rest. `liveAssessment` is the engine's first-ranked
+  // assessment in the report the playhead is standing in — the very object the
+  // risk panel reads, so the two cannot disagree about whether this moment was
+  // assessed or about its score.
   const liveAssessment = useMemo(
-    () =>
-      assessmentAt(
-        reports,
-        currentTime,
-        incidentEntities.map((entity) => entity.entity_id),
-      ),
-    [reports, currentTime, incidentEntities],
+    () => liveAssessmentAt(reports, currentTime),
+    [reports, currentTime],
   );
-  // Looked up by the live assessment's own timestamp, not by the playhead:
-  // the state on screen must belong to the assessment on screen. Past the
-  // situation's last assessment there is no assessment and so no state, which
-  // the panel and the trail both say instead of holding the last one.
+  // The state belongs to the assessment on screen: looked up in that
+  // situation's own lifecycle, by that assessment's own timestamp. Where the
+  // engine assessed nothing there is no assessment and so no state, which the
+  // panel and the trail both say instead of holding the last one.
+  const liveSituation = useMemo(
+    () =>
+      historyFor(
+        analysis.incident?.situations ?? [],
+        liveAssessment?.involved_entity_ids ?? [],
+      ),
+    [analysis.incident, liveAssessment],
+  );
   const liveState = useMemo(
     () =>
       liveAssessment === null
         ? null
-        : lifecycleAt(
-            analysis.incident?.lifecycle_history ?? [],
-            liveAssessment.timestamp,
-          ),
-    [analysis.incident, liveAssessment],
+        : lifecycleAt(liveSituation, liveAssessment.timestamp),
+    [liveSituation, liveAssessment],
+  );
+  // Is the situation on screen the one the rest of the response describes?
+  const incidentEntities = analysis.incident?.evidence?.entities ?? [];
+  const showingWorstSituation = sameSituation(
+    liveAssessment?.involved_entity_ids ?? [],
+    incidentEntities.map((entity) => entity.entity_id),
   );
   const duration = clipDuration(
     analysis.status?.video?.duration_seconds ?? null,
@@ -220,11 +229,16 @@ export default function App() {
                 incident={analysis.incident}
                 live={liveAssessment}
                 liveState={liveState?.state ?? null}
+                isWorstSituation={showingWorstSituation}
               />
               <EvidencePanel incident={analysis.incident} />
               <LifecycleTrail
                 state={analysis.incident?.lifecycle_state ?? null}
-                history={analysis.incident?.lifecycle_history ?? []}
+                history={
+                  liveAssessment === null
+                    ? (analysis.incident?.lifecycle_history ?? [])
+                    : liveSituation
+                }
                 now={liveState?.state ?? null}
               />
               <TrustPanel

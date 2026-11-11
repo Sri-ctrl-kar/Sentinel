@@ -17,7 +17,7 @@ The default reasoner is ``mock``: deterministic, no credentials, no network.
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
@@ -70,6 +70,44 @@ def lifecycle_history(reports: List[Any], assessment: Any) -> List[dict]:
     return history
 
 
+def situation_lifecycles(reports: List[Any]) -> List[dict]:
+    """Every situation in the clip, each with its own lifecycle over time.
+
+    One :class:`LifecycleTracker` walks every assessment in chronological
+    order. The tracker already keys on :func:`situation_key`, so a single
+    instance keeps each entity pair's ``previous`` state apart from every
+    other's — which is what it was written for. Feeding it the whole stream is
+    therefore not a blend: it is the same per-situation derivation
+    :func:`lifecycle_history` performs, done for all of them in one pass.
+
+    The viewer needs this because a clip holds as many situations as it has
+    assessed pairs, and scrubbing meets whichever is live at that moment, not
+    only the one that happened to peak. No state is derived here either: the
+    M0.7 tracker remains the only place lifecycle is decided.
+    """
+    tracker = LifecycleTracker()
+    situations: Dict[Tuple[str, ...], dict] = {}
+    for report in reports:
+        for assessment in report.assessments:
+            key = situation_key(assessment)
+            entry = situations.setdefault(
+                key,
+                {
+                    "entity_ids": list(assessment.involved_entity_ids),
+                    "incident_type": assessment.incident_type,
+                    "history": [],
+                },
+            )
+            entry["history"].append(
+                {
+                    "timestamp": round(assessment.timestamp, 4),
+                    "state": tracker.update(assessment),
+                    "risk_score": round(assessment.risk_score, 2),
+                }
+            )
+    return list(situations.values())
+
+
 @router.get("/analyze/{analysis_id}/incident", response_model=IncidentResponse)
 def get_incident(
     request: Request,
@@ -109,6 +147,7 @@ def get_incident(
         incident_found=True,
         lifecycle_state=evidence.incident_state,
         lifecycle_history=lifecycle_history(reports, assessment),
+        situations=situation_lifecycles(reports),
         quantities=[q.to_dict() for q in evidence.quantities()],
         evidence=evidence.to_dict(),
         note=describe_state(evidence.incident_state),

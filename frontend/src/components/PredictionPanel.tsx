@@ -30,13 +30,20 @@ import {
 
 interface Props {
   incident: IncidentResponse | null;
-  /** This incident's assessment at the playhead, or null if it has none there. */
+  /** The situation live at the playhead, or null if nothing was assessed there. */
   live?: RiskAssessmentPayload | null;
   /** The lifecycle state the backend derived for that same moment. */
   liveState?: LifecycleState | null;
+  /** Is the live situation the one the worst-moment material below describes? */
+  isWorstSituation?: boolean;
 }
 
-export function PredictionPanel({ incident, live = null, liveState = null }: Props) {
+export function PredictionPanel({
+  incident,
+  live = null,
+  liveState = null,
+  isWorstSituation = false,
+}: Props) {
   if (!incident || !incident.incident_found || !incident.evidence) {
     return (
       <section className="panel" aria-label="Incident prediction">
@@ -69,7 +76,11 @@ export function PredictionPanel({ incident, live = null, liveState = null }: Pro
       <header className="panel__head">
         <span className="panel__step">PREDICT</span>
         <h2 className="panel__title">Incident prediction</h2>
-        <span className="panel__aside">{evidence.incident_id}</span>
+        <span className="panel__aside" data-testid="live-situation">
+          {established
+            ? live!.involved_entity_ids.join(' + ')
+            : 'no situation at this moment'}
+        </span>
       </header>
 
       <div className="panel__body">
@@ -88,6 +99,14 @@ export function PredictionPanel({ incident, live = null, liveState = null }: Pro
         <h3 className="prediction__headline" data-testid="incident-type">
           {titleise(live?.incident_type ?? evidence.incident_type)}
         </h3>
+
+        {established && (
+          <p className="prediction__scope" data-testid="situation-scope">
+            {isWorstSituation
+              ? "This is the clip's worst situation — the one described below."
+              : "A different situation from the clip's worst moment, which is kept below."}
+          </p>
+        )}
 
         {!established ? (
           <p className="prediction__outcome" data-testid="prediction-outcome">
@@ -158,7 +177,8 @@ export function PredictionPanel({ incident, live = null, liveState = null }: Pro
         )}
 
         <div className="panel__divider" data-testid="worst-moment-divider">
-          Worst moment · {formatSeconds(evidence.timestamp)} ·{' '}
+          Worst moment · {evidence.incident_id} ·{' '}
+          {formatSeconds(evidence.timestamp)} ·{' '}
           {formatScore(evidence.risk_score)} /100
         </div>
 

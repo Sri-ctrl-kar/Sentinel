@@ -439,6 +439,20 @@ class LifecyclePointPayload(ApiModel):
     risk_score: float
 
 
+class SituationLifecyclePayload(ApiModel):
+    """One situation's lifecycle over the clip, as the M0.7 tracker derived it.
+
+    A clip contains as many situations as it has assessed entity pairs. The
+    incident endpoint describes the worst one, but a viewer scrubbing the video
+    meets whichever situation is live at that moment, so every one of them is
+    reported here rather than only the worst.
+    """
+
+    entity_ids: List[str]
+    incident_type: str
+    history: List[LifecyclePointPayload] = Field(default_factory=list)
+
+
 class IncidentResponse(ApiModel):
     """The M0.7 triple, over a video analysis instead of a scenario."""
 
@@ -453,6 +467,12 @@ class IncidentResponse(ApiModel):
         default_factory=list,
         description="The same situation's state at every risk time step, in "
         "order. `lifecycle_state` is the entry at the worst moment.",
+    )
+    situations: List[SituationLifecyclePayload] = Field(
+        default_factory=list,
+        description="Every situation the clip contained, each with its own "
+        "lifecycle over time. `lifecycle_history` is the entry for the worst "
+        "moment's situation, repeated here for convenience.",
     )
     quantities: List[QuantityPayload] = Field(default_factory=list)
     evidence: Optional[IncidentEvidencePayload] = None
