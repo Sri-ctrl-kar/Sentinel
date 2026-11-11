@@ -71,6 +71,29 @@ export function lifecycleAt(
   return current;
 }
 
+/**
+ * The points at which the situation actually changed lifecycle state.
+ *
+ * The backend records one history point per assessment, so a situation sitting
+ * in `imminent` for seven steps contributes seven identical points. A trail
+ * that drew one rung per state could not show a situation that resolved and
+ * escalated again — `imminent → resolved → imminent` collapsed to two rungs
+ * whose "from" times then read out of order, which is the defect this answers.
+ *
+ * Consecutive repeats are dropped and nothing else is: each entry is the very
+ * point the backend emitted, with the timestamp the engine assessed at. No
+ * timestamp is computed, shifted or interpolated here.
+ */
+export function lifecycleTransitions(history: LifecyclePoint[]): LifecyclePoint[] {
+  const transitions: LifecyclePoint[] = [];
+  let previous: string | null = null;
+  for (const point of history) {
+    if (point.state !== previous) transitions.push(point);
+    previous = point.state;
+  }
+  return transitions;
+}
+
 /** Stable identity for "the same situation", mirroring `situation_key`. */
 function situationKey(entityIds: string[]): string {
   return [...entityIds].sort().join('\u0000');

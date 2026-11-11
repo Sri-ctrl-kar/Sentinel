@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { EventPayload, RiskReportPayload, TimelineFramePayload } from '../api/types';
+import type {
+  EventPayload,
+  LifecyclePoint,
+  RiskReportPayload,
+  TimelineFramePayload,
+} from '../api/types';
 import {
   assessmentAt,
   buildMarkers,
@@ -10,6 +15,7 @@ import {
   clipDuration,
   frameAt,
   lifecycleAt,
+  lifecycleTransitions,
   peakRisk,
   riskAt,
 } from '../lib/timeline';
@@ -311,5 +317,80 @@ describe('historyFor', () => {
   it('agrees with the lifecycle_history the response also carries', () => {
     const worst = incidentFixture.evidence!.entities.map((e) => e.entity_id);
     expect(historyFor(situations, worst)).toEqual(incidentFixture.lifecycle_history);
+  });
+});
+
+describe('lifecycleTransitions', () => {
+  // One pair that goes imminent, quietens, then escalates again — the sequence
+  // app/api/routes/incident.py :: situation_lifecycles produces for it.
+  const reEscalation = [
+    { timestamp: 10.0, state: 'imminent', risk_score: 40.0 },
+    { timestamp: 10.5, state: 'imminent', risk_score: 41.0 },
+    { timestamp: 12.0, state: 'resolved', risk_score: 2.0 },
+    { timestamp: 12.5, state: 'observed', risk_score: 2.0 },
+    { timestamp: 14.0, state: 'imminent', risk_score: 44.0 },
+    { timestamp: 16.0, state: 'current', risk_score: 70.0 },
+  ] as LifecyclePoint[];
+
+  it('keeps every genuine change of state, in the order it happened', () => {
+    expect(lifecycleTransitions(reEscalation).map((p) => [p.state, p.timestamp])).toEqual([
+      ['imminent', 10.0],
+      ['resolved', 12.0],
+      ['observed', 12.5],
+      ['imminent', 14.0],
+      ['current', 16.0],
+    ]);
+  });
+
+  it('keeps a state that is entered twice, as two entries', () => {
+    const imminent = lifecycleTransitions(reEscalation).filter((p) => p.state === 'imminent');
+    expect(imminent.map((p) => p.timestamp)).toEqual([10.0, 14.0]);
+  });
+
+  it('drops a repeat only when it is consecutive', () => {
+    // 10.5 s is the same state as 10.0 s, so it is not a transition.
+    expect(lifecycleTransitions(reEscalation)).toHaveLength(5);
+    expect(lifecycleTransitions(reEscalation).some((p) => p.timestamp === 10.5)).toBe(false);
+  });
+
+  it('returns the backend points themselves, with no timestamp touched', () => {
+    const transitions = lifecycleTransitions(reEscalation);
+    expect(transitions[0]).toBe(reEscalation[0]);
+    expect(transitions[3]).toBe(reEscalation[4]);
+    for (const point of transitions) {
+      expect(reEscalation).toContain(point);
+    }
+  });
+
+  it('is ordered by time, which a per-state collapse could not promise', () => {
+    // The defect: first-occurrence-only put `resolved` (12.0 s) above a second
+    // `imminent` (14.0 s) because the rungs were in state order, not clip order.
+    const stamps = lifecycleTransitions(reEscalation).map((p) => p.timestamp);
+    expect(stamps).toEqual([...stamps].sort((a, b) => a - b));
+  });
+
+  it('has nothing to show for an empty history', () => {
+    expect(lifecycleTransitions([])).toEqual([]);
+  });
+
+  it('collapses a situation that never changed state to one entry', () => {
+    const steady = [
+      { timestamp: 1.0, state: 'observed', risk_score: 5 },
+      { timestamp: 1.5, state: 'observed', risk_score: 6 },
+      { timestamp: 2.0, state: 'observed', risk_score: 7 },
+    ] as LifecyclePoint[];
+    expect(lifecycleTransitions(steady)).toHaveLength(1);
+    expect(lifecycleTransitions(steady)[0].timestamp).toBe(1.0);
+  });
+
+  it('agrees with the captured clip history', () => {
+    const transitions = lifecycleTransitions(incidentFixture.lifecycle_history);
+    expect(transitions.length).toBeLessThanOrEqual(
+      incidentFixture.lifecycle_history.length,
+    );
+    for (let i = 1; i < transitions.length; i += 1) {
+      expect(transitions[i].state).not.toBe(transitions[i - 1].state);
+      expect(transitions[i].timestamp).toBeGreaterThan(transitions[i - 1].timestamp);
+    }
   });
 });

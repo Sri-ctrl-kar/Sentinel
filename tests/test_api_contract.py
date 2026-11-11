@@ -985,3 +985,106 @@ def test_settings_describe_themselves_without_secrets():
     assert "cors=on" in described
     for marker in ("key", "token", "secret", "password"):
         assert marker not in described.lower()
+
+
+# ---------------------------------------------------------------------------
+# A situation that resolves and escalates again
+# ---------------------------------------------------------------------------
+def _lifecycle_sequence():
+    """Reports for one pair that goes imminent → resolved → imminent → current.
+
+    Built directly rather than detected from a clip: a resolve-and-re-escalate
+    sequence is exactly the shape that is hard to find on demand in real
+    footage, and these are the states the frontend trail has to render in the
+    order they occurred.
+    """
+    from app.reasoning.models.risk import RiskAssessment, RiskReport, TimeToRisk
+    from app.reasoning.prediction import (
+        CURRENTLY_UNSAFE_PROXIMITY,
+        NO_PREDICTED_CONFLICT,
+        PREDICTED_TRAJECTORY_CONFLICT,
+    )
+
+    def imminent(timestamp, score):
+        return RiskAssessment(
+            risk_score=score, severity="medium",
+            incident_type="PERSON_VEHICLE_COLLISION_RISK",
+            involved_entity_ids=["person_1", "car_3"], timestamp=timestamp,
+            prediction_outcome=PREDICTED_TRAJECTORY_CONFLICT,
+            time_to_risk=TimeToRisk(status=TimeToRisk.STATUS_PREDICTED, seconds=0.4),
+        )
+
+    def quiet(timestamp):
+        return RiskAssessment(
+            risk_score=2.0, severity="normal",
+            incident_type="CLOSE_PROXIMITY",
+            involved_entity_ids=["person_1", "car_3"], timestamp=timestamp,
+            prediction_outcome=NO_PREDICTED_CONFLICT,
+        )
+
+    def unsafe(timestamp):
+        return RiskAssessment(
+            risk_score=70.0, severity="high",
+            incident_type="PERSON_VEHICLE_COLLISION_RISK",
+            involved_entity_ids=["person_1", "car_3"], timestamp=timestamp,
+            prediction_outcome=CURRENTLY_UNSAFE_PROXIMITY,
+            time_to_risk=TimeToRisk(status=TimeToRisk.STATUS_ALREADY_UNSAFE, seconds=0.0),
+        )
+
+    assessments = [
+        imminent(10.0, 40.0), imminent(10.5, 41.0),   # imminent, held
+        quiet(12.0), quiet(12.5),                      # resolved, held
+        imminent(14.0, 44.0),                          # imminent again
+        unsafe(16.0),                                  # current
+    ]
+    return [RiskReport(timestamp=a.timestamp, assessments=[a]) for a in assessments]
+
+
+def test_a_situation_that_resolves_and_escalates_again_keeps_every_step():
+    """The history is a record, not a set of states.
+
+    A trail that kept only the first time each state appeared could not place
+    the second `imminent`, and would print `resolved` — first seen at 12.0 s —
+    above an `imminent` first seen at 10.0 s. The backend therefore reports one
+    point per assessment, in the order the engine produced them, repeats and
+    all.
+    """
+    from app.api.routes.incident import situation_lifecycles
+
+    reports = _lifecycle_sequence()
+    situations = situation_lifecycles(reports)
+    assert len(situations) == 1
+    history = situations[0]["history"]
+
+    # `resolved` needs the previous state to have been active, so the second
+    # quiet assessment is `observed` — the tracker's own rule, not a guess.
+    assert [p["state"] for p in history] == [
+        "imminent", "imminent", "resolved", "observed", "imminent", "current",
+    ]
+    stamps = [p["timestamp"] for p in history]
+    assert stamps == [10.0, 10.5, 12.0, 12.5, 14.0, 16.0]
+    assert stamps == sorted(stamps)
+
+
+def test_the_re_escalation_timestamp_is_the_engine_timestamp():
+    """No point is moved or invented: each one is its assessment's own moment."""
+    from app.api.routes.incident import situation_lifecycles
+
+    reports = _lifecycle_sequence()
+    history = situation_lifecycles(reports)[0]["history"]
+    assessed = [a.timestamp for r in reports for a in r.assessments]
+    assert [p["timestamp"] for p in history] == assessed
+    assert [p["risk_score"] for p in history] == [
+        round(a.risk_score, 2) for r in reports for a in r.assessments
+    ]
+
+
+def test_both_lifecycle_views_agree_on_a_re_escalation():
+    """`lifecycle_history` and `situations` walk the same sequence."""
+    from app.api.routes.incident import lifecycle_history, situation_lifecycles
+
+    reports = _lifecycle_sequence()
+    worst = max(
+        (a for r in reports for a in r.assessments), key=lambda a: a.risk_score
+    )
+    assert lifecycle_history(reports, worst) == situation_lifecycles(reports)[0]["history"]

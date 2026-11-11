@@ -10,7 +10,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import type { IncidentResponse, RiskResponse } from '../api/types';
+import type { IncidentResponse, LifecyclePoint, RiskResponse } from '../api/types';
 import { EvidencePanel } from '../components/EvidencePanel';
 import { LifecycleTrail } from '../components/LifecycleTrail';
 import { NarrativePanel } from '../components/NarrativePanel';
@@ -500,7 +500,7 @@ describe('lifecycle trail', () => {
     expect(screen.getByTestId('lifecycle-current')).toHaveTextContent('NOW');
   });
 
-  it('lights the states the clip passed through before its worst moment', () => {
+  it('shows the states the clip passed through before its worst moment', () => {
     // The captured clip is imminent for seven steps before it becomes unsafe.
     // Showing only `lifecycle_state` would report CURRENT and nothing else.
     render(
@@ -514,9 +514,10 @@ describe('lifecycle trail', () => {
     expect(screen.getByTestId('lifecycle-at-observed')).toBeInTheDocument();
   });
 
-  it('leaves a state dark when the situation never entered it', () => {
+  it('omits a state the situation never entered', () => {
     // This clip never developed: every prediction landed inside the 2s horizon,
-    // so DEVELOPING must stay unlit rather than be filled in as a ladder rung.
+    // so DEVELOPING has no entry. The trail is the transitions that happened,
+    // so an unvisited state is absent rather than drawn as an unlit rung.
     expect(
       incidentFixture.lifecycle_history.some((p) => p.state === 'developing'),
     ).toBe(false);
@@ -562,6 +563,101 @@ describe('lifecycle trail', () => {
   it('says there is no lifecycle when none was returned', () => {
     render(<LifecycleTrail state={null} />);
     expect(screen.getByText(/No incident lifecycle/i)).toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------------
+  // A situation that resolves and escalates again.
+  describe('a re-escalating situation', () => {
+    // The sequence app/api/routes/incident.py produces for such a pair.
+    const history = [
+      { timestamp: 10.0, state: 'imminent', risk_score: 40.0 },
+      { timestamp: 10.5, state: 'imminent', risk_score: 41.0 },
+      { timestamp: 12.0, state: 'resolved', risk_score: 2.0 },
+      { timestamp: 12.5, state: 'observed', risk_score: 2.0 },
+      { timestamp: 14.0, state: 'imminent', risk_score: 44.0 },
+      { timestamp: 16.0, state: 'current', risk_score: 70.0 },
+    ] as LifecyclePoint[];
+
+    function segments() {
+      return screen.getAllByTestId('lifecycle-segment').map((el) => ({
+        state: el.getAttribute('data-state'),
+        text: el.textContent ?? '',
+      }));
+    }
+
+    it('shows every transition in the order it happened', () => {
+      render(<LifecycleTrail state="current" history={history} />);
+      const rendered = segments();
+      expect(rendered.map((s) => s.state)).toEqual([
+        'imminent', 'resolved', 'observed', 'imminent', 'current',
+      ]);
+      expect(rendered[0].text).toContain('10.00 s');
+      expect(rendered[1].text).toContain('12.00 s');
+      expect(rendered[2].text).toContain('12.50 s');
+      expect(rendered[3].text).toContain('14.00 s');
+      expect(rendered[4].text).toContain('16.00 s');
+    });
+
+    it('never prints a later state above an earlier one', () => {
+      // The defect: one rung per state, in state order, left RESOLVED (first
+      // seen 12.00 s) sitting above IMMINENT (first seen 10.00 s) — and the
+      // second IMMINENT, at 14.00 s, had nowhere to appear at all.
+      render(<LifecycleTrail state="current" history={history} />);
+      const times = segments().map(
+        (s) => Number(/from (\d+\.\d+) s/.exec(s.text)![1]),
+      );
+      expect(times).toEqual([...times].sort((a, b) => a - b));
+    });
+
+    it('does not repeat a state that simply held', () => {
+      render(<LifecycleTrail state="current" history={history} />);
+      // 10.5 s and 10.0 s are both imminent; only the entry is a transition.
+      expect(segments()).toHaveLength(5);
+      expect(screen.getByTestId('lifecycle-trail').textContent).not.toContain('10.50 s');
+    });
+
+    it('puts NOW on the second imminent, not the first', () => {
+      render(
+        <LifecycleTrail state="current" history={history} now="imminent" nowAt={14.0} />,
+      );
+      const marked = screen.getByTestId('lifecycle-current');
+      expect(marked).toHaveTextContent('IMMINENT');
+      expect(marked.textContent).toContain('14.00 s');
+      expect(marked.textContent).not.toContain('10.00 s');
+      expect(screen.getAllByTestId('lifecycle-current')).toHaveLength(1);
+    });
+
+    it('puts NOW on the first imminent while the playhead is in it', () => {
+      render(
+        <LifecycleTrail state="current" history={history} now="imminent" nowAt={10.5} />,
+      );
+      const marked = screen.getByTestId('lifecycle-current');
+      expect(marked.textContent).toContain('10.00 s');
+      expect(marked.textContent).not.toContain('14.00 s');
+    });
+
+    it('names the first entry of a repeated state, once', () => {
+      render(<LifecycleTrail state="current" history={history} />);
+      expect(screen.getAllByTestId('lifecycle-at-imminent')).toHaveLength(1);
+      expect(screen.getByTestId('lifecycle-at-imminent')).toHaveTextContent('10.00 s');
+    });
+
+    it('marks nothing as now where the playhead has no state', () => {
+      render(
+        <LifecycleTrail state="current" history={history} now={null} nowAt={null} />,
+      );
+      expect(screen.queryByTestId('lifecycle-current')).toBeNull();
+      expect(screen.getByTestId('lifecycle-unassessed')).toBeInTheDocument();
+      expect(segments()).toHaveLength(5);
+    });
+
+    it('uses the backend timestamps unchanged', () => {
+      render(<LifecycleTrail state="current" history={history} />);
+      const text = screen.getByTestId('lifecycle-trail').textContent ?? '';
+      for (const stamp of ['10.00 s', '12.00 s', '12.50 s', '14.00 s', '16.00 s']) {
+        expect(text).toContain(stamp);
+      }
+    });
   });
 });
 

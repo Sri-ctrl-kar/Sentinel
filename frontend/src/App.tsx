@@ -240,6 +240,7 @@ export default function App() {
                     : liveSituation
                 }
                 now={liveState?.state ?? null}
+                nowAt={liveState?.timestamp ?? null}
               />
               <TrustPanel
                 device={deviceForHeader}
