@@ -113,6 +113,50 @@ export function tenseOf(
   return 'UNKNOWN';
 }
 
+/**
+ * The outcomes in which the engine says the pair is unsafe now, or predicts it
+ * will be. Mirrors `UNSAFE_OUTCOMES` in `app/reasoning/prediction.py`.
+ */
+export const UNSAFE_PREDICTION_OUTCOMES: readonly string[] = [
+  'PREDICTED_UNSAFE_PROXIMITY',
+  'PREDICTED_TRAJECTORY_CONFLICT',
+  'CURRENTLY_UNSAFE_PROXIMITY',
+];
+
+/**
+ * What to put in front of an operator for one assessment.
+ *
+ * `recommended_intervention` is a fixed string the engine looks up from the
+ * incident type alone (`INTERVENTIONS` in `app/reasoning/risk_engine.py`). It
+ * therefore reads the same whether a conflict is predicted or not — which put
+ * "alert both parties; hold the vehicle until paths diverge" on screen beside
+ * "no predicted conflict" for a CONVERGING_TRAJECTORIES assessment whose
+ * closest approach stays outside the unsafe separation threshold. Prescribing
+ * a vehicle hold for a predicted near miss overstates what the engine found.
+ *
+ * So the intervention is shown only where the engine's own prediction outcome
+ * says the pair is unsafe now or is predicted to be. Where it says the paths
+ * stay clear, the panel says to monitor and nothing more. Where there is no
+ * prediction at all, it says that instead of either prescribing an action or
+ * claiming the paths are clear — a refusal, not a verdict.
+ *
+ * This is presentation only: the score, severity, lifecycle, prediction and
+ * every backend value are untouched, and the full outcome and its reason stay
+ * on screen above this line.
+ */
+export function recommendationFor(
+  outcome: string | null | undefined,
+  intervention: string | null | undefined,
+): string | null {
+  if (UNSAFE_PREDICTION_OUTCOMES.includes(outcome ?? '')) {
+    return intervention ? intervention : null;
+  }
+  if (outcome === 'NO_PREDICTED_CONFLICT') {
+    return 'Monitor — no conflict predicted.';
+  }
+  return 'Monitor — no prediction available for this situation.';
+}
+
 /** Human label for a detector model string such as "yolov8n.pt". */
 export function modelLabel(model: string | null | undefined): string {
   if (!model) return MISSING;

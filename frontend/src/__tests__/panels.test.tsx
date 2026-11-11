@@ -351,6 +351,93 @@ describe('prediction panel', () => {
     expect(screen.getByTestId('incident-type')).toBeInTheDocument();
     expect(screen.getByTestId('prediction-ttr')).toHaveTextContent('unavailable');
   });
+
+  // -------------------------------------------------------------------------
+  // The operator recommendation, gated on the engine's own prediction outcome.
+  // `recommended_intervention` is looked up from the incident type alone, so it
+  // reads the same whether a conflict is predicted or not. The panel must not
+  // prescribe an action the prediction does not support.
+  describe('operator recommendation', () => {
+    const HOLD = 'alert both parties; hold the vehicle until paths diverge';
+
+    /** The assessment an operator met at 5.50 s of the 62.88 s clip. */
+    function nearMiss() {
+      const assessment = clone(peak.assessments[0]);
+      assessment.incident_type = 'CONVERGING_TRAJECTORIES';
+      assessment.risk_score = 40.1;
+      assessment.severity = 'medium';
+      assessment.prediction_outcome = 'NO_PREDICTED_CONFLICT';
+      assessment.recommended_intervention = HOLD;
+      assessment.time_to_risk = {
+        status: 'not_predicted',
+        seconds: null,
+        coordinate_space: 'image_pixels',
+        units: 'pixels',
+        reason: 'threshold not reached within the prediction horizon',
+      };
+      return assessment;
+    }
+
+    it.each([
+      'PREDICTED_UNSAFE_PROXIMITY',
+      'PREDICTED_TRAJECTORY_CONFLICT',
+      'CURRENTLY_UNSAFE_PROXIMITY',
+    ])('shows the engine intervention for %s', (outcome) => {
+      const unsafe = nearMiss();
+      unsafe.prediction_outcome = outcome;
+      render(
+        <PredictionPanel incident={incidentFixture} live={unsafe} liveState="current" />,
+      );
+      expect(screen.getByTestId('prediction-recommendation')).toHaveTextContent(HOLD);
+    });
+
+    it('prescribes monitoring, not a vehicle hold, for NO_PREDICTED_CONFLICT', () => {
+      render(
+        <PredictionPanel
+          incident={incidentFixture}
+          live={nearMiss()}
+          liveState="observed"
+        />,
+      );
+      const recommendation = screen.getByTestId('prediction-recommendation');
+      expect(recommendation).toHaveTextContent('Monitor — no conflict predicted.');
+      expect(recommendation).not.toHaveTextContent(/hold the vehicle/i);
+      expect(screen.queryByText(HOLD)).toBeNull();
+    });
+
+    it('says no prediction was made rather than claiming the paths are clear', () => {
+      const unavailable = nearMiss();
+      unavailable.prediction_outcome = 'PREDICTION_UNAVAILABLE';
+      render(
+        <PredictionPanel
+          incident={incidentFixture}
+          live={unavailable}
+          liveState="observed"
+        />,
+      );
+      const recommendation = screen.getByTestId('prediction-recommendation');
+      expect(recommendation).toHaveTextContent(/no prediction available/i);
+      expect(recommendation).not.toHaveTextContent(/hold the vehicle/i);
+      expect(recommendation).not.toHaveTextContent(/no conflict predicted/i);
+    });
+
+    it('leaves the score, severity, lifecycle and outcome exactly as reported', () => {
+      // Gating the recommendation changes nothing else on the panel.
+      render(
+        <PredictionPanel
+          incident={incidentFixture}
+          live={nearMiss()}
+          liveState="observed"
+        />,
+      );
+      expect(screen.getByTestId('prediction-score')).toHaveTextContent('40.1 /100');
+      expect(screen.getByTestId('lifecycle-value')).toHaveTextContent('OBSERVED');
+      expect(screen.getByTestId('prediction-ttr')).toHaveTextContent('unavailable');
+      const outcome = screen.getByTestId('prediction-outcome');
+      expect(outcome).toHaveTextContent(/no predicted conflict/i);
+      expect(outcome).toHaveTextContent(/threshold not reached/i);
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

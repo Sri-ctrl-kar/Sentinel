@@ -24,6 +24,7 @@ import {
   formatSeconds,
   formatQuantity,
   humanise,
+  recommendationFor,
   tenseOf,
   titleise,
 } from '../lib/format';
@@ -70,6 +71,11 @@ export function PredictionPanel({
   const timeToRisk = live?.time_to_risk ?? null;
   const state = liveState ?? null;
   const tense = established ? tenseOf(timeToRisk?.status, state) : 'UNKNOWN';
+  // An intervention is prescribed only where the engine's prediction outcome
+  // says the pair is unsafe now or is predicted to be. See `recommendationFor`.
+  const recommendation = established
+    ? recommendationFor(live!.prediction_outcome, live!.recommended_intervention)
+    : null;
 
   return (
     <section className="panel" aria-label="Incident prediction">
@@ -167,11 +173,11 @@ export function PredictionPanel({
           </div>
         </div>
 
-        {established && live!.recommended_intervention && (
+        {recommendation && (
           <div className="narrative__block">
             <div className="narrative__label">Recommended for a human operator</div>
             <div className="narrative__summary" data-testid="prediction-recommendation">
-              {live!.recommended_intervention}
+              {recommendation}
             </div>
           </div>
         )}

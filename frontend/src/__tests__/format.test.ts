@@ -3,11 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   LIFECYCLE_ORDER,
   MISSING,
+  UNSAFE_PREDICTION_OUTCOMES,
   formatClock,
   formatQuantity,
   formatScore,
   formatSeconds,
   modelLabel,
+  recommendationFor,
   riskState,
   tenseOf,
   titleise,
@@ -82,5 +84,44 @@ describe('model label', () => {
     expect(modelLabel('yolov8n.pt')).toBe('YOLOv8N');
     expect(modelLabel('synthetic')).toBe('synthetic');
     expect(modelLabel(null)).toBe(MISSING);
+  });
+});
+
+describe('operator recommendation', () => {
+  const HOLD = 'alert both parties; hold the vehicle until paths diverge';
+
+  it('mirrors the unsafe outcomes the prediction module defines', () => {
+    // app/reasoning/prediction.py :: UNSAFE_OUTCOMES
+    expect([...UNSAFE_PREDICTION_OUTCOMES].sort()).toEqual([
+      'CURRENTLY_UNSAFE_PROXIMITY',
+      'PREDICTED_TRAJECTORY_CONFLICT',
+      'PREDICTED_UNSAFE_PROXIMITY',
+    ]);
+  });
+
+  it("passes the engine's intervention through where the pair is or will be unsafe", () => {
+    for (const outcome of UNSAFE_PREDICTION_OUTCOMES) {
+      expect(recommendationFor(outcome, HOLD)).toBe(HOLD);
+    }
+  });
+
+  it('prescribes nothing where the engine predicts no conflict', () => {
+    // The defect: a static intervention keyed on incident type alone told an
+    // operator to hold a vehicle beside "no predicted conflict".
+    expect(recommendationFor('NO_PREDICTED_CONFLICT', HOLD)).toBe(
+      'Monitor — no conflict predicted.',
+    );
+  });
+
+  it('neither prescribes nor denies where there is no prediction at all', () => {
+    const unavailable = 'Monitor — no prediction available for this situation.';
+    expect(recommendationFor('PREDICTION_UNAVAILABLE', HOLD)).toBe(unavailable);
+    expect(recommendationFor(null, HOLD)).toBe(unavailable);
+    expect(recommendationFor(undefined, HOLD)).toBe(unavailable);
+  });
+
+  it('has nothing to say when an unsafe outcome carries no intervention', () => {
+    expect(recommendationFor('CURRENTLY_UNSAFE_PROXIMITY', '')).toBeNull();
+    expect(recommendationFor('PREDICTED_TRAJECTORY_CONFLICT', null)).toBeNull();
   });
 });
