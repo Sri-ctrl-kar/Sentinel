@@ -8,11 +8,14 @@ import {
   formatQuantity,
   formatScore,
   formatSeconds,
+  currentSeparation,
   modelLabel,
   recommendationFor,
   riskState,
   tenseOf,
   titleise,
+  unitSuffixed,
+  unsafeThreshold,
 } from '../lib/format';
 
 describe('risk state mapping', () => {
@@ -123,5 +126,85 @@ describe('operator recommendation', () => {
   it('has nothing to say when an unsafe outcome carries no intervention', () => {
     expect(recommendationFor('CURRENTLY_UNSAFE_PROXIMITY', '')).toBeNull();
     expect(recommendationFor('PREDICTED_TRAJECTORY_CONFLICT', null)).toBeNull();
+  });
+});
+
+describe('unit-suffixed payload readers', () => {
+  it('finds a pixel key and reports its unit', () => {
+    expect(unitSuffixed({ current_separation_px: 22.06 }, 'current_separation')).toEqual({
+      value: 22.06,
+      unit: 'px',
+    });
+  });
+
+  it('finds a metre key on a calibrated clip', () => {
+    expect(unitSuffixed({ current_separation_m: 1.42 }, 'current_separation')).toEqual({
+      value: 1.42,
+      unit: 'm',
+    });
+  });
+
+  it('is missing rather than zero when the key is absent', () => {
+    expect(unitSuffixed({ something_else_px: 5 }, 'current_separation')).toBeNull();
+    expect(unitSuffixed(null, 'current_separation')).toBeNull();
+    expect(unitSuffixed(undefined, 'current_separation')).toBeNull();
+  });
+
+  it('refuses a non-numeric or non-finite value', () => {
+    expect(unitSuffixed({ current_separation_px: 'close' }, 'current_separation')).toBeNull();
+    expect(unitSuffixed({ current_separation_px: NaN }, 'current_separation')).toBeNull();
+  });
+
+  it('refuses a suffix that is not a unit it knows', () => {
+    expect(unitSuffixed({ current_separation_furlongs: 3 }, 'current_separation')).toBeNull();
+  });
+});
+
+describe('unsafe separation threshold', () => {
+  it('reads the threshold the engine used for already_unsafe', () => {
+    // app/reasoning/models/risk.py :: TimeToRisk.to_dict
+    expect(
+      unsafeThreshold({
+        status: 'already_unsafe',
+        seconds: 0,
+        unsafe_separation_threshold_px: 90.0,
+      }),
+    ).toEqual({ value: 90.0, unit: 'px' });
+  });
+
+  it('never returns the proximity saturation radius instead', () => {
+    // critical_radius_px (70) is where the proximity factor saturates; it is
+    // not the threshold that decides "unsafe now" (unsafe_separation_px, 90).
+    const bag = {
+      status: 'already_unsafe',
+      critical_radius_px: 70.0,
+      interaction_radius_px: 260.0,
+      unsafe_separation_threshold_px: 90.0,
+    };
+    expect(unsafeThreshold(bag)).toEqual({ value: 90.0, unit: 'px' });
+    expect(unsafeThreshold(bag)!.value).not.toBe(70.0);
+  });
+
+  it('has nothing to say when the payload carries no threshold', () => {
+    expect(unsafeThreshold({ status: 'already_unsafe', seconds: 0 })).toBeNull();
+    expect(unsafeThreshold(null)).toBeNull();
+  });
+});
+
+describe('current separation', () => {
+  it('reads it from the assessment prediction details', () => {
+    expect(
+      currentSeparation({ prediction: { current_separation_px: 22.06 } }),
+    ).toEqual({ value: 22.06, unit: 'px' });
+  });
+
+  it('is null when there is no prediction to read', () => {
+    expect(currentSeparation({})).toBeNull();
+    expect(currentSeparation({ prediction: null })).toBeNull();
+    expect(currentSeparation(undefined)).toBeNull();
+  });
+
+  it('is null when the prediction never measured a separation', () => {
+    expect(currentSeparation({ prediction: { outcome: 'PREDICTION_UNAVAILABLE' } })).toBeNull();
   });
 });

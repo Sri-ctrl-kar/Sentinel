@@ -162,6 +162,115 @@ describe('risk panel', () => {
     render(<RiskPanel risk={riskFixture} current={missing} currentTime={0.5} />);
     expect(screen.getByTestId('ttr-value')).toHaveTextContent('unavailable');
   });
+
+  // -------------------------------------------------------------------------
+  // Which threshold the panel quotes, and how it squares an unsafe present
+  // with a low band.
+  describe('unsafe separation wording', () => {
+    /** An assessment unsafe now at 22.06px, against a 90px threshold. */
+    function unsafeNow(score = 30.0) {
+      const report = clone(peak);
+      const assessment = report.assessments[0];
+      assessment.risk_score = score;
+      assessment.severity = 'low';
+      assessment.time_to_risk = {
+        status: 'already_unsafe',
+        seconds: 0,
+        coordinate_space: 'image_pixels',
+        units: 'pixels',
+        reason: null,
+        unsafe_separation_threshold_px: 90.0,
+      };
+      assessment.details = {
+        ...assessment.details,
+        // critical_radius_px is the proximity saturation radius, NOT the
+        // unsafe threshold. It is present so the test can prove it is not read.
+        thresholds: { critical_radius_px: 70.0, unsafe_separation_px: 90.0 },
+        prediction: { current_separation_px: 22.06, unsafe_separation_threshold_px: 90.0 },
+      };
+      return report;
+    }
+
+    it('quotes the unsafe separation threshold, not the proximity radius', () => {
+      render(<RiskPanel risk={riskFixture} current={unsafeNow()} currentTime={19.36} />);
+      const note = screen.getByTestId('ttr-note');
+      expect(note).toHaveTextContent('90 px');
+      expect(note).not.toHaveTextContent('70 px');
+      expect(note.textContent).not.toMatch(/\b70\b/);
+    });
+
+    it('states the current separation against that threshold', () => {
+      render(<RiskPanel risk={riskFixture} current={unsafeNow()} currentTime={19.36} />);
+      const note = screen.getByTestId('ttr-note');
+      expect(note).toHaveTextContent('22 px');
+      expect(note).toHaveTextContent(
+        /at or inside the unsafe separation threshold \(90 px\)/i,
+      );
+      expect(note).toHaveTextContent(/present condition, not a prediction/i);
+    });
+
+    it('keeps score, band and present-unsafe status as separate statements', () => {
+      // The reconciliation: a LOW band beside UNSAFE NOW is the engine's
+      // design, and the panel says which question each answers.
+      render(<RiskPanel risk={riskFixture} current={unsafeNow()} currentTime={19.36} />);
+      expect(screen.getByTestId('risk-score')).toHaveTextContent('30.0');
+      expect(screen.getByText(/engine severity band: LOW/i)).toBeInTheDocument();
+      expect(screen.getByTestId('ttr-value')).toHaveTextContent('UNSAFE NOW');
+      expect(screen.getByTestId('ttr-note')).toHaveTextContent(
+        /separate question from how close the pair is right now/i,
+      );
+    });
+
+    it('names the same threshold on a predicted crossing', () => {
+      const report = unsafeNow();
+      report.assessments[0].time_to_risk = {
+        status: 'predicted',
+        seconds: 1.4,
+        coordinate_space: 'image_pixels',
+        units: 'pixels',
+        reason: null,
+        unsafe_separation_threshold_px: 90.0,
+      };
+      render(<RiskPanel risk={riskFixture} current={report} currentTime={5} />);
+      expect(screen.getByTestId('ttr-note')).toHaveTextContent('90 px');
+      expect(screen.getByTestId('ttr-note')).toHaveTextContent('22 px');
+    });
+
+    it('invents no threshold when the payload carries none', () => {
+      const report = unsafeNow();
+      report.assessments[0].time_to_risk = {
+        status: 'already_unsafe',
+        seconds: 0,
+        coordinate_space: 'image_pixels',
+        units: 'pixels',
+        reason: null,
+      };
+      const note = render(
+        <RiskPanel risk={riskFixture} current={report} currentTime={19.36} />,
+      ).getByTestId('ttr-note');
+      expect(note).toHaveTextContent(/unsafe separation threshold is crossed/i);
+      expect(note.textContent).not.toMatch(/\d+\s?px/);
+    });
+
+    it('reads a calibrated threshold in metres', () => {
+      const report = unsafeNow();
+      report.assessments[0].time_to_risk = {
+        status: 'already_unsafe',
+        seconds: 0,
+        coordinate_space: 'ground_plane_meters',
+        units: 'meters',
+        reason: null,
+        unsafe_separation_threshold_m: 2.0,
+      };
+      report.assessments[0].details = {
+        prediction: { current_separation_m: 1.42 },
+      };
+      render(<RiskPanel risk={riskFixture} current={report} currentTime={19.36} />);
+      const note = screen.getByTestId('ttr-note');
+      expect(note).toHaveTextContent('2.00 m');
+      expect(note).toHaveTextContent('1.42 m');
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -479,6 +588,68 @@ describe('evidence panel', () => {
   it('renders nothing invented when there is no evidence', () => {
     render(<EvidencePanel incident={null} />);
     expect(screen.getByText(/No incident evidence/i)).toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------------
+  // Where these numbers are from. The panel is worst-moment scoped and does not
+  // follow the playhead, so a reader must not take its measurements for the
+  // selected second.
+  describe('measurement provenance', () => {
+    const worstTime = incidentFixture.evidence!.timestamp;
+
+    it('timestamps the measurements with their own source moment', () => {
+      render(<EvidencePanel incident={incidentFixture} />);
+      expect(screen.getByTestId('measures-caption')).toHaveTextContent(
+        worstTime.toFixed(2),
+      );
+    });
+
+    it('says the playhead is elsewhere when it is', () => {
+      const elsewhere = clone(peak.assessments[0]);
+      elsewhere.timestamp = worstTime - 12.15;
+      render(<EvidencePanel incident={incidentFixture} live={elsewhere} />);
+      const note = screen.getByTestId('evidence-provenance');
+      expect(note).toHaveTextContent(worstTime.toFixed(2));
+      expect(note).toHaveTextContent(elsewhere.timestamp.toFixed(2));
+      expect(note).toHaveTextContent(/not that moment's figures/i);
+      expect(screen.getByTestId('measures-caption')).toHaveTextContent(
+        elsewhere.timestamp.toFixed(2),
+      );
+    });
+
+    it('does not warn when the playhead is standing in the worst moment', () => {
+      const here = clone(peak.assessments[0]);
+      here.timestamp = worstTime;
+      render(<EvidencePanel incident={incidentFixture} live={here} />);
+      const note = screen.getByTestId('evidence-provenance');
+      expect(note).toHaveTextContent(worstTime.toFixed(2));
+      expect(note).not.toHaveTextContent(/not that moment's figures/i);
+    });
+
+    it('still names the source moment when nothing is live', () => {
+      render(<EvidencePanel incident={incidentFixture} live={null} />);
+      expect(screen.getByTestId('evidence-provenance')).toHaveTextContent(
+        worstTime.toFixed(2),
+      );
+      expect(screen.getByTestId('evidence-provenance')).not.toHaveTextContent(
+        /selected above/i,
+      );
+    });
+
+    it('reads the timestamp from the evidence, never from the playhead', () => {
+      // The numbers belong to `evidence.timestamp`; a different `live` must not
+      // relabel them as that moment's.
+      const elsewhere = clone(peak.assessments[0]);
+      elsewhere.timestamp = 4.9;
+      render(<EvidencePanel incident={incidentFixture} live={elsewhere} />);
+      const measures = screen.getByTestId('evidence-measures');
+      for (const quantity of incidentFixture.quantities) {
+        expect(measures).toHaveTextContent(quantity.name);
+      }
+      expect(screen.getByTestId('measures-caption')).toHaveTextContent(
+        `Measured at ${worstTime.toFixed(2)} s`,
+      );
+    });
   });
 });
 

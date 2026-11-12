@@ -231,7 +231,7 @@ export default function App() {
                 liveState={liveState?.state ?? null}
                 isWorstSituation={showingWorstSituation}
               />
-              <EvidencePanel incident={analysis.incident} />
+              <EvidencePanel incident={analysis.incident} live={liveAssessment} />
               <LifecycleTrail
                 state={analysis.incident?.lifecycle_state ?? null}
                 history={

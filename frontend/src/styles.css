@@ -435,7 +435,20 @@ button { font: inherit; color: inherit; }
   white-space: nowrap;
 }
 
+.evidence__provenance {
+  margin: 6px 0 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
 .measures { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--line); }
+.measures__caption {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
 .measure { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; }
 .measure__name { color: var(--text-dim); }
 .measure__value { font-family: var(--mono); color: var(--text); }

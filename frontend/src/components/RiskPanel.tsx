@@ -10,8 +10,20 @@
  * the first assessment it says there is none rather than showing zero.
  */
 
-import type { RiskReportPayload, RiskResponse } from '../api/types';
-import { formatScore, formatSeconds, riskState, titleise } from '../lib/format';
+import type {
+  RiskAssessmentPayload,
+  RiskReportPayload,
+  RiskResponse,
+} from '../api/types';
+import {
+  currentSeparation,
+  formatQuantity,
+  formatScore,
+  formatSeconds,
+  riskState,
+  titleise,
+  unsafeThreshold,
+} from '../lib/format';
 
 interface Props {
   risk: RiskResponse | null;
@@ -73,7 +85,7 @@ export function RiskPanel({ risk, current, currentTime }: Props) {
               <div className="ttr__label" id="ttr-label">
                 Time to risk
               </div>
-              <TimeToRisk timeToRisk={timeToRisk} />
+              <TimeToRisk timeToRisk={timeToRisk} assessment={assessment} />
             </div>
           </>
         )}
@@ -84,11 +96,40 @@ export function RiskPanel({ risk, current, currentTime }: Props) {
   );
 }
 
+/**
+ * Time to risk, stated against the threshold that actually decides it.
+ *
+ * Both branches name the same number — `unsafe_separation_threshold_px` from
+ * the payload, 90px by default. It is NOT `critical_radius_px` (70px), which
+ * is where the proximity factor saturates and which the evidence panel quotes
+ * in its own rationale; reading that one as the unsafe threshold is the
+ * confusion this wording exists to remove.
+ *
+ * The note also says what the score above is and is not. A pair can be inside
+ * the unsafe separation now and still score low, because the score measures
+ * how much risk the situation is *developing* — a stationary pair contributes
+ * proximity points and nothing else. That is the engine's design, not a
+ * rounding artefact, and the panel says so rather than letting a red
+ * UNSAFE NOW and an amber band argue with each other.
+ */
 function TimeToRisk({
   timeToRisk,
+  assessment,
 }: {
   timeToRisk: { status: string; seconds: number | null; reason: string | null } | null;
+  assessment?: RiskAssessmentPayload | null;
 }) {
+  const threshold = unsafeThreshold(
+    timeToRisk as unknown as Record<string, unknown> | null,
+  );
+  const separation = currentSeparation(assessment?.details);
+  const thresholdText = threshold
+    ? formatQuantity(threshold.value, threshold.unit, threshold.unit === 'px' ? 0 : 2)
+    : null;
+  const separationText = separation
+    ? formatQuantity(separation.value, separation.unit, separation.unit === 'px' ? 0 : 2)
+    : null;
+
   if (!timeToRisk) {
     return (
       <>
@@ -114,9 +155,23 @@ function TimeToRisk({
         >
           UNSAFE NOW
         </div>
-        <div className="ttr__note">
-          The unsafe separation threshold is crossed at this moment — this is a
-          present condition, not a prediction.
+        <div className="ttr__note" data-testid="ttr-note">
+          {separationText && thresholdText ? (
+            <>
+              Current separation {separationText} is at or inside the unsafe
+              separation threshold ({thresholdText})
+            </>
+          ) : thresholdText ? (
+            <>
+              The unsafe separation threshold ({thresholdText}) is crossed
+            </>
+          ) : (
+            <>The unsafe separation threshold is crossed</>
+          )}{' '}
+          at this moment — a present condition, not a prediction. The score and
+          band above are the engine's aggregate signal for how much risk this
+          situation is developing, which is a separate question from how close
+          the pair is right now.
         </div>
       </>
     );
@@ -128,8 +183,10 @@ function TimeToRisk({
         <div className="ttr__value state--HIGH" data-testid="ttr-value" aria-labelledby="ttr-label">
           {timeToRisk.seconds.toFixed(2)} s
         </div>
-        <div className="ttr__note">
-          Predicted time until the unsafe separation threshold is crossed.
+        <div className="ttr__note" data-testid="ttr-note">
+          Predicted time until the separation reaches the unsafe separation
+          threshold{thresholdText ? <> ({thresholdText})</> : null}
+          {separationText ? <>, from {separationText} now</> : null}.
         </div>
       </>
     );
@@ -144,10 +201,11 @@ function TimeToRisk({
       >
         unavailable
       </div>
-      <div className="ttr__note">
+      <div className="ttr__note" data-testid="ttr-note">
         {timeToRisk.reason
           ? `Not predicted: ${timeToRisk.reason.replace(/_/g, ' ')}.`
           : 'Not predicted within the prediction horizon.'}
+        {thresholdText ? ` The unsafe separation threshold is ${thresholdText}.` : ''}
       </div>
     </>
   );

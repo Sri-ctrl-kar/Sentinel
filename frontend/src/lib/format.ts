@@ -157,6 +157,55 @@ export function recommendationFor(
   return 'Monitor — no prediction available for this situation.';
 }
 
+/**
+ * A unit-suffixed number out of a payload bag, with the unit it was named in.
+ *
+ * The backend writes distances under a key that carries the unit —
+ * `unsafe_separation_threshold_px` or `..._m`, `current_separation_px` or
+ * `..._m` (`app/reasoning/models/risk.py:to_dict`,
+ * `app/reasoning/prediction.py`). Which one exists depends on whether the clip
+ * was calibrated, so the reader finds the key rather than assuming a unit. A
+ * pixel figure is never relabelled as metres, and a missing key is missing,
+ * not zero.
+ */
+export function unitSuffixed(
+  bag: Record<string, unknown> | null | undefined,
+  prefix: string,
+): { value: number; unit: string } | null {
+  if (!bag) return null;
+  for (const [key, value] of Object.entries(bag)) {
+    if (!key.startsWith(`${prefix}_`)) continue;
+    const unit = key.slice(prefix.length + 1);
+    if (typeof value === 'number' && Number.isFinite(value) && (unit === 'px' || unit === 'm')) {
+      return { value, unit };
+    }
+  }
+  return null;
+}
+
+/**
+ * The separation at or below which this pair counts as unsafely close.
+ *
+ * `unsafe_separation_px` (90 by default), not `critical_radius_px` (70, the
+ * radius at which the proximity *factor* saturates). The two are different
+ * numbers for different jobs, and only this one decides `already_unsafe` —
+ * see `app/reasoning/risk_engine.py:_time_to_risk`.
+ */
+export function unsafeThreshold(
+  timeToRisk: Record<string, unknown> | null | undefined,
+): { value: number; unit: string } | null {
+  return unitSuffixed(timeToRisk, 'unsafe_separation_threshold');
+}
+
+/** How far apart this pair is at the moment the assessment describes. */
+export function currentSeparation(
+  details: Record<string, unknown> | null | undefined,
+): { value: number; unit: string } | null {
+  const prediction = details?.prediction;
+  if (!prediction || typeof prediction !== 'object') return null;
+  return unitSuffixed(prediction as Record<string, unknown>, 'current_separation');
+}
+
 /** Human label for a detector model string such as "yolov8n.pt". */
 export function modelLabel(model: string | null | undefined): string {
   if (!model) return MISSING;

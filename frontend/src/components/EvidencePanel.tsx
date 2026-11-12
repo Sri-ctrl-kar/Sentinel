@@ -7,17 +7,31 @@
  * and a factor that scored zero is not dressed up as a reason.
  */
 
-import type { IncidentResponse } from '../api/types';
+import type { IncidentResponse, RiskAssessmentPayload } from '../api/types';
 import { formatQuantity, formatSeconds, humanise } from '../lib/format';
 
 interface Props {
   incident: IncidentResponse | null;
+  /**
+   * The assessment live at the playhead, when there is one. The panel does not
+   * read its numbers — it reads its *timestamp*, so it can say whether what is
+   * on screen here is the moment the viewer is standing in or a different one.
+   */
+  live?: RiskAssessmentPayload | null;
 }
 
-export function EvidencePanel({ incident }: Props) {
+export function EvidencePanel({ incident, live = null }: Props) {
   const evidence = incident?.evidence ?? null;
   const active = (evidence?.factors ?? []).filter((factor) => factor.contribution > 0);
   const quantities = incident?.quantities ?? [];
+  // Everything in this panel comes from one assessment: the clip's worst, at
+  // `evidence.timestamp` (app/api/routes/incident.py — `worst.top`). It does
+  // not follow the playhead, and a reader who takes these measurements for the
+  // selected moment reads the wrong clip second, so the panel says which
+  // second they are and whether the playhead is elsewhere.
+  const sourceTime = evidence ? formatSeconds(evidence.timestamp) : null;
+  const playheadElsewhere =
+    evidence !== null && live !== null && Math.abs(live.timestamp - evidence.timestamp) > 1e-9;
 
   return (
     <section className="panel" aria-label="Why this alert">
@@ -40,8 +54,19 @@ export function EvidencePanel({ incident }: Props) {
             {/* These factors were measured once, at the clip's worst moment.
                 They do not follow the playhead, so they say when they are from. */}
             <div className="panel__divider" data-testid="evidence-moment">
-              Worst moment · {formatSeconds(evidence.timestamp)}
+              Worst moment · {sourceTime}
             </div>
+            <p className="evidence__provenance" data-testid="evidence-provenance">
+              {playheadElsewhere ? (
+                <>
+                  Measured at {sourceTime}, the clip's worst moment. The
+                  assessment selected above is from {formatSeconds(live!.timestamp)},
+                  so these are not that moment's figures.
+                </>
+              ) : (
+                <>Measured at {sourceTime}, the clip's worst moment.</>
+              )}
+            </p>
             <ul className="evidence" data-testid="evidence-list">
               {active.length === 0 && (
                 <li className="evidence__item">
@@ -69,6 +94,12 @@ export function EvidencePanel({ incident }: Props) {
 
             {quantities.length > 0 && (
               <div className="measures" data-testid="evidence-measures">
+                <div className="measures__caption" data-testid="measures-caption">
+                  Measured at {sourceTime}
+                  {playheadElsewhere ? (
+                    <> · selected assessment {formatSeconds(live!.timestamp)}</>
+                  ) : null}
+                </div>
                 {quantities.map((quantity) => (
                   <div className="measure" key={quantity.name}>
                     <span className="measure__name">{quantity.name}</span>
